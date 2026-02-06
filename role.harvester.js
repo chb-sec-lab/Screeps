@@ -1,4 +1,4 @@
-module.exports = {
+var roleHarvester = {
     // a function to run the logic for this role
     run: function(creep) {
         // if creep is bringing energy to the spawn but has no energy left
@@ -32,3 +32,5 @@ module.exports = {
         }
     }
 };
+
+module.exports = roleHarvester;
