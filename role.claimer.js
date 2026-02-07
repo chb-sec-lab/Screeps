@@ -1,25 +1,30 @@
-var roleClaimer = {
+var roleDiplomat = {
     /** @param {Creep} creep **/
     run: function(creep) {
-        // Ziel: Der Controller im anderen Raum
-        // Ersetze 'E12S34' durch den Namen deines Zielraums!
-        var targetRoom = 'E58S55'; 
+        const targetRoom = creep.memory.targetRoom;
 
-        // Wenn wir noch nicht im Zielraum sind, geh hin
+        // 1. Check if we are in the target room
         if (creep.room.name != targetRoom) {
-            var exitDir = creep.room.findExitTo(targetRoom);
-            var exit = creep.pos.findClosestByRange(exitDir);
-            creep.moveTo(exit, {visualizePathStyle: {stroke: '#ffaa00'}});
-        }
-        else {
-            // Wenn wir im Raum sind, geh zum Controller
+            const exit = creep.room.findExitTo(targetRoom);
+            creep.moveTo(creep.pos.findClosestByRange(exit), {visualizePathStyle: {stroke: '#ffffff'}});
+        } else {
+            // 2. We are in the target room. Find the controller.
             if (creep.room.controller) {
-                if (creep.reserveController(creep.room.controller) == ERR_NOT_IN_RANGE) {
+                // Try to reserve
+                // Note: signController is free and good for marking territory
+                if(creep.reserveController(creep.room.controller) == ERR_NOT_IN_RANGE) {
                     creep.moveTo(creep.room.controller, {visualizePathStyle: {stroke: '#ffaa00'}});
+                }
+                
+                // Optional: Sign the controller if not already signed
+                if (!creep.room.controller.sign || creep.room.controller.sign.text !== 'Annex Alpha') {
+                    if(creep.signController(creep.room.controller, 'Annex Alpha') == ERR_NOT_IN_RANGE) {
+                        creep.moveTo(creep.room.controller);
+                    }
                 }
             }
         }
     }
 };
 
-module.exports = roleClaimer;
+module.exports = roleDiplomat;
