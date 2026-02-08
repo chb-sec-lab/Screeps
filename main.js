@@ -1,165 +1,164 @@
 /**
- * SCOS Kernel - Phase 2.2 (Hardened)
- * ---------------------------------
- * DESCRIPTION:
- * The central controller for the colony. Manages memory cleanup, 
- * automated tower defense, population census, and smart spawning logic.
- *
- * DESIGN PRINCIPLE:
- * Factual naming, observability (clean logging), and prioritized 
- * emergency recovery.
+ * SCOS Kernel v3.2 - Expedition & Clearing
+ * ---------------------------------------
+ * Mission: Clear E58S55 clutter and maintain reservation.
+ * Logic: Prioritized spawning for a coordinated expedition.
+ * Version: 3.2
  */
 
-// --- MODULE IMPORTS ---
-// Importing role-specific logic modules to maintain Separation of Concerns.
-var roleHarvester = require('role.harvester');
-var roleUpgrader = require('role.upgrader');
-var roleBuilder = require('role.builder');
-var roleClaimer = require('role.claimer');
+const roleHarvester = require('role.harvester');
+const roleUpgrader = require('role.upgrader');
+const roleBuilder = require('role.builder');
+const roleClaimer = require('role.claimer');
+const roleDismantler = require('role.dismantler');
+const roleHealer = require('role.healer');
+const roleDefender = require('role.defender');
 
-/**
- * CONFIGURATION SETTINGS
- * ----------------------
- * Defines population targets and standardized body compositions (Hardware).
- */
 const CONFIG = {
-    // Population limits for the current RCL
-    MAX_HARVESTERS: 8,
+    MAX_HARVESTERS: 10,
     MAX_UPGRADERS: 3,
     MAX_BUILDERS: 3,
     MAX_CLAIMERS: 1,
+    MAX_DISMANTLERS: 1, 
+    MAX_HEALERS: 1,
+    MAX_DEFENDERS: 1,
 
-    // Body part definitions (Cost balanced for RCL 5 energy capacity)
-    BODY_WORKER: [WORK, WORK, WORK, CARRY, CARRY, MOVE, MOVE, MOVE], // 550 Energy
-    BODY_UPGRADER: [WORK, WORK, CARRY, CARRY, MOVE, MOVE],           // 400 Energy
-    BODY_BUILDER: [WORK, WORK, CARRY, CARRY, MOVE, MOVE, MOVE],      // 450 Energy
-    BODY_CLAIMER: [CLAIM, MOVE, MOVE],                               // 700 Energy
-
-    // The target room identifier for expansion/reservation
-    TARGET_ROOM: 'E58S55'
+    TARGET_ROOM: 'E58S55',
+    
+    // Body Presets (Balanced for 1250 Cap)
+    BODY_WORKER: [WORK, WORK, WORK, CARRY, CARRY, MOVE, MOVE, MOVE],
+    BODY_DISMANTLER: [TOUGH, TOUGH, TOUGH, WORK, WORK, WORK, WORK, WORK, WORK, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE], 
+    BODY_HEALER: [MOVE, MOVE, MOVE, MOVE, HEAL, HEAL, HEAL, HEAL], 
+    BODY_TANK: [TOUGH, TOUGH, TOUGH, TOUGH, TOUGH, TOUGH, TOUGH, TOUGH, TOUGH, TOUGH, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, ATTACK, ATTACK, ATTACK],
+    BODY_SONIC_CLAIMER: [CLAIM, MOVE, MOVE, MOVE, MOVE, MOVE] 
 };
 
-/**
- * MAIN LOOP
- * ---------
- * Executed every game tick.
- */
 module.exports.loop = function () {
 
-    /**
-     * 1. MEMORY MANAGEMENT
-     * --------------------
-     * Automatically clears memory of deceased creeps to prevent data bloat 
-     * and naming collisions.
-     */
+    // 1. MEMORY CLEANUP
     for (let name in Memory.creeps) {
-        if (!Game.creeps[name]) {
-            delete Memory.creeps[name];
-        }
+        if (!Game.creeps[name]) delete Memory.creeps[name];
     }
 
-    /**
-     * 2. TOWER OPERATIONS
-     * -------------------
-     * Automated Defense & Maintenance.
-     * Priority 1: Fire at hostile intruders within range.
-     * Priority 2: Repair structures (excluding walls) if energy levels are > 500.
-     */
+    // 2. TOWER DEFENSE
     const towers = _.filter(Game.structures, s => s.structureType == STRUCTURE_TOWER);
     for(let tower of towers) {
         let hostile = tower.pos.findClosestByRange(FIND_HOSTILE_CREEPS);
         if(hostile) {
-            // Combat mode: Immediate fire
             tower.attack(hostile);
         } else if (tower.store.getUsedCapacity(RESOURCE_ENERGY) > 500) {
-            // Maintenance mode: Repair damaged roads/containers
-            let damaged = tower.pos.findClosestByRange(FIND_STRUCTURES, {
-                filter: (s) => s.hits < s.hitsMax && s.structureType != STRUCTURE_WALL
-            });
+            let damaged = tower.pos.findClosestByRange(FIND_STRUCTURES, s => s.hits < s.hitsMax && s.structureType != STRUCTURE_WALL);
             if(damaged) tower.repair(damaged);
         }
     }
 
-    /**
-     * 3. CENSUS LOGGING
-     * -----------------
-     * Tracks current population vs. targets.
-     * Logs to console every 20 ticks to reduce output noise.
-     */
-    const harvesters = _.filter(Game.creeps, (c) => c.memory.role == 'harvester');
-    const upgraders = _.filter(Game.creeps, (c) => c.memory.role == 'upgrader');
-    const builders = _.filter(Game.creeps, (c) => c.memory.role == 'builder');
-    const claimers = _.filter(Game.creeps, (c) => c.memory.role == 'claimer');
+    // 3. CENSUS & LOGGING (Text Only)
+    if (Game.time % 10 === 0) {
+        const h = _.filter(Game.creeps, c => c.memory.role == 'harvester').length;
+        const u = _.filter(Game.creeps, c => c.memory.role == 'upgrader').length;
+        const b = _.filter(Game.creeps, c => c.memory.role == 'builder').length;
+        
+        const mis_def = _.filter(Game.creeps, c => c.memory.role == 'defender').length;
+        const mis_heal = _.filter(Game.creeps, c => c.memory.role == 'healer').length;
+        const mis_dism = _.filter(Game.creeps, c => c.memory.role == 'dismantler').length;
+        const mis_claim = _.filter(Game.creeps, c => c.memory.role == 'claimer').length;
 
-    if (Game.time % 20 === 0) {
-        console.log(`[${Game.time}] 🔋 ${Game.spawns['Spawn1'].room.energyAvailable} NRG | H:${harvesters.length} U:${upgraders.length} B:${builders.length} C:${claimers.length}`);
+        const spawn = Game.spawns['Spawn1'];
+        const rcl = spawn.room.controller;
+        
+        console.log(`[${Game.time}] [NRG] ${spawn.room.energyAvailable}/${spawn.room.energyCapacityAvailable}`);
+        console.log(`   +-- [ECO] H:${h}/${CONFIG.MAX_HARVESTERS} U:${u}/${CONFIG.MAX_UPGRADERS} B:${b}/${CONFIG.MAX_BUILDERS}`);
+        console.log(`   +-- [OPS] DEF:${mis_def} MED:${mis_heal} DSM:${mis_dism} CLM:${mis_claim}`);
+        
+        if (spawn.spawning) {
+            const spawningCreep = Game.creeps[spawn.spawning.name];
+            console.log(`   +-- [SPN] Spawning: ${spawningCreep ? spawningCreep.memory.role : 'unknown'} (${spawn.spawning.remainingTime}t)`);
+        }
     }
 
-    /**
-     * 4. SMART SPAWNING
-     * -----------------
-     * A prioritized queue that ensures the economy restarts if it crashes.
-     */
+    // 4. SPAWNING LOGIC
     const spawn = Game.spawns['Spawn1'];
     if (spawn && !spawn.spawning) {
-        let role = null;
-        let body = null;
-        let memory = {};
+        let role = null; let body = null; let memory = {};
 
-        // PRIORITY 1: Emergency Harvesters (Economy Restart)
-        if (harvesters.length < 2) { 
-            role = 'harvester'; body = [WORK, CARRY, MOVE]; 
+        const h = _.filter(Game.creeps, c => c.memory.role == 'harvester').length;
+        const d = _.filter(Game.creeps, c => c.memory.role == 'dismantler').length;
+        const med = _.filter(Game.creeps, c => c.memory.role == 'healer').length;
+        const def = _.filter(Game.creeps, c => c.memory.role == 'defender').length;
+        const clm = _.filter(Game.creeps, c => c.memory.role == 'claimer').length;
+
+        // P1: Crash Recovery
+        if (h < 4) {
+            role = 'harvester'; body = [WORK, CARRY, MOVE];
         }
-        // PRIORITY 2: Emergency Upgrader (Prevent GCL Decay)
-        else if (upgraders.length === 0) { 
-            role = 'upgrader'; body = [WORK, CARRY, MOVE]; 
-        }
-        // PRIORITY 3: Builders (Construction Sites)
-        else if (spawn.room.find(FIND_CONSTRUCTION_SITES).length > 0 && builders.length < CONFIG.MAX_BUILDERS) {
-            role = 'builder'; body = CONFIG.BODY_BUILDER;
-        }
-        // PRIORITY 4: Full-size Harvesters (Optimization)
-        else if (harvesters.length < CONFIG.MAX_HARVESTERS) {
+        // P2: Economic Stability
+        else if (h < CONFIG.MAX_HARVESTERS) {
             role = 'harvester'; body = CONFIG.BODY_WORKER;
         }
-        // PRIORITY 5: Full-size Upgraders
-        else if (upgraders.length < CONFIG.MAX_UPGRADERS) {
-            role = 'upgrader'; body = CONFIG.BODY_UPGRADER;
+        // P3: Expedition (Sequence: Clear -> Support -> Defend -> Claim)
+        else if (d < CONFIG.MAX_DISMANTLERS && spawn.room.energyAvailable >= 1150) {
+            role = 'dismantler'; body = CONFIG.BODY_DISMANTLER; memory.target = CONFIG.TARGET_ROOM;
         }
-        // PRIORITY 6: Expansion (Claimer)
-        else if (claimers.length < CONFIG.MAX_CLAIMERS && spawn.room.energyCapacityAvailable >= 700) {
-            role = 'claimer'; body = CONFIG.BODY_CLAIMER; memory = { target: CONFIG.TARGET_ROOM };
+        else if (med < CONFIG.MAX_HEALERS && spawn.room.energyAvailable >= 1200) {
+            role = 'healer'; body = CONFIG.BODY_HEALER; memory.target = CONFIG.TARGET_ROOM;
+        }
+        else if (def < CONFIG.MAX_DEFENDERS && spawn.room.energyAvailable >= 1180) {
+            role = 'defender'; body = CONFIG.BODY_TANK; memory.target = CONFIG.TARGET_ROOM;
+        }
+        else if (clm < CONFIG.MAX_CLAIMERS && spawn.room.energyAvailable >= 850) {
+            role = 'claimer'; body = CONFIG.BODY_SONIC_CLAIMER; memory.target = CONFIG.TARGET_ROOM;
+        }
+        
+        // P4: Maintenance
+        else if (_.filter(Game.creeps, c => c.memory.role == 'upgrader').length < CONFIG.MAX_UPGRADERS) {
+            role = 'upgrader'; body = CONFIG.BODY_WORKER;
+        }
+        else if (_.filter(Game.creeps, c => c.memory.role == 'builder').length < CONFIG.MAX_BUILDERS && spawn.room.find(FIND_CONSTRUCTION_SITES).length > 0) {
+            role = 'builder'; body = CONFIG.BODY_WORKER;
         }
 
-        // EXECUTION: Start the spawn if a role was selected
-        if (role && body) {
-            // For workers, assign a specific source to balance load and prevent traffic.
-            if (role !== 'claimer') {
+        if (role) {
+            memory.role = role;
+            // Pre-assign source to harvesters
+            if (role === 'harvester') {
                 let sources = spawn.room.find(FIND_SOURCES);
-                let bestSource = _.sortBy(sources, s => _.filter(Game.creeps, c => c.memory.targetSourceId === s.id).length)[0];
+                let counts = {};
+                sources.forEach(s => counts[s.id] = 0);
+                _.filter(Game.creeps, c => c.memory.targetSourceId).forEach(c => {
+                    if (counts[c.memory.targetSourceId] !== undefined) counts[c.memory.targetSourceId]++;
+                });
+                let bestSource = _.sortBy(sources, s => counts[s.id])[0];
                 memory.targetSourceId = bestSource.id;
             }
             
-            memory.role = role;
-            let name = role.charAt(0).toUpperCase() + role.slice(1) + '_' + Game.time;
-            
-            // Validation: Only log if the spawn was successful (prevents console spam).
-            if (spawn.spawnCreep(body, name, { memory: memory }) === OK) {
-                console.log(`🛠️ Spawning: ${name}`);
+            if (spawn.spawnCreep(body, role + '_' + Game.time, { memory: memory }) === OK) {
+                console.log(`[SYS] Spawning ${role}`);
             }
         }
     }
 
-    /**
-     * 5. AGENT EXECUTION
-     * ------------------
-     * Iterates through all living creeps and executes their role-specific logic.
-     */
+    // 5. EXECUTION & LOAD BALANCING
     for (let name in Game.creeps) {
         let creep = Game.creeps[name];
+        
+        // AUTO-BALANCE: If harvester has no source, assign one immediately
+        if (creep.memory.role === 'harvester' && !creep.memory.targetSourceId) {
+            let sources = creep.room.find(FIND_SOURCES);
+            let counts = {};
+            sources.forEach(s => counts[s.id] = 0);
+            _.filter(Game.creeps, c => c.memory.targetSourceId).forEach(c => {
+                if (counts[c.memory.targetSourceId] !== undefined) counts[c.memory.targetSourceId]++;
+            });
+            let bestSource = _.sortBy(sources, s => counts[s.id])[0];
+            creep.memory.targetSourceId = bestSource.id;
+        }
+
         if (creep.memory.role == 'harvester') roleHarvester.run(creep);
         if (creep.memory.role == 'upgrader') roleUpgrader.run(creep);
         if (creep.memory.role == 'builder') roleBuilder.run(creep);
         if (creep.memory.role == 'claimer') roleClaimer.run(creep);
+        if (creep.memory.role == 'dismantler') roleDismantler.run(creep);
+        if (creep.memory.role == 'healer') roleHealer.run(creep);
+        if (creep.memory.role == 'defender') roleDefender.run(creep);
     }
 };
