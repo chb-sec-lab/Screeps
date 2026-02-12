@@ -21,7 +21,7 @@ module.exports = {
         vanguard:    4, 
         medic:       2,
         breacher:    0,
-        remoteMiner: 6,
+        remoteMiner: 5,
         builder:     2,
         claimer:     1,
         upgrader:    1
