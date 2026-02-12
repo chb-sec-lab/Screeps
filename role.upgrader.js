@@ -1,31 +1,18 @@
 /**
- * Role: Upgrader v3.2
- * Logic: Harvests (distributed) and upgrades controller.
+ * role.upgrader - v6.0.0
+ * Updated: 2026-02-11 20:34 CET (Amsterdam)
  */
 module.exports = {
     run: function(creep) {
-        if (creep.memory.working && creep.store[RESOURCE_ENERGY] == 0) {
-            creep.memory.working = false;
-            creep.say('Mine');
-        }
-        if (!creep.memory.working && creep.store.getFreeCapacity() == 0) {
-            creep.memory.working = true;
-            creep.say('Upgr');
-        }
+        if (creep.memory.upgrading && creep.store[RESOURCE_ENERGY] === 0) creep.memory.upgrading = false;
+        if (!creep.memory.upgrading && creep.store.getFreeCapacity() === 0) creep.memory.upgrading = true;
 
-        if (creep.memory.working) {
-            if (creep.upgradeController(creep.room.controller) == ERR_NOT_IN_RANGE) {
-                creep.moveTo(creep.room.controller, {visualizePathStyle: {stroke: '#ffffff'}});
-            }
+        if (creep.memory.upgrading) {
+            if (creep.upgradeController(creep.room.controller) === ERR_NOT_IN_RANGE) creep.moveTo(creep.room.controller);
         } else {
-            var source = Game.getObjectById(creep.memory.targetSourceId);
-            if (!source) source = creep.pos.findClosestByRange(FIND_SOURCES);
-
-            if (creep.harvest(source) == ERR_NOT_IN_RANGE) {
-                creep.moveTo(source, {visualizePathStyle: {stroke: '#ffaa00'}});
-            } else if (creep.harvest(source) != OK) {
-                 delete creep.memory.targetSourceId;
-            }
+            const src = creep.room.storage || creep.pos.findClosestByRange(FIND_SOURCES_ACTIVE);
+            const action = (src instanceof Structure) ? creep.withdraw(src, RESOURCE_ENERGY) : creep.harvest(src);
+            if (action === ERR_NOT_IN_RANGE) creep.moveTo(src);
         }
     }
 };

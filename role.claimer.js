@@ -1,76 +1,72 @@
 /**
- * Role: Claimer v4.2 (Survivalist)
- * Logic: Waits for Squad. Reserves Controller.
- * UPDATE: Flees immediately if armed enemies are close.
+ * role.claimer.js - SCOS v6.1.2
+ * Updated: 2026-02-11 23:38 CET (Amsterdam)
+ * Strategy: Claim vs. Reserve vs. Neutralize (Attack)
  */
+
 module.exports = {
     run: function(creep) {
-        if (!creep.memory.home) creep.memory.home = Game.spawns['Spawn1'].room.name;
-        
-        const targetRoom = creep.memory.target;
-        const isMustering = (targetRoom === creep.memory.home);
+        const targetRoom = creep.memory.target || 'E57S56';
+        const homeRoom = creep.memory.home || 'E58S56';
 
-        // --- 1. MUSTERING (Wait for Army) ---
-        if (isMustering) {
-            // Wait near the exit, but stay behind the army (Range 6 is safe)
-            const realTarget = 'E58S55'; 
-            const exitDir = creep.room.findExitTo(realTarget);
-            const exit = creep.pos.findClosestByRange(exitDir);
-            if (exit) creep.moveTo(exit, {range: 6, visualizePathStyle: {stroke: '#ffffff'}});
-            creep.say('WaitCmd');
+        // --- 1. SAFETY CHECK ---
+        const targetView = Game.rooms[targetRoom];
+        if (targetView && targetView.find(FIND_HOSTILE_CREEPS).length > 0) {
+            creep.say('💤 Warte...');
+            if (creep.room.name === targetRoom) {
+                const exit = creep.pos.findClosestByRange(creep.room.findExitTo(homeRoom));
+                creep.moveTo(exit);
+            }
             return;
         }
 
-        // --- 2. TRANSIT ---
+        // --- 2. NAVIGATION ---
         if (creep.room.name !== targetRoom) {
             const exit = creep.pos.findClosestByRange(creep.room.findExitTo(targetRoom));
-            creep.moveTo(exit, {visualizePathStyle: {stroke: '#ffaa00'}, reusePath: 20});
-            return;
-        } 
-
-        // --- 3. TARGET ROOM SURVIVAL ---
-        
-        // SCAN: Are there armed enemies nearby?
-        const dangerousHostiles = creep.pos.findInRange(FIND_HOSTILE_CREEPS, 5, {
-            filter: c => c.getActiveBodyparts(ATTACK) > 0 || c.getActiveBodyparts(RANGED_ATTACK) > 0
-        });
-
-        // FLEE: If enemies are close, run back to Home immediately.
-        if (dangerousHostiles.length > 0) {
-            const exitToHome = creep.room.findExitTo(creep.memory.home);
-            const exit = creep.pos.findClosestByRange(exitToHome);
-            creep.moveTo(exit, {visualizePathStyle: {stroke: '#ff0000'}, reusePath: 0});
-            creep.say('RUN!');
+            creep.moveTo(exit, { visualizePathStyle: { stroke: '#ffffff' } });
+            creep.say('🚀 Reise');
             return;
         }
 
-        // COVER: If no immediate danger, stick to the Tank (Dismantler)
-        const leader = creep.pos.findClosestByRange(FIND_MY_CREEPS, {filter: c => c.memory.role === 'dismantler'});
-        const hostilesInRoom = creep.room.find(FIND_HOSTILE_CREEPS);
-
-        // If there are enemies anywhere in the room, stay glued to the Tank
-        if (hostilesInRoom.length > 0 && leader) {
-            if (creep.pos.getRangeTo(leader) > 3) {
-                creep.moveTo(leader, {visualizePathStyle: {stroke: '#ffffff'}});
-                creep.say('Cover');
-                return;
-            }
-        }
-
-        // --- 4. MISSION: CONTROLLER ---
-        // Only if safe-ish
-        if (creep.pos.x === 0 || creep.pos.x === 49 || creep.pos.y === 0 || creep.pos.y === 49) {
-            creep.moveTo(25, 25);
-            return;
-        }
-
+        // --- 3. CONTROLLER LOGIK ---
         const controller = creep.room.controller;
         if (controller) {
-            let result = creep.claimController(controller);
-            if (result == ERR_GCL_NOT_ENOUGH) {
-                creep.reserveController(controller);
-            } else if (result == ERR_NOT_IN_RANGE) {
-                creep.moveTo(controller, {visualizePathStyle: {stroke: '#ffffff'}});
+            // Check GCL slots every 100 ticks
+            if (!creep.memory.checkTime || Game.time >= creep.memory.checkTime) {
+                const ownedRooms = _.filter(Game.rooms, r => r.controller && r.controller.my).length;
+                creep.memory.canClaim = (Game.gcl.level > ownedRooms);
+                creep.memory.checkTime = Game.time + 100;
+            }
+
+            // Case A: Foreign Reservation detected -> ATTACK/NEUTRALIZE
+            if (controller.reservation && controller.reservation.username !== creep.owner.username) {
+                const result = creep.attackController(controller);
+                if (result === ERR_NOT_IN_RANGE) {
+                    creep.moveTo(controller, { visualizePathStyle: { stroke: '#ff0000' } });
+                } else {
+                    creep.say('⚔️ Räumen');
+                }
+                return; 
+            }
+
+            // Case B: Slots available -> CLAIM
+            if (creep.memory.canClaim) {
+                const result = creep.claimController(controller);
+                if (result === ERR_NOT_IN_RANGE) {
+                    creep.moveTo(controller, { visualizePathStyle: { stroke: '#00ffff' } });
+                } else if (result === OK) {
+                    creep.say('🚩 Besetzt!');
+                }
+            } 
+            // Case C: No slots -> RESERVE
+            else {
+                const result = creep.reserveController(controller);
+                if (result === ERR_NOT_IN_RANGE) {
+                    creep.moveTo(controller, { visualizePathStyle: { stroke: '#ffff00' } });
+                } else if (result === OK) {
+                    // With 2xCLAIM parts, this will now net +1 tick/turn
+                    creep.say('🔒 Reserviert');
+                }
             }
         }
     }

@@ -1,49 +1,51 @@
 /**
- * Role: Builder v3.8 (Scavenger)
- * Logic: Scavenges dropped energy -> Builds -> Repairs -> Upgrades.
- * Fix: Picks up dropped energy to speed up build times.
+ * role.builder.js - SCOS v6.1.1
+ * Updated: 2026-02-11 23:02 CET (Amsterdam)
+ * Role: Infrastructure & Cross-Room Maintenance
+ * Update: Added target-room construction search.
  */
+const rooms = require('config.rooms');
+
 module.exports = {
     run: function(creep) {
-        if (creep.memory.working && creep.store[RESOURCE_ENERGY] == 0) {
-            creep.memory.working = false;
-            creep.say('Get');
-        }
-        if (!creep.memory.working && creep.store.getFreeCapacity() == 0) {
-            creep.memory.working = true;
-            creep.say('Build');
-        }
+        if (creep.memory.building && creep.store[RESOURCE_ENERGY] === 0) creep.memory.building = false;
+        if (!creep.memory.building && creep.store.getFreeCapacity() === 0) creep.memory.building = true;
 
-        if (creep.memory.working) {
-            var targets = creep.room.find(FIND_CONSTRUCTION_SITES);
-            if (targets.length > 0) {
-                var target = creep.pos.findClosestByRange(targets);
-                if (creep.build(target) == ERR_NOT_IN_RANGE) {
-                    creep.moveTo(target, {visualizePathStyle: {stroke: '#ffffff'}});
-                }
+        if (creep.memory.building) {
+            // 1. Critical Repair (Current Room)
+            const critical = creep.pos.findClosestByRange(FIND_STRUCTURES, {
+                filter: s => (s.structureType == STRUCTURE_ROAD || s.structureType == STRUCTURE_CONTAINER) && s.hits < (s.hitsMax * 0.7)
+            });
+            if (critical) {
+                if (creep.repair(critical) == ERR_NOT_IN_RANGE) creep.moveTo(critical, {visualizePathStyle: {stroke: '#00ff00'}});
+                return;
+            }
+
+            // 2. Construction Sites (Current Room)
+            const site = creep.pos.findClosestByRange(FIND_CONSTRUCTION_SITES);
+            if (site) {
+                if (creep.build(site) === ERR_NOT_IN_RANGE) creep.moveTo(site, {visualizePathStyle: {stroke: '#00ff00'}});
+                return;
+            }
+
+            // 3. Expansion Search: If nothing in Home, check Target
+            if (creep.room.name === rooms.HOME) {
+                // Move to target room if work exists there (or to check)
+                const targetExit = creep.pos.findClosestByRange(creep.room.findExitTo(rooms.TARGET));
+                creep.moveTo(targetExit);
+                creep.say('🚜 Expansion');
             } else {
-                // Nothing to build? Repair or Upgrade.
-                if (creep.upgradeController(creep.room.controller) == ERR_NOT_IN_RANGE) {
-                    creep.moveTo(creep.room.controller);
-                }
+                // If in Target and nothing to do, return Home
+                const homeExit = creep.pos.findClosestByRange(creep.room.findExitTo(rooms.HOME));
+                creep.moveTo(homeExit);
+                creep.say('🏠 Home');
             }
         } else {
-            // OPTIMIZATION: Check for dropped resources first!
-            // This is much faster than mining if harvesters are messy.
-            const dropped = creep.pos.findClosestByRange(FIND_DROPPED_RESOURCES);
-            if (dropped && creep.pos.inRangeTo(dropped, 5)) {
-                if (creep.pickup(dropped) == ERR_NOT_IN_RANGE) {
-                    creep.moveTo(dropped, {visualizePathStyle: {stroke: '#ffaa00'}});
-                }
-                return; // Exit here if we found something
-            }
-
-            // Fallback to Mining
-            var source = Game.getObjectById(creep.memory.targetSourceId);
-            if (!source) source = creep.pos.findClosestByRange(FIND_SOURCES);
-
-            if (creep.harvest(source) == ERR_NOT_IN_RANGE) {
-                creep.moveTo(source, {visualizePathStyle: {stroke: '#ffaa00'}});
+            // Energy Gathering
+            const src = creep.room.storage || creep.pos.findClosestByRange(FIND_SOURCES_ACTIVE);
+            if (src) {
+                const action = (src instanceof Structure) ? creep.withdraw(src, RESOURCE_ENERGY) : creep.harvest(src);
+                if (action === ERR_NOT_IN_RANGE) creep.moveTo(src, {visualizePathStyle: {stroke: '#ffffff'}});
             }
         }
     }
