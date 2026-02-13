@@ -1,36 +1,51 @@
-SCOS (Screeps Colony Operating System)
+# SCOS - Screeps Colony Operating System
 
-Version: 6.3.x
-Kernel: Single-pass orchestration with priority spawn ladder
-Status: RCL 5, active multi-room expansion
+[Startseite (HTML)](index.html) | [Manifest](MANIFEST.md) | [Principles](PRINCIPLES.md) | [Runbook](Recue%20Commands)
 
-Project Goal
+## Executive Summary
 
-Build a resilient colony that can expand and recover automatically with clear, low-noise observability.
+SCOS ist ein lern- und produktionsnahes Screeps-System mit Fokus auf Stabilitaet, Observability und skalierbarer Mehrraum-Expansion.
 
-Current Strategic Rooms
+- Version: `6.3.x`
+- Kernel: Single-pass orchestration mit Priority-Spawn-Ladder
+- Status: `RCL 5`, aktive Multi-Room-Expansion
+
+## Active Topology
 
 - Home: `E58S56`
-- Target (owned/developed): `E57S56`
-- Expansion (reserve + mine): `E57S55`
+- Target (Develop): `E57S56`
+- Expansion (Reserve + Mine): `E57S55`
 
-Current Enforced Room Quotas
+## Enforced Mission Quotas
 
-- `E57S56`: builders `2`, upgraders `1`
-- `E57S55`: claimers `1` (reserve mode), remote miners `4`
+- `builder@E57S56`: `2`
+- `upgrader@E57S56`: `1`
+- `claimer@E57S55` (reserve): `1`
+- `remoteMiner@E57S55`: `4`
+- `hauler@E57S55`: `1`
 
-Observability
+## Observability Model
 
-Heartbeat logs provide:
+Heartbeat-Logs liefern alle 20 Ticks:
 
-- Energy and total role population
-- Active room assignments by mission quota
-- Spawn status (`IDLE` or `BUSY` with remaining time)
-- Next/blocked spawn action
-- Spawn queue preview with deficits
+- Energie-/Kapazitaetsstatus (`NRG`)
+- Populationsstatus nach Rolle (`POP`)
+- Raumkontext (`ROOMS`)
+- Missionszuweisung (`ASSIGN`)
+- Spawnstatus inkl. Restzeit (`Spawn`)
+- Priorisierte Defizit-Queue (`QUEUE`)
 
-Documentation Map
+## Documentation Map
 
-- `docs/MANIFEST.md`: source-of-truth operations and mission policy
-- `docs/PRINCIPLES.md`: engineering standards and design intent
-- `docs/Recue Commands`: operational runbook and quick checks
+- [System Manifest](MANIFEST.md): Betriebsregeln, Quoten, Ownership
+- [Engineering Principles](PRINCIPLES.md): Architektur- und Qualitaetsgrundsaetze
+- [Operational Runbook](Recue%20Commands): Live-Checks und Recovery-Aktionen
+
+## Job Search Positioning
+
+Das Projekt demonstriert:
+
+- Strukturierte Orchestrierung statt ad-hoc-Skripting
+- Memory-driven Role Assignment in Multi-Room-Setups
+- Operational Logging fuer schnelle Diagnose
+- Iterative, dokumentationsgetriebene Weiterentwicklung

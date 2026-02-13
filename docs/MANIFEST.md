@@ -1,51 +1,60 @@
-SYSTEM MANIFEST
+# System Manifest
 
-Source of Truth for AI Collaboration
+[Startseite (HTML)](index.html) | [Overview](index.md) | [Principles](PRINCIPLES.md) | [Runbook](Recue%20Commands)
 
-Project Context
+## Purpose
 
-- RCL: 5
-- GCL: 1
+Source of truth fuer Architektur, Betriebsregeln und Missionsprioritaeten.
+
+## Project Context
+
+- RCL: `5`
+- GCL: `1`
 - Home: `E58S56`
 - Target: `E57S56`
 - Expansion: `E57S55`
 
-Mission Policy
+## Code Ownership
 
-- `E57S56` is development target with assigned builders and upgrader.
-- `E57S55` is reserve-and-mine expansion (no claim ownership at GCL 1).
-- Expansion claimer runs in `reserve` mode.
+- `main.js`: Kernel-Orchestrierung, Census, Spawn-Policy, Heartbeat-Payload
+- `role.*.js`: Rollenverhalten
+- `config.rooms.js`: Raumtopologie (`HOME`, `TARGET`, `EXPANSION`)
+- `config.roles.js`: Bodies und globale Fallback-Counts
+- `utils.logger.js`: Console-Rendering fuer Diagnostik
 
-Code Ownership
+## Mission Policy
 
-- `main.js`: orchestration, census, spawn policy, heartbeat payload
-- `role.*.js`: role-level execution
-- `config.rooms.js`: room topology (`HOME`, `TARGET`, `EXPANSION`)
-- `config.roles.js`: global role bodies and fallback totals
-- `utils.logger.js`: formatted console diagnostics
+- `E57S56` wird entwickelt (Builder + Upgrader Quoten).
+- `E57S55` wird reserviert und wirtschaftlich ausgebeutet.
+- Claimer fuer Expansion laeuft in `reserve`-Mode.
+- Remote Hauler in Expansion sammelt Drops/Ruinen/Tombstones und liefert nach Home.
 
-Operational Rules
+## Operational Rules
 
-- Economy safety first: harvesters/haulers are protected at top spawn priority.
-- Room missions are memory-assigned at spawn:
-- Builders: `memory.workRoom`
-- Upgraders: `memory.targetRoom`
-- Claimers: `memory.targetRoom` + `memory.claimMode`
-- Remote miners: `memory.targetRoom` + `memory.homeRoom`
-- Keep role modules generic; do not hardcode single-room targets in role logic.
+- Economy-Safety zuerst: `harvester` und `hauler` haben hohe Prioritaet.
+- Rollen werden beim Spawn per Memory missioniert:
+- `builder`: `memory.workRoom`
+- `upgrader`: `memory.targetRoom`
+- `claimer`: `memory.targetRoom`, `memory.claimMode`
+- `remoteMiner`: `memory.targetRoom`, `memory.homeRoom`
+- `hauler` (remote mission): `memory.targetRoom`, `memory.homeRoom`
+- Rollenmodule bleiben generisch, keine harte Single-Room-Kodierung.
 
-Current Quotas (enforced by spawn policy)
+## Enforced Quotas
 
-- Target room `E57S56`: builders `2`, upgraders `1`
-- Expansion room `E57S55`: claimers `1` (reserve), remote miners `4`
+- `builder@E57S56`: `2`
+- `upgrader@E57S56`: `1`
+- `claimer@E57S55` (reserve): `1`
+- `remoteMiner@E57S55`: `4`
+- `hauler@E57S55`: `1`
 
-Observability Standards
+## Observability Contract
 
-- Heartbeat interval: every 20 ticks
-- Required sections:
-- `NRG` energy/capacity
-- `POP` role census
-- `ROOMS` home/target/expansion IDs
-- `ASSIGN` room-mission quotas and current counts
-- `Spawn` state (`IDLE`/`BUSY`) and remaining time
-- `QUEUE` deficit preview
+- Intervall: Heartbeat alle `20` Ticks
+- Pflichtfelder:
+- `NRG`
+- `POP`
+- `ROOMS`
+- `ASSIGN`
+- `Spawn`
+- `QUEUE`

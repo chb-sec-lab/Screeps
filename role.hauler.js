@@ -14,10 +14,62 @@ const rooms = require('config.rooms');
 
 module.exports = {
     run: function (creep) {
+        const targetRoom = creep.memory.targetRoom || null;
+        const homeRoom = creep.memory.homeRoom || rooms.HOME;
 
-        if (creep.room.name !== rooms.HOME) {
-            const exit = creep.pos.findClosestByRange(creep.room.findExitTo(rooms.HOME));
-            creep.moveTo(exit);
+        if (targetRoom) {
+            // Assigned remote hauler: loot in target room, deliver in home room.
+            if (creep.store.getUsedCapacity(RESOURCE_ENERGY) === 0) {
+                if (creep.room.name !== targetRoom) {
+                    const exit = creep.pos.findClosestByRange(creep.room.findExitTo(targetRoom));
+                    if (exit) creep.moveTo(exit);
+                    return;
+                }
+
+                const dropped = creep.pos.findClosestByPath(FIND_DROPPED_RESOURCES, {
+                    filter: r => r.resourceType === RESOURCE_ENERGY && r.amount > 20
+                });
+                if (dropped) {
+                    if (creep.pickup(dropped) === ERR_NOT_IN_RANGE) creep.moveTo(dropped);
+                    return;
+                }
+
+                const ruin = creep.pos.findClosestByPath(FIND_RUINS, {
+                    filter: r => r.store && r.store[RESOURCE_ENERGY] > 0
+                });
+                if (ruin) {
+                    if (creep.withdraw(ruin, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) creep.moveTo(ruin);
+                    return;
+                }
+
+                const tomb = creep.pos.findClosestByPath(FIND_TOMBSTONES, {
+                    filter: t => t.store && t.store[RESOURCE_ENERGY] > 0
+                });
+                if (tomb) {
+                    if (creep.withdraw(tomb, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) creep.moveTo(tomb);
+                    return;
+                }
+
+                const container = creep.pos.findClosestByPath(FIND_STRUCTURES, {
+                    filter: s => s.structureType === STRUCTURE_CONTAINER && s.store && s.store[RESOURCE_ENERGY] > 0
+                });
+                if (container) {
+                    if (creep.withdraw(container, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) creep.moveTo(container);
+                    return;
+                }
+
+                creep.say('🧭 Loot?');
+                return;
+            }
+
+            if (creep.room.name !== homeRoom) {
+                const exit = creep.pos.findClosestByRange(creep.room.findExitTo(homeRoom));
+                if (exit) creep.moveTo(exit);
+                return;
+            }
+        } else if (creep.room.name !== homeRoom) {
+            const exit = creep.pos.findClosestByRange(creep.room.findExitTo(homeRoom));
+            if (exit) creep.moveTo(exit);
             return;
         }
 

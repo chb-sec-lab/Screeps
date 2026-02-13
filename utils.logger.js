@@ -22,8 +22,8 @@ module.exports = {
             : 'HOME:? TARGET:? EXP:?';
 
         const assignmentInfo = stats.assignments
-            ? `B@T:${stats.assignments.targetBuilders || 0}/2 U@T:${stats.assignments.targetUpgraders || 0}/1 C@E:${stats.assignments.expansionClaimers || 0}/1 RM@E:${stats.assignments.expansionRemoteMiners || 0}/4`
-            : 'B@T:0/2 U@T:0/1 C@E:0/1 RM@E:0/4';
+            ? `B@T:${stats.assignments.targetBuilders || 0}/2 U@T:${stats.assignments.targetUpgraders || 0}/1 C@E:${stats.assignments.expansionClaimers || 0}/1 RM@E:${stats.assignments.expansionRemoteMiners || 0}/4 H@E:${stats.assignments.expansionHaulers || 0}/1`
+            : 'B@T:0/2 U@T:0/1 C@E:0/1 RM@E:0/4 H@E:0/1';
 
         let spawnInfo = 'Spawn:none';
         if (stats.spawn) {

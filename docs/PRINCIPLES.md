@@ -1,75 +1,49 @@
-Engineering Principles & Motivation
+# Engineering Principles
 
-🧠 Motivation
+[Startseite (HTML)](index.html) | [Overview](index.md) | [Manifest](MANIFEST.md) | [Runbook](Recue%20Commands)
 
-Beyond learning JavaScript, this project is driven by a personal inquiry into structure and sustainability.
+## Motivation
 
-I naturally prioritize contribution and support, which often creates tension around having "enough" margin. This project explores how to build systems—technical and personal—that are resilient, predictable, and generous without being fragile.
+Das Projekt dient als Lern- und Engineering-Rahmen fuer belastbare Automatisierung:
 
-In Screeps, as in life:
+- Struktur statt Zufall
+- Transparenz statt Blackbox
+- Wiederherstellbarkeit statt fragiler Spezialfaelle
 
-Willpower is irrelevant; structure determines outcomes.
+## Core Principles
 
-If a system is noisy, overloaded, or poorly bounded, it degrades over time.
+- Systemdesign gewinnt gegen reine Willenskraft.
+- Klare Invarianten sind wichtiger als kurzfristige Tricks.
+- Beobachtbarkeit ist Teil der Architektur, nicht nur Debug-Hilfe.
+- Wartbarkeit und Erklaerbarkeit haben Prioritaet.
 
-If assumptions are wrong, reality corrects them continuously.
+## Non-Goals
 
-If observability is missing, failure appears "sudden" even though it was structural.
+- Kein Leaderboard-Optimierungsrennen.
+- Keine verfruehte Mikro-Optimierung auf Kosten der Lesbarkeit.
+- Keine schwer erklaerbaren "Magic"-Algorithmen im Live-Betrieb.
+- Keine Alarmflut ohne konkrete Handlungsoption.
 
-Calm systems outperform noisy ones over time.
+## Human + AI Collaboration
 
-🛑 Non-Goals
+- Unklare Informationen werden als Hypothese behandelt.
+- Runtime-Fehler und experimentelle Console-Fehler werden getrennt bewertet.
+- Korrektheit und Nachvollziehbarkeit haben Vorrang vor Geschwindigkeit.
 
-To maintain focus and sanity, we explicitly define what we are NOT doing:
+## Definition of Done
 
-No Leaderboard Chasing: We maximize internal stability, not global rank.
+Eine Ausbaustufe gilt als abgeschlossen, wenn:
 
-No Premature Optimization: We prioritize code readability and maintainability over raw CPU efficiency.
+- Die Oekonomie stabil bleibt.
+- Rollen-Invarianten dokumentiert und erzwungen sind.
+- Logs kompakt, regelmaessig und entscheidungsorientiert bleiben.
+- Das System nach Verlusten ohne manuelle Rettungsaktionen wieder hochfaehrt.
+- Code und Dokumentation konsistent sind.
 
-No "Black Box" Code: If we cannot explain the logic, we do not deploy it. Explainability is a requirement.
+## Observability Standard
 
-No Alert Fatigue: We use Game.notify strictly for actionable, critical failures, avoiding signal noise.
+Operative Logs muessen unmittelbar zeigen:
 
-🎓 The Teaching Angle
-
-This repository serves as a foundation for coaching (targeting 16-18+ demographics) on:
-
-Planning: How structure reduces stress and cognitive load.
-
-Autonomy: How freedom emerges from good design constraints.
-
-Balance: Engineering rest, effort, and recovery cycles.
-
-🛡 Error Handling Protocol
-
-Given the collaborative nature of this project (Human + AI), we adhere to a strict interpretation rule:
-
-Ambiguity: When interpreting UI/Screenshots, explicit confidence levels must be stated.
-
-Verification: Runtime errors are distinguished from Console experimentation errors.
-
-Trust: We value correctness and understanding over speed of implementation.
-
-✅ Definition of Done (Phase 1 & 2)
-
-A phase is considered complete not when features exist, but when:
-
-The economy is stable (no congestion loops).
-
-Invariants (Role Caps) are documented and enforced.
-
-The console output is bounded (no scroll-spam).
-
-The system can recover from a total wipe without human intervention.
-
-Documentation Consistency: The codebase matches the README and PRINCIPLES exactly.
-
-Observability Standard
-
-Operational logs must answer, at a glance:
-
-- What is missing right now (spawn queue deficits)?
-- Which room each mission-critical role is assigned to?
-- Whether spawn is actively progressing or blocked?
-
-Heartbeat output should remain compact, periodic, and decision-oriented rather than verbose.
+- Was fehlt aktuell? (Defizit-Queue)
+- Wer ist welchem Raum zugeordnet? (Mission-Assignment)
+- Ist der Spawn produktiv, blockiert oder idle?

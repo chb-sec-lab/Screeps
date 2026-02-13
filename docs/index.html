@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SCOS | Screeps Engineering Portfolio</title>
+  <meta name="description" content="SCOS - Multi-Room Screeps Automation mit klarer Architektur, Observability und stabiler Expansion.">
+  <link rel="stylesheet" href="site.css">
+</head>
+<body>
+  <div class="bg-orb orb-a"></div>
+  <div class="bg-orb orb-b"></div>
+
+  <header class="shell hero">
+    <p class="kicker">Screeps Engineering Portfolio</p>
+    <h1>SCOS: Strukturierte Colony-Automation fuer stabile Expansion</h1>
+    <p class="lead">Ein produktionsnahes Projekt mit Schwerpunkt auf Orchestrierung, resiliente Spawn-Policy, room-assigned Missions und operativer Diagnose in Echtzeit.</p>
+    <div class="chips">
+      <span>RCL 5</span>
+      <span>GCL 1</span>
+      <span>Multi-Room</span>
+      <span>Observability-First</span>
+    </div>
+  </header>
+
+  <main class="shell grid">
+    <section class="card">
+      <h2>System Snapshot</h2>
+      <ul>
+        <li><strong>Home:</strong> E58S56</li>
+        <li><strong>Target:</strong> E57S56</li>
+        <li><strong>Expansion:</strong> E57S55</li>
+        <li><strong>Kernel:</strong> Single-pass orchestration</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>Mission Quotas</h2>
+      <ul>
+        <li><code>builder@E57S56</code>: 2</li>
+        <li><code>upgrader@E57S56</code>: 1</li>
+        <li><code>claimer@E57S55</code>: 1 (reserve)</li>
+        <li><code>remoteMiner@E57S55</code>: 4</li>
+        <li><code>hauler@E57S55</code>: 1</li>
+      </ul>
+    </section>
+
+    <section class="card wide">
+      <h2>Engineering Highlights</h2>
+      <div class="columns">
+        <article>
+          <h3>Architecture</h3>
+          <p>Policy wird zentral im Kernel entschieden, Rollen sind memory-driven und dadurch wiederverwendbar fuer unterschiedliche Missionsraeume.</p>
+        </article>
+        <article>
+          <h3>Operations</h3>
+          <p>Heartbeat liefert in kompaktem Format: Energie, Population, Assignment, Spawn-Status und priorisierte Defizit-Queue.</p>
+        </article>
+        <article>
+          <h3>Reliability</h3>
+          <p>Sicherheitsprioritaeten fuer Economy-Rollen und geordnete Spawn-Ladder vermeiden fragiles Verhalten bei Ausfaellen.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="card wide">
+      <h2>Documentation</h2>
+      <nav class="doc-links" aria-label="Dokumente">
+        <a href="index.md">Overview</a>
+        <a href="MANIFEST.md">System Manifest</a>
+        <a href="PRINCIPLES.md">Engineering Principles</a>
+        <a href="Recue%20Commands">Operational Runbook</a>
+      </nav>
+    </section>
+  </main>
+
+  <footer class="shell footer">
+    <p>SCOS Portfolio - Fokus auf Systemdesign, Wartbarkeit und betriebssichere Automatisierung.</p>
+  </footer>
+</body>
+</html>

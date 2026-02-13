@@ -106,6 +106,7 @@ module.exports.loop = function () {
         const targetUpgraders = countAssigned('upgrader', targetRoom, 'targetRoom');
         const expansionClaimers = countAssigned('claimer', expansionRoom, 'targetRoom');
         const expansionRemoteMiners = countAssigned('remoteMiner', expansionRoom, 'targetRoom');
+        const expansionHaulers = countAssigned('hauler', expansionRoom, 'targetRoom');
 
         const expansionController = Game.rooms[expansionRoom] && Game.rooms[expansionRoom].controller;
         const shouldReserveExpansion = !expansionController || !expansionController.my;
@@ -114,7 +115,8 @@ module.exports.loop = function () {
             targetBuilders: targetBuilders,
             targetUpgraders: targetUpgraders,
             expansionClaimers: expansionClaimers,
-            expansionRemoteMiners: expansionRemoteMiners
+            expansionRemoteMiners: expansionRemoteMiners,
+            expansionHaulers: expansionHaulers
         };
 
         function addQueueEntry(ok, label, have, need) {
@@ -123,6 +125,7 @@ module.exports.loop = function () {
 
         addQueueEntry(census.harvester >= 2, 'harvester.min', census.harvester, 2);
         addQueueEntry(census.hauler >= roles.COUNTS.hauler, 'hauler', census.hauler, roles.COUNTS.hauler);
+        addQueueEntry(expansionHaulers >= 1, `hauler@${expansionRoom}`, expansionHaulers, 1);
         addQueueEntry(census.harvester >= roles.COUNTS.harvester, 'harvester.target', census.harvester, roles.COUNTS.harvester);
         if (armyOn) {
             addQueueEntry(census.vanguard >= roles.COUNTS.vanguard, 'vanguard', census.vanguard, roles.COUNTS.vanguard);
@@ -141,6 +144,7 @@ module.exports.loop = function () {
 
         if (census.harvester < 2) sRole = 'harvester';
         else if (census.hauler < roles.COUNTS.hauler) sRole = 'hauler';
+        else if (expansionHaulers < 1) sRole = 'hauler';
         else if (census.harvester < roles.COUNTS.harvester) sRole = 'harvester';
         else if (armyOn && census.vanguard < roles.COUNTS.vanguard) sRole = 'vanguard';
         else if (armyOn && census.medic < roles.COUNTS.medic) sRole = 'medic';
@@ -159,6 +163,11 @@ module.exports.loop = function () {
 
             if (sRole === 'builder' && targetBuilders < 2) {
                 spawnMemory.workRoom = targetRoom;
+            }
+
+            if (sRole === 'hauler' && expansionHaulers < 1 && census.hauler >= roles.COUNTS.hauler) {
+                spawnMemory.targetRoom = expansionRoom;
+                spawnMemory.homeRoom = rooms.HOME;
             }
 
             if (sRole === 'upgrader' && targetUpgraders < 1) {
@@ -189,7 +198,8 @@ module.exports.loop = function () {
             targetBuilders: _.filter(Game.creeps, c => c.memory.role === 'builder' && c.memory.workRoom === rooms.TARGET).length,
             targetUpgraders: _.filter(Game.creeps, c => c.memory.role === 'upgrader' && c.memory.targetRoom === rooms.TARGET).length,
             expansionClaimers: _.filter(Game.creeps, c => c.memory.role === 'claimer' && c.memory.targetRoom === rooms.EXPANSION).length,
-            expansionRemoteMiners: _.filter(Game.creeps, c => c.memory.role === 'remoteMiner' && c.memory.targetRoom === rooms.EXPANSION).length
+            expansionRemoteMiners: _.filter(Game.creeps, c => c.memory.role === 'remoteMiner' && c.memory.targetRoom === rooms.EXPANSION).length,
+            expansionHaulers: _.filter(Game.creeps, c => c.memory.role === 'hauler' && c.memory.targetRoom === rooms.EXPANSION).length
         };
     }
 
