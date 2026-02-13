@@ -2,7 +2,7 @@
  * role.claimer.js - SCOS v6.1.0
  * Updated: 2026-02-13 CET (Europe/Amsterdam)
  * Behavior:
- *  - targetRoom: creep.memory.targetRoom || rooms.TARGET
+ *  - targetRoom: creep.memory.targetRoom || rooms.EXPANSION || rooms.TARGET
  *  - mode: creep.memory.claimMode = "claim" | "reserve" (default reserve)
  */
 const rooms = require('config.rooms');
@@ -10,7 +10,7 @@ const rooms = require('config.rooms');
 module.exports = {
     run: function (creep) {
 
-        const targetRoom = creep.memory.targetRoom || rooms.TARGET;
+        const targetRoom = creep.memory.targetRoom || rooms.EXPANSION || rooms.TARGET;
         const mode = creep.memory.claimMode || "reserve"; // safer default
 
         // Travel to target room

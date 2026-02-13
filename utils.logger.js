@@ -16,7 +16,34 @@ module.exports = {
             .filter(([r, c]) => c > 0)
             .map(([r, c]) => `${r[0].toUpperCase()}:${c}`)
             .join(' | ');
-            
-        console.log(`--- HEARTBEAT ${Game.time} --- NRG: ${stats.energy}/${stats.cap} | POPS: ${pop}`);
+
+        const roomInfo = stats.rooms
+            ? `HOME:${stats.rooms.home} TARGET:${stats.rooms.target} EXP:${stats.rooms.expansion}`
+            : 'HOME:? TARGET:? EXP:?';
+
+        const assignmentInfo = stats.assignments
+            ? `B@T:${stats.assignments.targetBuilders || 0}/2 U@T:${stats.assignments.targetUpgraders || 0}/1 C@E:${stats.assignments.expansionClaimers || 0}/1 RM@E:${stats.assignments.expansionRemoteMiners || 0}/4`
+            : 'B@T:0/2 U@T:0/1 C@E:0/1 RM@E:0/4';
+
+        let spawnInfo = 'Spawn:none';
+        if (stats.spawn) {
+            if (stats.spawn.busy) {
+                spawnInfo = `Spawn:BUSY ${stats.spawn.name} (${stats.spawn.remainingTime})`;
+            } else if (stats.spawn.action) {
+                spawnInfo = `Spawn:NEXT ${stats.spawn.action}`;
+            } else {
+                spawnInfo = 'Spawn:IDLE';
+            }
+        }
+
+        const queueInfo = (stats.queue && stats.queue.length)
+            ? stats.queue.slice(0, 5).join(' > ')
+            : 'clear';
+
+        console.log(`--- HEARTBEAT ${Game.time} ---`);
+        console.log(`NRG ${stats.energy}/${stats.cap} | POP ${pop}`);
+        console.log(`ROOMS ${roomInfo}`);
+        console.log(`ASSIGN ${assignmentInfo}`);
+        console.log(`${spawnInfo} | QUEUE ${queueInfo}`);
     }
 };

@@ -11,8 +11,8 @@ module.exports = {
     COUNTS: {
         harvester:   6,
         hauler:      2,
-        claimer:     1,
-        remoteMiner: 8, // Boosted for expansion room E57S56
+        claimer:     0,
+        remoteMiner: 8, // Global fallback count (room-specific quotas are handled in main.js)
         builder:     1,
         upgrader:    3,
         vanguard:    0, // NO WAR MODE

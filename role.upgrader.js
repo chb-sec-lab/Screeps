@@ -4,6 +4,14 @@
  */
 module.exports = {
     run: function(creep) {
+        const targetRoom = creep.memory.targetRoom;
+
+        if (targetRoom && creep.room.name !== targetRoom) {
+            const exit = creep.pos.findClosestByRange(creep.room.findExitTo(targetRoom));
+            if (exit) creep.moveTo(exit, { visualizePathStyle: { stroke: '#ffffff' } });
+            return;
+        }
+
         if (creep.memory.upgrading && creep.store[RESOURCE_ENERGY] === 0) creep.memory.upgrading = false;
         if (!creep.memory.upgrading && creep.store.getFreeCapacity() === 0) creep.memory.upgrading = true;
 

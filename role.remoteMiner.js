@@ -10,8 +10,8 @@ const rooms = require('config.rooms');
 
 module.exports = {
     run: function (creep) {
-        const targetRoom = rooms.TARGET;
-        const homeRoom = rooms.HOME;
+        const targetRoom = creep.memory.targetRoom || rooms.TARGET;
+        const homeRoom = creep.memory.homeRoom || rooms.HOME;
 
         // ----------------
         // TUNABLE SETTINGS

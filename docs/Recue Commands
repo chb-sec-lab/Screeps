@@ -1,0 +1,56 @@
+SCOS Operational Runbook
+
+Purpose
+
+Quick recovery and verification checklist for live Screeps operations.
+
+Room Constants
+
+- HOME: `E58S56`
+- TARGET: `E57S56`
+- EXPANSION: `E57S55`
+
+Expected Mission Quotas
+
+- `builder@E57S56`: 2
+- `upgrader@E57S56`: 1
+- `claimer@E57S55` (reserve): 1
+- `remoteMiner@E57S55`: 4
+
+Heartbeat Interpretation
+
+- `ASSIGN B@T:x/2 U@T:y/1 C@E:z/1 RM@E:n/4`
+- `Spawn:BUSY <name> (<ticks>)` means queue is progressing.
+- `Spawn:IDLE | QUEUE clear` means quotas are satisfied.
+- `Spawn blocked: role=<role> code=<err>` means spawn attempt failed.
+
+Console Checks
+
+- Role totals:
+- `_.countBy(Game.creeps, c => c.memory.role)`
+
+- Target-room builders:
+- `_.filter(Game.creeps, c => c.memory.role === 'builder' && c.memory.workRoom === 'E57S56').length`
+
+- Target-room upgraders:
+- `_.filter(Game.creeps, c => c.memory.role === 'upgrader' && c.memory.targetRoom === 'E57S56').length`
+
+- Expansion claimers:
+- `_.filter(Game.creeps, c => c.memory.role === 'claimer' && c.memory.targetRoom === 'E57S55').length`
+
+- Expansion remote miners:
+- `_.filter(Game.creeps, c => c.memory.role === 'remoteMiner' && c.memory.targetRoom === 'E57S55').length`
+
+Common Recovery Actions
+
+- Claimer stuck in wrong room:
+- remove or overwrite `creep.memory.targetRoom` to `E57S55`.
+
+- Remote miner not expansion-assigned:
+- set `creep.memory.targetRoom = 'E57S55'` and `creep.memory.homeRoom = 'E58S56'`.
+
+- Upgrader working wrong room:
+- set `creep.memory.targetRoom = 'E57S56'`.
+
+- If assignments are heavily stale:
+- recycle/retire misassigned creeps and let spawn policy repopulate.

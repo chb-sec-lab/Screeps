@@ -63,3 +63,13 @@ The console output is bounded (no scroll-spam).
 The system can recover from a total wipe without human intervention.
 
 Documentation Consistency: The codebase matches the README and PRINCIPLES exactly.
+
+Observability Standard
+
+Operational logs must answer, at a glance:
+
+- What is missing right now (spawn queue deficits)?
+- Which room each mission-critical role is assigned to?
+- Whether spawn is actively progressing or blocked?
+
+Heartbeat output should remain compact, periodic, and decision-oriented rather than verbose.
