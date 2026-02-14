@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SCOS | Documentation Hub</title>
+  <meta name="description" content="SCOS documentation hub for architecture, operations, observations, and alerts.">
+  <link rel="stylesheet" href="site.css">
+</head>
+<body>
+  <div class="bg-orb orb-a"></div>
+  <div class="bg-orb orb-b"></div>
+
+  <header class="shell hero">
+    <p class="kicker">SCOS Documentation</p>
+    <h1>Documentation Hub</h1>
+    <p class="lead">Central navigation for architecture, principles, runbooks, and operational logs.</p>
+    <nav class="doc-links" aria-label="Docs navigation">
+      <a href="overview.html">Overview</a>
+      <a href="manifest.html">Manifest</a>
+      <a href="principles.html">Principles</a>
+      <a href="architecture.html">Architecture</a>
+      <a href="runbook.html">Runbook</a>
+      <a href="observations.html">Observations</a>
+      <a href="alerts.html">Alerts</a>
+    </nav>
+  </header>
+
+  <main class="shell grid">
+    <section class="card">
+      <h2>Purpose</h2>
+      <ul>
+        <li>Capture what changed and why.</li>
+        <li>Separate incidents from routine operations.</li>
+        <li>Record outcomes for future decisions.</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>How To Maintain</h2>
+      <ul>
+        <li>Edit documentation in <code>docs/*.md</code> files.</li>
+        <li>Build site pages with <code>python3 scripts/build-docs.py</code>.</li>
+        <li>Commit both source markdown and generated HTML.</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer class="shell footer">
+    <p>SCOS Documentation Hub - source of truth for operational learning and structured delivery.</p>
+  </footer>
+</body>
+</html>

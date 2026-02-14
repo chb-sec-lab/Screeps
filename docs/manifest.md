@@ -1,46 +1,32 @@
 # System Manifest
 
-[Hub](../index.html) | [Startpage (HTML)](index.html) | [Overview](index.md) | [Principles](principles.md) | [Architecture](architecture.md) | [Observations](observations.md) | [Alerts](alerts.md) | [Runbook](recue-commands.md)
+[Hub](hub.html) | [Overview](index.md) | [Principles](principles.md) | [Architecture](architecture.md) | [Observations](observations.md) | [Alerts](alerts.md) | [Runbook](recue-commands.md)
 
 ## Purpose
 
-Source of truth for architecture, operating rules, and mission priorities.
+System-level policy for architecture boundaries, mission priorities, and operational standards.
 
-## Project Context
+## Topology
 
-- RCL: `5`
-- GCL: `1`
-- Home: `E58S56`
-- Target: `E57S56`
-- Expansion: `E57S55`
+- Home room: `E58S56`
+- Target room: `E57S56`
+- Expansion room: `E57S55`
 
-## Code Ownership
+## Operational Priorities
 
-- `main.js`: kernel orchestration, census, spawn policy, heartbeat payload
-- `role.*.js`: role behavior
-- `config.rooms.js`: room topology (`HOME`, `TARGET`, `EXPANSION`)
-- `config.roles.js`: bodies and global fallback counts
-- `utils.logger.js`: console rendering for diagnostics
+1. Economy continuity first (`harvester`, `hauler`).
+2. Mission quota compliance by room assignment.
+3. Defense response before non-critical growth work.
+4. Deterministic, observable behavior over ad-hoc optimization.
 
-## Mission Policy
+## Assignment Contract
 
-- `E57S56` is the development target with assigned builders, repairers, and upgrader.
-- `E57S55` is reserve-and-mine expansion (no ownership claim at GCL 1).
-- Expansion claimer runs in `reserve` mode.
-- `scavenger` is a global utility role with deterministic fallback (`scavenge`, `haul-assist`, `distribute`).
-- `remoteMiner` deposits to nearest local sink first, then uses home-room overflow only when no local sink exists.
-
-## Operational Rules
-
-- Economy safety first: `harvester` and `hauler` stay high priority.
-- Roles are assigned at spawn via memory:
-- `builder`: `memory.workRoom`
-- `repairer`: `memory.workRoom`
+- `builder` and `repairer`: `memory.workRoom`
 - `upgrader`: `memory.targetRoom`
 - `claimer`: `memory.targetRoom`, `memory.claimMode`
 - `remoteMiner`: `memory.targetRoom`, `memory.homeRoom`
 - `hauler` (remote mission): `memory.targetRoom`, `memory.homeRoom`
-- Role modules stay generic; avoid hardcoded single-room behavior.
+- Role modules remain generic and room-agnostic.
 
 ## Enforced Quotas
 
@@ -54,7 +40,7 @@ Source of truth for architecture, operating rules, and mission priorities.
 
 ## Observability Contract
 
-- Heartbeat interval: every `20` ticks
+- Heartbeat interval: every `20` ticks.
 - Required fields:
 - `NRG`
 - `POP`
@@ -64,22 +50,17 @@ Source of truth for architecture, operating rules, and mission priorities.
 - `Spawn`
 - `QUEUE`
 
-## Brief Log Mechanism (Enterprise)
+## Documentation Governance
 
-- Every meaningful change gets one short entry in `observations.md` or `alerts.md`.
-- `observations.md`: design lessons, behavior findings, non-urgent improvements.
-- `alerts.md`: incidents, mitigations, and verified resolutions.
-- Entry style stays compact: context, impact, action, evidence.
-- Documentation navigation changes are treated as operational changes and must also be logged.
-
-## Docs Build Pipeline
-
-- Markdown files (`docs/*.md`) are the source of truth for documentation content.
-- Published website pages (`docs/*.html`) are generated artifacts for GitHub Pages.
-- Version metadata is centralized in `docs/version.json`.
+- Source docs: `docs/*.md`
+- Published docs: `docs/*.html`
+- Build command: `python3 scripts/build-docs.py`
+- Version metadata: `docs/version.json`
 - `version` must follow SemVer (`major.minor.patch`).
-- `released_at_utc` must use ISO 8601 UTC (`YYYY-MM-DDTHH:MM:SSZ`).
-- Build command:
-- `python3 scripts/build-docs.py`
-- Generated pages:
-- `overview.html`, `manifest.html`, `principles.html`, `architecture.html`, `runbook.html`, `observations.html`, `alerts.html`
+- `released_at_utc` must follow ISO 8601 UTC (`YYYY-MM-DDTHH:MM:SSZ`).
+
+## Decision Logging
+
+- `observations.md`: non-urgent learnings and improvements.
+- `alerts.md`: incidents, mitigation, and verified resolution.
+- Every meaningful production change requires at least one log entry.

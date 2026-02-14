@@ -1,6 +1,6 @@
 # SCOS - Screeps Colony Operating System
 
-[Hub](../index.html) | [Overview](index.md) | [Manifest](manifest.md) | [Principles](principles.md) | [Architecture](architecture.md) | [Observations](observations.md) | [Alerts](alerts.md) | [Runbook](recue-commands.md)
+[Hub](hub.html) | [Overview](index.md) | [Manifest](manifest.md) | [Principles](principles.md) | [Architecture](architecture.md) | [Observations](observations.md) | [Alerts](alerts.md) | [Runbook](recue-commands.md)
 
 ## Executive Summary
 

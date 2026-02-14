@@ -1,6 +1,6 @@
 # SCOS Operational Runbook
 
-[Hub](../index.html) | [Startpage (HTML)](index.html) | [Overview](index.md) | [Manifest](manifest.md) | [Principles](principles.md) | [Architecture](architecture.md) | [Observations](observations.md) | [Alerts](alerts.md)
+[Hub](hub.html) | [Startpage (HTML)](index.html) | [Overview](index.md) | [Manifest](manifest.md) | [Principles](principles.md) | [Architecture](architecture.md) | [Observations](observations.md) | [Alerts](alerts.md)
 
 ## Purpose
 

@@ -65,7 +65,7 @@ NAV = [
     ("runbook.html", "Runbook"),
     ("observations.html", "Observations"),
     ("alerts.html", "Alerts"),
-    ("../index.html", "Hub"),
+    ("hub.html", "Hub"),
 ]
 
 SEMVER_RE = re.compile(

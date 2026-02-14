@@ -25,6 +25,16 @@
                 "panel": "shared"
             },
             "problemMatcher": []
+        },
+        {
+            "label": "Deploy + Docs",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "Deploy Screeps",
+                "Docs: Build"
+            ],
+            "group": "build",
+            "problemMatcher": []
         }
     ]
 }

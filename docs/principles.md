@@ -1,6 +1,6 @@
 # Engineering Principles
 
-[Hub](../index.html) | [Startpage (HTML)](index.html) | [Overview](index.md) | [Manifest](manifest.md) | [Architecture](architecture.md) | [Observations](observations.md) | [Alerts](alerts.md) | [Runbook](recue-commands.md)
+[Hub](hub.html) | [Startpage (HTML)](index.html) | [Overview](index.md) | [Manifest](manifest.md) | [Architecture](architecture.md) | [Observations](observations.md) | [Alerts](alerts.md) | [Runbook](recue-commands.md)
 
 ## Motivation
 

@@ -1,6 +1,6 @@
 # SCOS Architecture
 
-[Hub](../index.html) | [Overview](index.md) | [Manifest](manifest.md) | [Principles](principles.md) | [Runbook](recue-commands.md) | [Observations](observations.md) | [Alerts](alerts.md)
+[Hub](hub.html) | [Overview](index.md) | [Manifest](manifest.md) | [Principles](principles.md) | [Runbook](recue-commands.md) | [Observations](observations.md) | [Alerts](alerts.md)
 
 ## Scope
 
