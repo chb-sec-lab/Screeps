@@ -16,7 +16,7 @@ System-level policy for architecture boundaries, mission priorities, and operati
 
 1. Economy continuity first (`harvester`, `hauler`).
 2. Mission quota compliance by room assignment.
-3. Defense response before non-critical growth work.
+3. Threat-triggered defense before non-critical growth work.
 4. Deterministic, observable behavior over ad-hoc optimization.
 
 ## Assignment Contract
@@ -37,10 +37,13 @@ System-level policy for architecture boundaries, mission priorities, and operati
 - `remoteMiner@E57S55`: `4`
 - `hauler@E57S55`: `1`
 - `scavenger` (global): `2`
+- `defender`: `0` baseline, escalates on live threat with cooldown.
 
 ## Observability Contract
 
 - Heartbeat interval: every `20` ticks.
+- Tactical audit interval: every `200` ticks (`Memory.audit.tactical`).
+- Strategic audit interval: every `3600` ticks (`Memory.audit.strategic`).
 - Required fields:
 - `NRG`
 - `POP`
@@ -49,6 +52,12 @@ System-level policy for architecture boundaries, mission priorities, and operati
 - `DEF`
 - `Spawn`
 - `QUEUE`
+
+## Defense and Maintenance Policy
+
+- Defense is spawned on demand when hostiles are detected in `HOME`, `TARGET`, or `EXPANSION`.
+- Defender demand remains active for a cooldown window after last detection to prevent spawn flapping.
+- Ramparts are maintained by repairers with a hard minimum floor (`10k`) and optional soft reinforcement in home room.
 
 ## Documentation Governance
 

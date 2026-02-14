@@ -51,3 +51,10 @@ Capture non-urgent observations that improve system design, role policy, and ope
 - Impact: unnecessary travel and slower local room energy utilization
 - Action: added adjacent-sink check and local-first deposit path before home overflow fallback
 - Evidence: nearest sink selection now includes spawn/extension/container/storage/link in current room
+
+- Date-Time (UTC): `2026-02-14T19:18:28Z`
+- Context: Night-operation readiness and data-driven policy review
+- Observation: colony remained energy-full and stable while no active hostiles were present, indicating baseline defender cost could be reduced
+- Impact: permanent defense would waste energy and spawn bandwidth under clear-room conditions
+- Action: switched to threat-triggered defender spawning across home/target/expansion, added cooldown window, introduced tactical/strategic audits, and added rampart floor maintenance
+- Evidence: repeated heartbeats showed `NRG 1800/1800`, `DEF clear threat(H/T/E):0/0/0`, and `QUEUE clear` during observed interval

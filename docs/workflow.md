@@ -39,9 +39,14 @@ Define a predictable development and delivery process for game code, documentati
 - Non-urgent findings go to `docs/observations.md`.
 - Incidents go to `docs/alerts.md`.
 - Entries must include factual context, impact, action, and evidence.
+- Runtime telemetry layers:
+- Heartbeat every `20` ticks
+- Tactical audit every `200` ticks
+- Strategic audit every `3600` ticks
 
 ## Quality Gates
 
 - Do not commit broken docs generation.
 - Do not commit invalid timestamp formats.
 - Keep role policies and quotas aligned between `manifest.md` and runtime behavior.
+- Keep `Memory.audit` retention bounded to avoid memory bloat.

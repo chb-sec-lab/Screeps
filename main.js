@@ -1,12 +1,15 @@
 /**
- * main.js - SCOS Kernel v6.1.1
- * Updated: 2026-02-11 23:02 CET (Amsterdam)
- * Role: Orchestrator / Tower Priority / Battle Logging
- * Update: Added claimer and upgrader to spawning chain.
+ * main.js - SCOS Kernel
+ * Role: Orchestrator / Spawn Policy / Defense Escalation / Audit Snapshots
  */
 const rooms = require('config.rooms');
 const roles = require('config.roles');
 const logger = require('utils.logger');
+const DEFENSE_COOLDOWN_TICKS = 200;
+const TACTICAL_AUDIT_INTERVAL = 200;
+const STRATEGIC_AUDIT_INTERVAL = 3600;
+const AUDIT_RETENTION_TACTICAL = 120;
+const AUDIT_RETENTION_STRATEGIC = 100;
 
 let modules = {};
 const roleNames = ['harvester', 'hauler', 'scavenger', 'repairer', 'defender', 'vanguard', 'medic', 'breacher', 'remoteMiner', 'builder', 'claimer', 'upgrader'];
@@ -23,6 +26,7 @@ module.exports.loop = function () {
     const homeRoom = Game.rooms[rooms.HOME];
     const allSpawns = Object.values(Game.spawns);
     const targetRoomView = Game.rooms[rooms.TARGET];
+    const expansionRoomView = Game.rooms[rooms.EXPANSION];
 
     // --- DEFENSE STATUS (Home + Target) ---
     if (!Memory.defense) Memory.defense = {};
@@ -37,17 +41,23 @@ module.exports.loop = function () {
         }).length;
     }
 
-    const homeThreat = getHostileCount(homeRoom);
-    const targetThreat = getHostileCount(targetRoomView);
-    const hasLiveThreat = homeThreat > 0 || targetThreat > 0;
+    const roomThreats = {
+        [rooms.HOME]: getHostileCount(homeRoom),
+        [rooms.TARGET]: getHostileCount(targetRoomView),
+        [rooms.EXPANSION]: getHostileCount(expansionRoomView)
+    };
+    const homeThreat = roomThreats[rooms.HOME];
+    const targetThreat = roomThreats[rooms.TARGET];
+    const expansionThreat = roomThreats[rooms.EXPANSION];
+    const hasLiveThreat = homeThreat > 0 || targetThreat > 0 || expansionThreat > 0;
 
     if (hasLiveThreat) {
-        const urgentRoom = (homeThreat >= targetThreat) ? rooms.HOME : rooms.TARGET;
-        const urgentThreat = Math.max(homeThreat, targetThreat);
+        const urgentRoom = _.maxBy(Object.keys(roomThreats), roomName => roomThreats[roomName]);
+        const urgentThreat = roomThreats[urgentRoom] || 1;
 
-        Memory.defense.activeUntil = Game.time + 75;
+        Memory.defense.activeUntil = Game.time + DEFENSE_COOLDOWN_TICKS;
         Memory.defense.targetRoom = urgentRoom;
-        Memory.defense.need = Math.min(3, Math.max(1, Math.ceil(urgentThreat / 2)));
+        Memory.defense.need = Math.min(2, Math.max(1, urgentThreat));
     }
 
     const defenseActive = Memory.defense.activeUntil && Game.time <= Memory.defense.activeUntil;
@@ -325,8 +335,82 @@ module.exports.loop = function () {
             need: defenseNeed,
             current: defenseTargetRoom ? _.filter(Game.creeps, c => c.memory.role === 'defender' && c.memory.targetRoom === defenseTargetRoom).length : 0,
             homeThreat: homeThreat,
-            targetThreat: targetThreat
+            targetThreat: targetThreat,
+            expansionThreat: expansionThreat
         },
         queue: queuePreview
     });
+
+    // --- PASS 5: AUDIT SNAPSHOTS (Tactical + Strategic) ---
+    function getBufferedEnergy(room) {
+        if (!room) return 0;
+        return _.sum(
+            room.find(FIND_STRUCTURES, {
+                filter: s =>
+                    s.store &&
+                    (s.structureType === STRUCTURE_STORAGE ||
+                        s.structureType === STRUCTURE_CONTAINER ||
+                        s.structureType === STRUCTURE_LINK)
+            }),
+            s => s.store[RESOURCE_ENERGY] || 0
+        );
+    }
+
+    function getLowRampartCount(room, floor) {
+        if (!room) return 0;
+        return room.find(FIND_STRUCTURES, {
+            filter: s => s.structureType === STRUCTURE_RAMPART && s.hits < floor
+        }).length;
+    }
+
+    function buildAuditSnapshot(tick) {
+        const trackedRooms = [rooms.HOME, rooms.TARGET, rooms.EXPANSION];
+        const roomSnapshots = trackedRooms.map(roomName => {
+            const room = Game.rooms[roomName];
+            const creepsInRoom = _.filter(Game.creeps, c => c.room.name === roomName);
+            const rolePop = _.countBy(creepsInRoom, c => c.memory.role || 'unknown');
+            return {
+                name: roomName,
+                visible: !!room,
+                energyAvailable: room ? room.energyAvailable : 0,
+                energyCapacity: room ? room.energyCapacityAvailable : 0,
+                bufferedEnergy: getBufferedEnergy(room),
+                hostiles: roomThreats[roomName] || 0,
+                lowRamparts: getLowRampartCount(room, 10000),
+                rolePopulation: rolePop
+            };
+        });
+
+        return {
+            tick: tick,
+            totalBufferedEnergy: _.sum(roomSnapshots, r => r.bufferedEnergy || 0),
+            totalHostiles: _.sum(roomSnapshots, r => r.hostiles || 0),
+            spawnBusy: _.filter(allSpawns, s => s.spawning).length,
+            spawnTotal: allSpawns.length,
+            population: Object.keys(Game.creeps).length,
+            rooms: roomSnapshots
+        };
+    }
+
+    if (!Memory.audit) Memory.audit = {};
+    if (!Memory.audit.tactical) Memory.audit.tactical = [];
+    if (!Memory.audit.strategic) Memory.audit.strategic = [];
+
+    if (Game.time % TACTICAL_AUDIT_INTERVAL === 0) {
+        const tacticalSnapshot = buildAuditSnapshot(Game.time);
+        Memory.audit.tactical.push(tacticalSnapshot);
+        if (Memory.audit.tactical.length > AUDIT_RETENTION_TACTICAL) {
+            Memory.audit.tactical = Memory.audit.tactical.slice(-AUDIT_RETENTION_TACTICAL);
+        }
+        logger.auditTactical(tacticalSnapshot);
+    }
+
+    if (Game.time % STRATEGIC_AUDIT_INTERVAL === 0) {
+        const strategicSnapshot = buildAuditSnapshot(Game.time);
+        Memory.audit.strategic.push(strategicSnapshot);
+        if (Memory.audit.strategic.length > AUDIT_RETENTION_STRATEGIC) {
+            Memory.audit.strategic = Memory.audit.strategic.slice(-AUDIT_RETENTION_STRATEGIC);
+        }
+        logger.auditStrategic(strategicSnapshot);
+    }
 };

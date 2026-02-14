@@ -34,6 +34,14 @@ Quick live checks and recovery commands for operation.
 - `ASSIGN B@T:x/2 RP@T:y/2 U@T:z/1 C@E:a/1 RM@E:b/4 H@E:c/1`
 - `Spawn:BUSY n/m`: spawn capacity currently occupied.
 - `QUEUE ...`: current deficit chain by priority.
+- `DEF clear/alert threat(H/T/E):x/y/z`: hostile combat counts by home/target/expansion.
+
+## Audit Signals
+
+- Tactical audit (every 200 ticks):
+- `AUDIT-T <tick> | ENERGY <sum> | HOSTILES <sum> | SPAWN <busy>/<total>`
+- Strategic audit (every 3600 ticks):
+- `--- STRATEGIC AUDIT <tick> ---` plus per-room health lines.
 
 ## Console Checks
 
@@ -48,6 +56,15 @@ Quick live checks and recovery commands for operation.
 
 - Expansion haulers:
 - `_.filter(Game.creeps, c => c.memory.role === 'hauler' && c.memory.targetRoom === 'E57S55').length`
+
+- Current hostiles in mission rooms:
+- `_.map(['E58S56','E57S56','E57S55'], r => [r, Game.rooms[r] ? Game.rooms[r].find(FIND_HOSTILE_CREEPS).length : 'no vision'])`
+
+- Latest tactical audit snapshot:
+- `Memory.audit && Memory.audit.tactical ? Memory.audit.tactical[Memory.audit.tactical.length - 1] : null`
+
+- Latest strategic audit snapshot:
+- `Memory.audit && Memory.audit.strategic ? Memory.audit.strategic[Memory.audit.strategic.length - 1] : null`
 
 ## Common Recovery Actions
 

@@ -59,9 +59,13 @@ module.exports = {
             ? stats.queue.slice(0, 5).join(' > ')
             : 'clear';
 
+        const homeThreat = stats.defense ? (stats.defense.homeThreat || 0) : 0;
+        const targetThreat = stats.defense ? (stats.defense.targetThreat || 0) : 0;
+        const expansionThreat = stats.defense ? (stats.defense.expansionThreat || 0) : 0;
+        const threatTriplet = `${homeThreat}/${targetThreat}/${expansionThreat}`;
         const defenseInfo = (stats.defense && stats.defense.active)
-            ? `DEF ALERT room:${stats.defense.room} defenders:${stats.defense.current}/${stats.defense.need} threat(H/T):${stats.defense.homeThreat}/${stats.defense.targetThreat}`
-            : `DEF clear threat(H/T):${stats.defense ? stats.defense.homeThreat : 0}/${stats.defense ? stats.defense.targetThreat : 0}`;
+            ? `DEF ALERT room:${stats.defense.room} defenders:${stats.defense.current}/${stats.defense.need} threat(H/T/E):${threatTriplet}`
+            : `DEF clear threat(H/T/E):${threatTriplet}`;
 
         console.log(`--- HEARTBEAT ${Game.time} ---`);
         console.log(`NRG ${stats.energy}/${stats.cap} | POP ${pop}`);
@@ -69,5 +73,23 @@ module.exports = {
         console.log(`ASSIGN ${assignmentInfo}`);
         console.log(defenseInfo);
         console.log(`${spawnInfo} | QUEUE ${queueInfo}`);
+    },
+
+    auditTactical: function(snapshot) {
+        console.log(
+            `AUDIT-T ${snapshot.tick} | ENERGY ${snapshot.totalBufferedEnergy} | HOSTILES ${snapshot.totalHostiles} | SPAWN ${snapshot.spawnBusy}/${snapshot.spawnTotal}`
+        );
+    },
+
+    auditStrategic: function(snapshot) {
+        console.log(`--- STRATEGIC AUDIT ${snapshot.tick} ---`);
+        console.log(
+            `COLONY energyBuffered=${snapshot.totalBufferedEnergy} hostiles=${snapshot.totalHostiles} population=${snapshot.population}`
+        );
+        snapshot.rooms.forEach(room => {
+            console.log(
+                `ROOM ${room.name} vis:${room.visible ? 'Y' : 'N'} nrg:${room.energyAvailable}/${room.energyCapacity} buffer:${room.bufferedEnergy} hostiles:${room.hostiles} rampartsLow:${room.lowRamparts}`
+            );
+        });
     }
 };

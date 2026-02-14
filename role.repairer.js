@@ -2,9 +2,11 @@
  * role.repairer.js - SCOS v6.0.0
  * Purpose:
  *  - Keep infrastructure in assigned room healthy when towers are unavailable.
- *  - Prioritize roads/containers, then other structures (excluding walls/ramparts).
+ *  - Maintain rampart minimum floor, then roads/containers, then other structures.
  */
 const rooms = require('config.rooms');
+const RAMPART_MIN_HITS = 10000;
+const RAMPART_SOFT_CAP = 50000;
 
 module.exports = {
     run: function (creep) {
@@ -22,6 +24,26 @@ module.exports = {
 
         if (creep.memory.working) {
             let target = creep.pos.findClosestByPath(FIND_STRUCTURES, {
+                filter: s =>
+                    s.structureType === STRUCTURE_RAMPART &&
+                    s.hits < RAMPART_MIN_HITS
+            });
+
+            if (!target) {
+                target = creep.pos.findClosestByPath(FIND_STRUCTURES, {
+                    filter: s =>
+                        s.structureType === STRUCTURE_RAMPART &&
+                        s.hits < RAMPART_SOFT_CAP &&
+                        creep.room.name === rooms.HOME
+                });
+            }
+
+            if (target) {
+                if (creep.repair(target) === ERR_NOT_IN_RANGE) creep.moveTo(target, { visualizePathStyle: { stroke: '#00ffcc' } });
+                return;
+            }
+
+            target = creep.pos.findClosestByPath(FIND_STRUCTURES, {
                 filter: s =>
                     (s.structureType === STRUCTURE_ROAD || s.structureType === STRUCTURE_CONTAINER) &&
                     s.hits < s.hitsMax * 0.9
