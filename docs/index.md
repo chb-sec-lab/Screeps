@@ -1,6 +1,6 @@
 # SCOS - Screeps Colony Operating System
 
-[Startseite (HTML)](index.html) | [Manifest](MANIFEST.md) | [Principles](PRINCIPLES.md) | [Runbook](Recue%20Commands)
+[Hub](../index.html) | [Startseite (HTML)](index.html) | [Manifest](manifest.md) | [Principles](principles.md) | [Architecture](architecture.md) | [Observations](observations.md) | [Alerts](alerts.md) | [Runbook](recue-commands.md)
 
 ## Executive Summary
 
@@ -37,9 +37,9 @@ Heartbeat-Logs liefern alle 20 Ticks:
 
 ## Documentation Map
 
-- [System Manifest](MANIFEST.md): Betriebsregeln, Quoten, Ownership
-- [Engineering Principles](PRINCIPLES.md): Architektur- und Qualitaetsgrundsaetze
-- [Operational Runbook](Recue%20Commands): Live-Checks und Recovery-Aktionen
+- [System Manifest](manifest.md): Betriebsregeln, Quoten, Ownership
+- [Engineering Principles](principles.md): Architektur- und Qualitaetsgrundsaetze
+- [Operational Runbook](recue-commands.md): Live-Checks und Recovery-Aktionen
 
 ## Job Search Positioning
 
