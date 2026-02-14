@@ -13,18 +13,19 @@
     <p class="kicker">SCOS Documentation</p>
     <h1>Overview</h1>
     <p class="lead">Operational snapshot, mission status, and documentation map.</p>
-    <nav class="doc-links" aria-label="Docs navigation"><a href="index.html">Portfolio</a><a href="overview.html">Overview</a><a href="manifest.html">Manifest</a><a href="principles.html">Principles</a><a href="architecture.html">Architecture</a><a href="runbook.html">Runbook</a><a href="observations.html">Observations</a><a href="alerts.html">Alerts</a><a href="../index.html">Hub</a></nav>
+    <nav class="doc-links" aria-label="Docs navigation"><a href="overview.html">Overview</a><a href="manifest.html">Manifest</a><a href="principles.html">Principles</a><a href="architecture.html">Architecture</a><a href="runbook.html">Runbook</a><a href="observations.html">Observations</a><a href="alerts.html">Alerts</a><a href="../index.html">Hub</a></nav>
   </header>
   <main class="shell grid">
-    <section class="card wide"><h2>Executive Summary</h2><p>SCOS ist ein lern- und produktionsnahes Screeps-System mit Fokus auf Stabilitaet, Observability und skalierbarer Mehrraum-Expansion.</p>
-<ul><li>Version: <code>6.3.x</code></li><li>Kernel: Single-pass orchestration mit Priority-Spawn-Ladder</li><li>Status: <code>RCL 5</code>, aktive Multi-Room-Expansion</li></ul></section>
+    <section class="card wide"><h2>Executive Summary</h2><p>SCOS is a production-oriented Screeps system focused on stability, observability, and scalable multi-room expansion.</p>
+<ul><li>Version: <code>6.3.x</code></li><li>Kernel: single-pass orchestration with priority spawn ladder</li><li>Status: <code>RCL 5</code>, active multi-room expansion</li></ul></section>
     <section class="card"><h2>Active Topology</h2><ul><li>Home: <code>E58S56</code></li><li>Target (Develop): <code>E57S56</code></li><li>Expansion (Reserve + Mine): <code>E57S55</code></li></ul></section>
     <section class="card"><h2>Enforced Mission Quotas</h2><ul><li><code>builder@E57S56</code>: <code>2</code></li><li><code>upgrader@E57S56</code>: <code>1</code></li><li><code>claimer@E57S55</code> (reserve): <code>1</code></li><li><code>remoteMiner@E57S55</code>: <code>4</code></li><li><code>hauler@E57S55</code>: <code>1</code></li></ul></section>
-    <section class="card"><h2>Observability Model</h2><p>Heartbeat-Logs liefern alle 20 Ticks:</p>
-<ul><li>Energie-/Kapazitaetsstatus (<code>NRG</code>)</li><li>Populationsstatus nach Rolle (<code>POP</code>)</li><li>Raumkontext (<code>ROOMS</code>)</li><li>Missionszuweisung (<code>ASSIGN</code>)</li><li>Spawnstatus inkl. Restzeit (<code>Spawn</code>)</li><li>Priorisierte Defizit-Queue (<code>QUEUE</code>)</li></ul></section>
-    <section class="card"><h2>Documentation Map</h2><ul><li>HTML docs (recommended for navigation):</li><li><code>overview.html</code>, <code>manifest.html</code>, <code>principles.html</code>, <code>architecture.html</code>, <code>runbook.html</code>, <code>observations.html</code>, <code>alerts.html</code></li><li>Markdown remains the editable source:</li><li>update <code>.md</code> files, then run <code>python3 scripts/build-docs.py</code></li><li><a href="manifest.html">System Manifest</a>: Betriebsregeln, Quoten, Ownership</li><li><a href="principles.html">Engineering Principles</a>: Architektur- und Qualitaetsgrundsaetze</li><li><a href="runbook.html">Operational Runbook</a>: Live-Checks und Recovery-Aktionen</li></ul></section>
-    <section class="card"><h2>Job Search Positioning</h2><p>Das Projekt demonstriert:</p>
-<ul><li>Strukturierte Orchestrierung statt ad-hoc-Skripting</li><li>Memory-driven Role Assignment in Multi-Room-Setups</li><li>Operational Logging fuer schnelle Diagnose</li><li>Iterative, dokumentationsgetriebene Weiterentwicklung</li></ul></section>
+    <section class="card"><h2>Observability Model</h2><p>Heartbeat logs are emitted every 20 ticks and show:</p>
+<ul><li>energy and capacity (<code>NRG</code>)</li><li>population by role (<code>POP</code>)</li><li>room context (<code>ROOMS</code>)</li><li>mission assignments (<code>ASSIGN</code>)</li><li>spawn status with remaining time (<code>Spawn</code>)</li><li>prioritized deficit queue (<code>QUEUE</code>)</li></ul></section>
+    <section class="card"><h2>Documentation Map</h2><ul><li>HTML docs (recommended for navigation):</li><li><code>overview.html</code>, <code>manifest.html</code>, <code>principles.html</code>, <code>architecture.html</code>, <code>runbook.html</code>, <code>observations.html</code>, <code>alerts.html</code></li><li>Markdown remains the editable source:</li><li>update <code>.md</code> files, then run <code>python3 scripts/build-docs.py</code></li><li><a href="manifest.html">System Manifest</a>: policy, quotas, ownership</li><li><a href="principles.html">Engineering Principles</a>: architecture and quality standards</li><li><a href="runbook.html">Operational Runbook</a>: live checks and recovery actions</li></ul></section>
+    <section class="card"><h2>Job Search Positioning</h2><p>This project demonstrates:</p>
+<ul><li>structured orchestration over ad-hoc scripting</li><li>memory-driven role assignment in multi-room operations</li><li>operational logging for fast diagnosis</li><li>iterative, documentation-driven improvement</li></ul></section>
   </main>
+  <footer class="shell footer"><p>Docs version <code>6.4.0</code> | Released (UTC) <code>2026-02-14T16:00:00Z</code></p></footer>
 </body>
 </html>

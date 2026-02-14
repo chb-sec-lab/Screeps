@@ -76,6 +76,9 @@ Source of truth for architecture, operating rules, and mission priorities.
 
 - Markdown files (`docs/*.md`) are the source of truth for documentation content.
 - Published website pages (`docs/*.html`) are generated artifacts for GitHub Pages.
+- Version metadata is centralized in `docs/version.json`.
+- `version` must follow SemVer (`major.minor.patch`).
+- `released_at_utc` must use ISO 8601 UTC (`YYYY-MM-DDTHH:MM:SSZ`).
 - Build command:
 - `python3 scripts/build-docs.py`
 - Generated pages:

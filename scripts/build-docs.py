@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import html
+import json
 import re
+import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DOCS_DIR = REPO_ROOT / "docs"
+VERSION_FILE = DOCS_DIR / "version.json"
 
 PAGES = [
     {
@@ -55,7 +58,6 @@ PAGES = [
 ]
 
 NAV = [
-    ("index.html", "Portfolio"),
     ("overview.html", "Overview"),
     ("manifest.html", "Manifest"),
     ("principles.html", "Principles"),
@@ -65,6 +67,13 @@ NAV = [
     ("alerts.html", "Alerts"),
     ("../index.html", "Hub"),
 ]
+
+SEMVER_RE = re.compile(
+    r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
+    r"(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$"
+)
+ISO_UTC_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
+ISO_FIELD_RE = re.compile(r"^- Date-Time \(UTC\): `([^`]+)`$")
 
 
 def map_href(href: str) -> str:
@@ -173,7 +182,45 @@ def render_blocks(blocks: list[dict]) -> str:
     return "\n".join(rendered)
 
 
-def render_page(page: dict, markdown: str) -> str:
+def load_version_metadata() -> dict[str, str]:
+    if not VERSION_FILE.exists():
+        raise ValueError(f"Missing version metadata file: {VERSION_FILE}")
+
+    payload = json.loads(VERSION_FILE.read_text(encoding="utf-8"))
+    version = str(payload.get("version", "")).strip()
+    released_at_utc = str(payload.get("released_at_utc", "")).strip()
+
+    if not SEMVER_RE.match(version):
+        raise ValueError(f"Invalid semantic version in {VERSION_FILE}: '{version}'")
+    if not ISO_UTC_RE.match(released_at_utc):
+        raise ValueError(
+            f"Invalid released_at_utc in {VERSION_FILE}: '{released_at_utc}' (expected YYYY-MM-DDTHH:MM:SSZ)"
+        )
+
+    return {"version": version, "released_at_utc": released_at_utc}
+
+
+def validate_iso_timestamps(source: Path, markdown: str) -> None:
+    invalid_lines: list[str] = []
+    for raw_line in markdown.replace("\r", "").split("\n"):
+        line = raw_line.strip()
+        match = ISO_FIELD_RE.match(line)
+        if not match:
+            continue
+        timestamp = match.group(1)
+        if timestamp == "YYYY-MM-DDTHH:MM:SSZ":
+            continue
+        if not ISO_UTC_RE.match(timestamp):
+            invalid_lines.append(line)
+
+    if invalid_lines:
+        details = "\n".join(f"  - {line}" for line in invalid_lines)
+        raise ValueError(
+            f"Invalid Date-Time (UTC) values in {source}. Use YYYY-MM-DDTHH:MM:SSZ:\n{details}"
+        )
+
+
+def render_page(page: dict, markdown: str, metadata: dict[str, str]) -> str:
     sections = parse_markdown(markdown)
     nav_html = "".join(f'<a href="{href}">{label}</a>' for href, label in NAV)
 
@@ -183,6 +230,11 @@ def render_page(page: dict, markdown: str) -> str:
         cards.append(
             f'<section class="card{wide}"><h2>{html.escape(section["title"])}</h2>{render_blocks(section["blocks"])}</section>'
         )
+
+    footer = (
+        f"Docs version <code>{metadata['version']}</code> | "
+        f"Released (UTC) <code>{metadata['released_at_utc']}</code>"
+    )
 
     return f"""<!doctype html>
 <html lang=\"en\">
@@ -204,20 +256,32 @@ def render_page(page: dict, markdown: str) -> str:
   <main class=\"shell grid\">
     {'\n    '.join(cards)}
   </main>
+  <footer class=\"shell footer\"><p>{footer}</p></footer>
 </body>
 </html>
 """
 
 
 def build_docs() -> None:
+    metadata = load_version_metadata()
     for page in PAGES:
         source = DOCS_DIR / page["source"]
         output = DOCS_DIR / page["output"]
         markdown = source.read_text(encoding="utf-8")
-        rendered = render_page(page, markdown)
+        validate_iso_timestamps(source, markdown)
+        rendered = render_page(page, markdown, metadata)
         output.write_text(rendered, encoding="utf-8")
         print(f"built {output.relative_to(REPO_ROOT)} from {source.relative_to(REPO_ROOT)}")
 
 
+def main() -> int:
+    try:
+        build_docs()
+    except ValueError as exc:
+        print(f"build-docs error: {exc}", file=sys.stderr)
+        return 1
+    return 0
+
+
 if __name__ == "__main__":
-    build_docs()
+    raise SystemExit(main())

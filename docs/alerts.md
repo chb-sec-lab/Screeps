@@ -8,13 +8,13 @@ Track urgent production incidents and response quality. Keep entries brief and f
 
 ## Severity Scale
 
-- `SEV-1`: Immediate threat to survival (home collapse, spawn deadlock, complete defense failure)
-- `SEV-2`: Major degradation (target room unsafe, mission blocked, repeated spawn failures)
-- `SEV-3`: Local issue with workaround (single-role instability, temporary routing issue)
+- `SEV-1`: immediate threat to survival (home collapse, spawn deadlock, complete defense failure)
+- `SEV-2`: major degradation (target room unsafe, mission blocked, repeated spawn failures)
+- `SEV-3`: local issue with workaround (single-role instability, temporary routing issue)
 
 ## Entry Template
 
-- Date (UTC): `YYYY-MM-DD`
+- Date-Time (UTC): `YYYY-MM-DDTHH:MM:SSZ`
 - Severity: `SEV-x`
 - Trigger: what happened
 - Scope: affected room(s)/role(s)
@@ -24,9 +24,9 @@ Track urgent production incidents and response quality. Keep entries brief and f
 
 ## Entries
 
-- Date (UTC): `2026-02-14`
+- Date-Time (UTC): `2026-02-14T10:21:00Z`
 - Severity: `SEV-2`
-- Trigger: Invader pressure in `E57S56` while logistics and builder traffic were active
+- Trigger: invader pressure in `E57S56` while logistics and builder traffic were active
 - Scope: `remoteMiner`, `upgrader`, `builder` losses and interruptions
 - Immediate Response: threat-driven defender priority and emergency spawn path
 - Resolution: defender routing with memory-based target assignment

@@ -1,14 +1,14 @@
 # SCOS - Screeps Colony Operating System
 
-[Hub](../index.html) | [Startseite (HTML)](index.html) | [Manifest](manifest.md) | [Principles](principles.md) | [Architecture](architecture.md) | [Observations](observations.md) | [Alerts](alerts.md) | [Runbook](recue-commands.md)
+[Hub](../index.html) | [Overview](index.md) | [Manifest](manifest.md) | [Principles](principles.md) | [Architecture](architecture.md) | [Observations](observations.md) | [Alerts](alerts.md) | [Runbook](recue-commands.md)
 
 ## Executive Summary
 
-SCOS ist ein lern- und produktionsnahes Screeps-System mit Fokus auf Stabilitaet, Observability und skalierbarer Mehrraum-Expansion.
+SCOS is a production-oriented Screeps system focused on stability, observability, and scalable multi-room expansion.
 
 - Version: `6.3.x`
-- Kernel: Single-pass orchestration mit Priority-Spawn-Ladder
-- Status: `RCL 5`, aktive Multi-Room-Expansion
+- Kernel: single-pass orchestration with priority spawn ladder
+- Status: `RCL 5`, active multi-room expansion
 
 ## Active Topology
 
@@ -26,14 +26,14 @@ SCOS ist ein lern- und produktionsnahes Screeps-System mit Fokus auf Stabilitaet
 
 ## Observability Model
 
-Heartbeat-Logs liefern alle 20 Ticks:
+Heartbeat logs are emitted every 20 ticks and show:
 
-- Energie-/Kapazitaetsstatus (`NRG`)
-- Populationsstatus nach Rolle (`POP`)
-- Raumkontext (`ROOMS`)
-- Missionszuweisung (`ASSIGN`)
-- Spawnstatus inkl. Restzeit (`Spawn`)
-- Priorisierte Defizit-Queue (`QUEUE`)
+- energy and capacity (`NRG`)
+- population by role (`POP`)
+- room context (`ROOMS`)
+- mission assignments (`ASSIGN`)
+- spawn status with remaining time (`Spawn`)
+- prioritized deficit queue (`QUEUE`)
 
 ## Documentation Map
 
@@ -41,15 +41,15 @@ Heartbeat-Logs liefern alle 20 Ticks:
 - `overview.html`, `manifest.html`, `principles.html`, `architecture.html`, `runbook.html`, `observations.html`, `alerts.html`
 - Markdown remains the editable source:
 - update `.md` files, then run `python3 scripts/build-docs.py`
-- [System Manifest](manifest.md): Betriebsregeln, Quoten, Ownership
-- [Engineering Principles](principles.md): Architektur- und Qualitaetsgrundsaetze
-- [Operational Runbook](recue-commands.md): Live-Checks und Recovery-Aktionen
+- [System Manifest](manifest.md): policy, quotas, ownership
+- [Engineering Principles](principles.md): architecture and quality standards
+- [Operational Runbook](recue-commands.md): live checks and recovery actions
 
 ## Job Search Positioning
 
-Das Projekt demonstriert:
+This project demonstrates:
 
-- Strukturierte Orchestrierung statt ad-hoc-Skripting
-- Memory-driven Role Assignment in Multi-Room-Setups
-- Operational Logging fuer schnelle Diagnose
-- Iterative, dokumentationsgetriebene Weiterentwicklung
+- structured orchestration over ad-hoc scripting
+- memory-driven role assignment in multi-room operations
+- operational logging for fast diagnosis
+- iterative, documentation-driven improvement

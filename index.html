@@ -12,50 +12,42 @@
   <div class="bg-orb orb-b"></div>
 
   <header class="shell hero">
-    <p class="kicker">Enterprise Documentation Hub</p>
-    <h1>SCOS: Structural Thinking for Autonomous Operations</h1>
-    <p class="lead">Central navigation for architecture, principles, runbooks, and operational logs used to document decisions and outcomes.</p>
-    <div class="chips">
-      <span>System Design</span>
-      <span>Operations</span>
-      <span>Decision Logs</span>
-      <span>Continuous Learning</span>
-    </div>
+    <p class="kicker">SCOS Documentation</p>
+    <h1>Documentation Hub</h1>
+    <p class="lead">Central navigation for architecture, principles, runbooks, and operational logs.</p>
+    <nav class="doc-links" aria-label="Docs navigation">
+      <a href="docs/overview.html">Overview</a>
+      <a href="docs/manifest.html">Manifest</a>
+      <a href="docs/principles.html">Principles</a>
+      <a href="docs/architecture.html">Architecture</a>
+      <a href="docs/runbook.html">Runbook</a>
+      <a href="docs/observations.html">Observations</a>
+      <a href="docs/alerts.html">Alerts</a>
+    </nav>
   </header>
 
   <main class="shell grid">
-    <section class="card wide">
-      <h2>Core Documentation</h2>
-      <nav class="doc-links" aria-label="Core docs">
-        <a href="docs/index.html">Portfolio Landing</a>
-        <a href="docs/overview.html">Overview</a>
-        <a href="docs/manifest.html">Manifest</a>
-        <a href="docs/principles.html">Principles</a>
-        <a href="docs/architecture.html">Architecture</a>
-        <a href="docs/runbook.html">Runbook</a>
-      </nav>
-    </section>
-
     <section class="card">
-      <h2>Operational Logs</h2>
-      <ul>
-        <li><a href="docs/observations.html">Observations Log</a></li>
-        <li><a href="docs/alerts.html">Alerts Log</a></li>
-      </ul>
-    </section>
-
-    <section class="card">
-      <h2>Intent</h2>
+      <h2>Purpose</h2>
       <ul>
         <li>Capture what changed and why.</li>
         <li>Separate incidents from routine operations.</li>
         <li>Record outcomes for future decisions.</li>
       </ul>
     </section>
+
+    <section class="card">
+      <h2>How To Maintain</h2>
+      <ul>
+        <li>Edit documentation in <code>docs/*.md</code> files.</li>
+        <li>Build site pages with <code>python3 scripts/build-docs.py</code>.</li>
+        <li>Commit both source markdown and generated HTML.</li>
+      </ul>
+    </section>
   </main>
 
   <footer class="shell footer">
-    <p>SCOS Documentation Hub - source of truth for operational learning and enterprise-grade structure.</p>
+    <p>SCOS Documentation Hub - source of truth for operational learning and structured delivery.</p>
   </footer>
 </body>
 </html>

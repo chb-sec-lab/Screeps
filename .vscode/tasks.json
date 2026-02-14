@@ -2,6 +2,17 @@
     "version": "2.0.0",
     "tasks": [
         {
+            "label": "Docs: Build",
+            "type": "shell",
+            "command": "python3 scripts/build-docs.py",
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
             "label": "Deploy Screeps",
             "type": "shell",
             "command": "./deploy.sh",
