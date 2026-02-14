@@ -104,8 +104,51 @@ module.exports = {
             return best;
         }
 
+        function findLocalDepositTarget(room) {
+            if (!room) return null;
+
+            let target = creep.pos.findClosestByPath(FIND_STRUCTURES, {
+                filter: s =>
+                    (s.structureType === STRUCTURE_SPAWN || s.structureType === STRUCTURE_EXTENSION) &&
+                    s.store &&
+                    s.store.getFreeCapacity(RESOURCE_ENERGY) > 0
+            });
+            if (target) return target;
+
+            target = creep.pos.findClosestByPath(FIND_STRUCTURES, {
+                filter: s =>
+                    s.store &&
+                    s.store.getFreeCapacity &&
+                    s.store.getFreeCapacity(RESOURCE_ENERGY) > 0 &&
+                    (
+                        s.structureType === STRUCTURE_CONTAINER ||
+                        s.structureType === STRUCTURE_STORAGE ||
+                        s.structureType === STRUCTURE_LINK
+                    )
+            });
+            return target;
+        }
+
+        function findAdjacentDepositTarget(room) {
+            if (!room) return null;
+            const nearby = creep.pos.findInRange(FIND_STRUCTURES, 1, {
+                filter: s =>
+                    s.store &&
+                    s.store.getFreeCapacity &&
+                    s.store.getFreeCapacity(RESOURCE_ENERGY) > 0 &&
+                    (
+                        s.structureType === STRUCTURE_SPAWN ||
+                        s.structureType === STRUCTURE_EXTENSION ||
+                        s.structureType === STRUCTURE_CONTAINER ||
+                        s.structureType === STRUCTURE_STORAGE ||
+                        s.structureType === STRUCTURE_LINK
+                    )
+            });
+            return nearby.length ? nearby[0] : null;
+        }
+
         // --------------------------------
-        // 2. MINING & HAULING LOGIC
+        // 2. MINING & DELIVERY LOGIC
         // --------------------------------
         if (creep.store.getFreeCapacity() > 0) {
             // Need Energy: Go to Target Room
@@ -175,52 +218,32 @@ module.exports = {
             }
             return;
 
-        } else {
-            // Full: Go to Home Room
-            if (creep.room.name !== homeRoom) {
-                const exit = creep.pos.findClosestByRange(creep.room.findExitTo(homeRoom));
-                creep.moveTo(exit, { visualizePathStyle: { stroke: '#00ff00' } });
-                return;
-            }
+        }
 
-            // In Home Room: Deliver to FIRST found of:
-            // Container OR Storage OR Spawn/Extension (must have free capacity)
-            const targets = creep.room.find(FIND_STRUCTURES, {
-                filter: (s) =>
-                    (
-                        s.structureType === STRUCTURE_CONTAINER ||
-                        s.structureType === STRUCTURE_STORAGE ||
-                        s.structureType === STRUCTURE_SPAWN ||
-                        s.structureType === STRUCTURE_EXTENSION
-                    ) &&
-                    s.store &&
-                    s.store.getFreeCapacity(RESOURCE_ENERGY) > 0
-            });
-
-            let target = targets.length ? targets[0] : null;
-
-            if (!target) {
-                target = creep.pos.findClosestByRange(FIND_STRUCTURES, {
-                    filter: (s) =>
-                        (
-                            s.structureType === STRUCTURE_CONTAINER ||
-                            s.structureType === STRUCTURE_STORAGE ||
-                            s.structureType === STRUCTURE_SPAWN ||
-                            s.structureType === STRUCTURE_EXTENSION
-                        ) &&
-                        s.store &&
-                        s.store.getFreeCapacity(RESOURCE_ENERGY) > 0
-                });
-            }
-
-            if (target) {
-                if (creep.transfer(target, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
-                    creep.moveTo(target, { visualizePathStyle: { stroke: '#00ff00' } });
-                }
-            } else {
-                creep.say('🚫 NoTarget');
+        // Full: Prefer local delivery in current room.
+        let target = findAdjacentDepositTarget(creep.room) || findLocalDepositTarget(creep.room);
+        if (target) {
+            if (creep.transfer(target, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
+                creep.moveTo(target, { visualizePathStyle: { stroke: '#00ff00' } });
             }
             return;
         }
+
+        // If no nearby sink exists, try home room as overflow fallback.
+        if (creep.room.name !== homeRoom) {
+            const exit = creep.pos.findClosestByRange(creep.room.findExitTo(homeRoom));
+            if (exit) creep.moveTo(exit, { visualizePathStyle: { stroke: '#00ff00' } });
+            return;
+        }
+
+        target = findAdjacentDepositTarget(creep.room) || findLocalDepositTarget(creep.room);
+        if (target) {
+            if (creep.transfer(target, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
+                creep.moveTo(target, { visualizePathStyle: { stroke: '#00ff00' } });
+            }
+            return;
+        }
+
+        creep.say('🚫 NoSink');
     }
 };

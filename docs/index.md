@@ -37,6 +37,8 @@ Heartbeat-Logs liefern alle 20 Ticks:
 
 ## Documentation Map
 
+- HTML docs (recommended for navigation):
+- `overview.html`, `manifest.html`, `principles.html`, `architecture.html`, `runbook.html`, `observations.html`, `alerts.html`
 - [System Manifest](manifest.md): Betriebsregeln, Quoten, Ownership
 - [Engineering Principles](principles.md): Architektur- und Qualitaetsgrundsaetze
 - [Operational Runbook](recue-commands.md): Live-Checks und Recovery-Aktionen

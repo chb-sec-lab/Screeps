@@ -11,6 +11,9 @@ module.exports = {
     COUNTS: {
         harvester:   6,
         hauler:      2,
+        scavenger:   2,
+        repairer:    0,
+        defender:    0,
         claimer:     0,
         remoteMiner: 8, // Global fallback count (room-specific quotas are handled in main.js)
         builder:     1,
@@ -23,6 +26,9 @@ module.exports = {
     BODIES: {
         harvester:   [WORK, WORK, WORK, CARRY, CARRY, MOVE, MOVE, MOVE],
         hauler:      [CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE],
+        scavenger:   [CARRY, CARRY, CARRY, MOVE, MOVE, MOVE],
+        repairer:    [WORK, WORK, CARRY, CARRY, MOVE, MOVE, MOVE],
+        defender:    [TOUGH, TOUGH, MOVE, MOVE, MOVE, ATTACK, ATTACK, RANGED_ATTACK],
         claimer:     [CLAIM, CLAIM, MOVE, MOVE], 
         remoteMiner: [WORK, WORK, CARRY, MOVE, MOVE, MOVE],
         builder:     [WORK, WORK, WORK, CARRY, CARRY, MOVE, MOVE, MOVE],

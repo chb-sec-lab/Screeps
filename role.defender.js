@@ -5,8 +5,8 @@
  */
 module.exports = {
     run: function(creep) {
-        const targetRoom = creep.memory.target || 'E57S56';
-        const homeRoom = creep.memory.home || 'E58S56';
+        const targetRoom = creep.memory.targetRoom || creep.memory.target || 'E57S56';
+        const homeRoom = creep.memory.homeRoom || creep.memory.home || 'E58S56';
 
         // --- 1. TARGET ACQUISITION ---
         let target = creep.pos.findClosestByRange(FIND_HOSTILE_CREEPS, {

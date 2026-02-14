@@ -27,6 +27,8 @@ Source of truth for architecture, operating rules, and mission priorities.
 - `E57S56` is the development target with assigned builders, repairers, and upgrader.
 - `E57S55` is reserve-and-mine expansion (no ownership claim at GCL 1).
 - Expansion claimer runs in `reserve` mode.
+- `scavenger` is a global utility role with deterministic fallback (`scavenge`, `haul-assist`, `distribute`).
+- `remoteMiner` deposits to nearest local sink first, then uses home-room overflow only when no local sink exists.
 
 ## Operational Rules
 
@@ -68,3 +70,4 @@ Source of truth for architecture, operating rules, and mission priorities.
 - `observations.md`: design lessons, behavior findings, non-urgent improvements.
 - `alerts.md`: incidents, mitigations, and verified resolutions.
 - Entry style stays compact: context, impact, action, evidence.
+- Documentation navigation changes are treated as operational changes and must also be logged.

@@ -9,7 +9,7 @@ const roles = require('config.roles');
 const logger = require('utils.logger');
 
 let modules = {};
-const roleNames = ['harvester', 'hauler', 'vanguard', 'medic', 'breacher', 'remoteMiner', 'builder', 'claimer', 'upgrader'];
+const roleNames = ['harvester', 'hauler', 'scavenger', 'repairer', 'defender', 'vanguard', 'medic', 'breacher', 'remoteMiner', 'builder', 'claimer', 'upgrader'];
 
 roleNames.forEach(name => {
     try { modules[name] = require('role.' + name); } catch (e) { /* Safe Load */ }
@@ -21,7 +21,38 @@ module.exports.loop = function () {
     const census = {};
     roleNames.forEach(r => census[r] = 0);
     const homeRoom = Game.rooms[rooms.HOME];
-    const spawn = Game.spawns['Spawn1'];
+    const allSpawns = Object.values(Game.spawns);
+    const targetRoomView = Game.rooms[rooms.TARGET];
+
+    // --- DEFENSE STATUS (Home + Target) ---
+    if (!Memory.defense) Memory.defense = {};
+
+    function getHostileCount(room) {
+        if (!room) return 0;
+        return room.find(FIND_HOSTILE_CREEPS, {
+            filter: c =>
+                c.getActiveBodyparts(ATTACK) > 0 ||
+                c.getActiveBodyparts(RANGED_ATTACK) > 0 ||
+                c.getActiveBodyparts(HEAL) > 0
+        }).length;
+    }
+
+    const homeThreat = getHostileCount(homeRoom);
+    const targetThreat = getHostileCount(targetRoomView);
+    const hasLiveThreat = homeThreat > 0 || targetThreat > 0;
+
+    if (hasLiveThreat) {
+        const urgentRoom = (homeThreat >= targetThreat) ? rooms.HOME : rooms.TARGET;
+        const urgentThreat = Math.max(homeThreat, targetThreat);
+
+        Memory.defense.activeUntil = Game.time + 75;
+        Memory.defense.targetRoom = urgentRoom;
+        Memory.defense.need = Math.min(3, Math.max(1, Math.ceil(urgentThreat / 2)));
+    }
+
+    const defenseActive = Memory.defense.activeUntil && Game.time <= Memory.defense.activeUntil;
+    const defenseTargetRoom = defenseActive ? (Memory.defense.targetRoom || rooms.TARGET) : null;
+    const defenseNeed = defenseActive ? (Memory.defense.need || 1) : 0;
 
     // --- PASS 1: CENSUS & SOURCE TRACKING ---
     const sourceAssignments = {};
@@ -83,124 +114,194 @@ module.exports.loop = function () {
         });
     }
 
-    // --- PASS 4: SPAWNING ---
+    // --- PASS 4: SPAWNING (MULTI-SPAWN) ---
     let queuePreview = [];
     let roomAssignments = {};
-    let spawnAction = null;
+    const spawnActions = [];
+    const armyOn = (rooms.WAR_MODE === true);
+    const targetRoom = rooms.TARGET;
+    const expansionRoom = rooms.EXPANSION;
+    const plannedSpawns = [];
 
-    if (spawn && !spawn.spawning) {
-        let sRole = null;
-        let spawnMemory = null;
-        const armyOn = (rooms.WAR_MODE === true);
-        const targetRoom = rooms.TARGET;
-        const expansionRoom = rooms.EXPANSION;
+    function countAssigned(role, roomName, memoryKey) {
+        const live = _.filter(Game.creeps, c =>
+            c.memory.role === role &&
+            (c.memory[memoryKey] === roomName || (!c.memory[memoryKey] && c.room.name === roomName))
+        ).length;
+        const planned = _.filter(plannedSpawns, m =>
+            m.role === role && m[memoryKey] === roomName
+        ).length;
+        return live + planned;
+    }
 
-        function countAssigned(role, roomName, memoryKey) {
-            return _.filter(Game.creeps, c =>
-                c.memory.role === role &&
-                (c.memory[memoryKey] === roomName || (!c.memory[memoryKey] && c.room.name === roomName))
-            ).length;
-        }
+    function countRole(role) {
+        return (census[role] || 0) + _.filter(plannedSpawns, m => m.role === role).length;
+    }
 
+    function readNeeds() {
         const targetBuilders = countAssigned('builder', targetRoom, 'workRoom');
+        const targetRepairers = countAssigned('repairer', targetRoom, 'workRoom');
         const targetUpgraders = countAssigned('upgrader', targetRoom, 'targetRoom');
         const expansionClaimers = countAssigned('claimer', expansionRoom, 'targetRoom');
         const expansionRemoteMiners = countAssigned('remoteMiner', expansionRoom, 'targetRoom');
         const expansionHaulers = countAssigned('hauler', expansionRoom, 'targetRoom');
-
+        const defenseDefenders = defenseTargetRoom ? countAssigned('defender', defenseTargetRoom, 'targetRoom') : 0;
         const expansionController = Game.rooms[expansionRoom] && Game.rooms[expansionRoom].controller;
         const shouldReserveExpansion = !expansionController || !expansionController.my;
-
-        roomAssignments = {
-            targetBuilders: targetBuilders,
-            targetUpgraders: targetUpgraders,
-            expansionClaimers: expansionClaimers,
-            expansionRemoteMiners: expansionRemoteMiners,
-            expansionHaulers: expansionHaulers
+        return {
+            targetBuilders,
+            targetRepairers,
+            targetUpgraders,
+            expansionClaimers,
+            expansionRemoteMiners,
+            expansionHaulers,
+            defenseDefenders,
+            shouldReserveExpansion
         };
+    }
 
-        function addQueueEntry(ok, label, have, need) {
-            if (!ok) queuePreview.push(`${label}:${have}/${need}`);
+    function bodyCost(body) {
+        return _.sum(body, part => BODYPART_COST[part] || 0);
+    }
+
+    const fallbackBodies = {
+        defender: [TOUGH, MOVE, ATTACK, MOVE],
+        hauler: [CARRY, CARRY, MOVE],
+        scavenger: [CARRY, MOVE],
+        repairer: [WORK, CARRY, MOVE],
+        builder: [WORK, CARRY, MOVE],
+        upgrader: [WORK, CARRY, MOVE],
+        remoteMiner: [WORK, CARRY, MOVE],
+        harvester: [WORK, CARRY, MOVE],
+        claimer: [CLAIM, MOVE]
+    };
+
+    function resolveSpawnBody(spawn, role) {
+        const full = roles.BODIES[role];
+        if (!full) return null;
+        if (bodyCost(full) <= spawn.room.energyAvailable) return full;
+
+        const fallback = fallbackBodies[role];
+        if (fallback && bodyCost(fallback) <= spawn.room.energyAvailable) return fallback;
+
+        return null;
+    }
+
+    const baseNeeds = readNeeds();
+    roomAssignments = {
+        targetBuilders: baseNeeds.targetBuilders,
+        targetRepairers: baseNeeds.targetRepairers,
+        targetUpgraders: baseNeeds.targetUpgraders,
+        expansionClaimers: baseNeeds.expansionClaimers,
+        expansionRemoteMiners: baseNeeds.expansionRemoteMiners,
+        expansionHaulers: baseNeeds.expansionHaulers,
+        defenseDefenders: baseNeeds.defenseDefenders
+    };
+
+    function addQueueEntry(ok, label, have, need) {
+        if (!ok) queuePreview.push(`${label}:${have}/${need}`);
+    }
+
+    addQueueEntry(countRole('harvester') >= 2, 'harvester.min', countRole('harvester'), 2);
+    addQueueEntry(countRole('hauler') >= roles.COUNTS.hauler, 'hauler', countRole('hauler'), roles.COUNTS.hauler);
+    addQueueEntry(countRole('scavenger') >= roles.COUNTS.scavenger, 'scavenger', countRole('scavenger'), roles.COUNTS.scavenger);
+    if (defenseActive) {
+        addQueueEntry(baseNeeds.defenseDefenders >= defenseNeed, `defender@${defenseTargetRoom}`, baseNeeds.defenseDefenders, defenseNeed);
+    }
+    addQueueEntry(baseNeeds.expansionHaulers >= 1, `hauler@${expansionRoom}`, baseNeeds.expansionHaulers, 1);
+    addQueueEntry(countRole('harvester') >= roles.COUNTS.harvester, 'harvester.target', countRole('harvester'), roles.COUNTS.harvester);
+    if (armyOn) {
+        addQueueEntry(countRole('vanguard') >= roles.COUNTS.vanguard, 'vanguard', countRole('vanguard'), roles.COUNTS.vanguard);
+        addQueueEntry(countRole('medic') >= roles.COUNTS.medic, 'medic', countRole('medic'), roles.COUNTS.medic);
+    }
+    addQueueEntry(baseNeeds.targetBuilders >= 2, `builder@${targetRoom}`, baseNeeds.targetBuilders, 2);
+    addQueueEntry(baseNeeds.targetRepairers >= 2, `repairer@${targetRoom}`, baseNeeds.targetRepairers, 2);
+    addQueueEntry(baseNeeds.targetUpgraders >= 1, `upgrader@${targetRoom}`, baseNeeds.targetUpgraders, 1);
+    if (baseNeeds.shouldReserveExpansion) {
+        addQueueEntry(baseNeeds.expansionClaimers >= 1, `claimer@${expansionRoom}`, baseNeeds.expansionClaimers, 1);
+    }
+    addQueueEntry(baseNeeds.expansionRemoteMiners >= 4, `remoteMiner@${expansionRoom}`, baseNeeds.expansionRemoteMiners, 4);
+    addQueueEntry(countRole('remoteMiner') >= roles.COUNTS.remoteMiner, 'remoteMiner', countRole('remoteMiner'), roles.COUNTS.remoteMiner);
+    addQueueEntry(countRole('builder') >= roles.COUNTS.builder, 'builder', countRole('builder'), roles.COUNTS.builder);
+    addQueueEntry(countRole('claimer') >= roles.COUNTS.claimer, 'claimer', countRole('claimer'), roles.COUNTS.claimer);
+    addQueueEntry(countRole('upgrader') >= roles.COUNTS.upgrader, 'upgrader', countRole('upgrader'), roles.COUNTS.upgrader);
+
+    const idleSpawns = allSpawns.filter(s => !s.spawning);
+    if (idleSpawns.length === 0 && allSpawns.length > 0) queuePreview = ['spawn busy'];
+
+    for (const spawn of idleSpawns) {
+        let sRole = null;
+        let spawnMemory = null;
+        const needs = readNeeds();
+
+        if (countRole('harvester') < 2) sRole = 'harvester';
+        else if (countRole('hauler') < roles.COUNTS.hauler) sRole = 'hauler';
+        else if (defenseActive && needs.defenseDefenders < defenseNeed) sRole = 'defender';
+        else if (countRole('scavenger') < roles.COUNTS.scavenger) sRole = 'scavenger';
+        else if (needs.expansionHaulers < 1) sRole = 'hauler';
+        else if (countRole('harvester') < roles.COUNTS.harvester) sRole = 'harvester';
+        else if (armyOn && countRole('vanguard') < roles.COUNTS.vanguard) sRole = 'vanguard';
+        else if (armyOn && countRole('medic') < roles.COUNTS.medic) sRole = 'medic';
+        else if (needs.targetBuilders < 2) sRole = 'builder';
+        else if (needs.targetRepairers < 2) sRole = 'repairer';
+        else if (needs.targetUpgraders < 1) sRole = 'upgrader';
+        else if (needs.shouldReserveExpansion && needs.expansionClaimers < 1) sRole = 'claimer';
+        else if (needs.expansionRemoteMiners < 4) sRole = 'remoteMiner';
+        else if (countRole('remoteMiner') < roles.COUNTS.remoteMiner) sRole = 'remoteMiner';
+        else if (countRole('builder') < roles.COUNTS.builder) sRole = 'builder';
+        else if (countRole('claimer') < roles.COUNTS.claimer) sRole = 'claimer';
+        else if (countRole('upgrader') < roles.COUNTS.upgrader) sRole = 'upgrader';
+
+        if (!sRole) continue;
+
+        const name = roles.generateName(sRole);
+        spawnMemory = { role: sRole };
+
+        if (sRole === 'builder' && needs.targetBuilders < 2) {
+            spawnMemory.workRoom = targetRoom;
         }
 
-        addQueueEntry(census.harvester >= 2, 'harvester.min', census.harvester, 2);
-        addQueueEntry(census.hauler >= roles.COUNTS.hauler, 'hauler', census.hauler, roles.COUNTS.hauler);
-        addQueueEntry(expansionHaulers >= 1, `hauler@${expansionRoom}`, expansionHaulers, 1);
-        addQueueEntry(census.harvester >= roles.COUNTS.harvester, 'harvester.target', census.harvester, roles.COUNTS.harvester);
-        if (armyOn) {
-            addQueueEntry(census.vanguard >= roles.COUNTS.vanguard, 'vanguard', census.vanguard, roles.COUNTS.vanguard);
-            addQueueEntry(census.medic >= roles.COUNTS.medic, 'medic', census.medic, roles.COUNTS.medic);
+        if (sRole === 'repairer' && needs.targetRepairers < 2) {
+            spawnMemory.workRoom = targetRoom;
         }
-        addQueueEntry(targetBuilders >= 2, `builder@${targetRoom}`, targetBuilders, 2);
-        addQueueEntry(targetUpgraders >= 1, `upgrader@${targetRoom}`, targetUpgraders, 1);
-        if (shouldReserveExpansion) {
-            addQueueEntry(expansionClaimers >= 1, `claimer@${expansionRoom}`, expansionClaimers, 1);
+
+        if (sRole === 'hauler' && needs.expansionHaulers < 1 && countRole('hauler') >= roles.COUNTS.hauler) {
+            spawnMemory.targetRoom = expansionRoom;
+            spawnMemory.homeRoom = rooms.HOME;
         }
-        addQueueEntry(expansionRemoteMiners >= 4, `remoteMiner@${expansionRoom}`, expansionRemoteMiners, 4);
-        addQueueEntry(census.remoteMiner >= roles.COUNTS.remoteMiner, 'remoteMiner', census.remoteMiner, roles.COUNTS.remoteMiner);
-        addQueueEntry(census.builder >= roles.COUNTS.builder, 'builder', census.builder, roles.COUNTS.builder);
-        addQueueEntry(census.claimer >= roles.COUNTS.claimer, 'claimer', census.claimer, roles.COUNTS.claimer);
-        addQueueEntry(census.upgrader >= roles.COUNTS.upgrader, 'upgrader', census.upgrader, roles.COUNTS.upgrader);
 
-        if (census.harvester < 2) sRole = 'harvester';
-        else if (census.hauler < roles.COUNTS.hauler) sRole = 'hauler';
-        else if (expansionHaulers < 1) sRole = 'hauler';
-        else if (census.harvester < roles.COUNTS.harvester) sRole = 'harvester';
-        else if (armyOn && census.vanguard < roles.COUNTS.vanguard) sRole = 'vanguard';
-        else if (armyOn && census.medic < roles.COUNTS.medic) sRole = 'medic';
-        else if (targetBuilders < 2) sRole = 'builder';
-        else if (targetUpgraders < 1) sRole = 'upgrader';
-        else if (shouldReserveExpansion && expansionClaimers < 1) sRole = 'claimer';
-        else if (expansionRemoteMiners < 4) sRole = 'remoteMiner';
-        else if (census.remoteMiner < roles.COUNTS.remoteMiner) sRole = 'remoteMiner';
-        else if (census.builder < roles.COUNTS.builder) sRole = 'builder';
-        else if (census.claimer < roles.COUNTS.claimer) sRole = 'claimer';
-        else if (census.upgrader < roles.COUNTS.upgrader) sRole = 'upgrader';
-
-        if (sRole) {
-            const name = roles.generateName(sRole);
-            spawnMemory = { role: sRole };
-
-            if (sRole === 'builder' && targetBuilders < 2) {
-                spawnMemory.workRoom = targetRoom;
-            }
-
-            if (sRole === 'hauler' && expansionHaulers < 1 && census.hauler >= roles.COUNTS.hauler) {
-                spawnMemory.targetRoom = expansionRoom;
-                spawnMemory.homeRoom = rooms.HOME;
-            }
-
-            if (sRole === 'upgrader' && targetUpgraders < 1) {
-                spawnMemory.targetRoom = targetRoom;
-            }
-
-            if (sRole === 'claimer' && shouldReserveExpansion && expansionClaimers < 1) {
-                spawnMemory.targetRoom = expansionRoom;
-                spawnMemory.claimMode = 'reserve';
-            }
-
-            if (sRole === 'remoteMiner' && expansionRemoteMiners < 4) {
-                spawnMemory.targetRoom = expansionRoom;
-                spawnMemory.homeRoom = rooms.HOME;
-            }
-
-            const spawnRes = spawn.spawnCreep(roles.BODIES[sRole], name, { memory: spawnMemory });
-            if (spawnRes === OK) {
-                spawnAction = `${sRole} -> ${spawnMemory.targetRoom || spawnMemory.workRoom || rooms.HOME}`;
-                logger.log(`🐣 Spawning: ${name}`, 'success');
-            } else {
-                logger.log(`Spawn blocked: role=${sRole} code=${spawnRes}`, 'warn');
-            }
+        if (sRole === 'defender' && defenseActive && needs.defenseDefenders < defenseNeed) {
+            spawnMemory.targetRoom = defenseTargetRoom;
+            spawnMemory.homeRoom = rooms.HOME;
         }
-    } else if (spawn) {
-        queuePreview = ['spawn busy'];
-        roomAssignments = {
-            targetBuilders: _.filter(Game.creeps, c => c.memory.role === 'builder' && c.memory.workRoom === rooms.TARGET).length,
-            targetUpgraders: _.filter(Game.creeps, c => c.memory.role === 'upgrader' && c.memory.targetRoom === rooms.TARGET).length,
-            expansionClaimers: _.filter(Game.creeps, c => c.memory.role === 'claimer' && c.memory.targetRoom === rooms.EXPANSION).length,
-            expansionRemoteMiners: _.filter(Game.creeps, c => c.memory.role === 'remoteMiner' && c.memory.targetRoom === rooms.EXPANSION).length,
-            expansionHaulers: _.filter(Game.creeps, c => c.memory.role === 'hauler' && c.memory.targetRoom === rooms.EXPANSION).length
-        };
+
+        if (sRole === 'upgrader' && needs.targetUpgraders < 1) {
+            spawnMemory.targetRoom = targetRoom;
+        }
+
+        if (sRole === 'claimer' && needs.shouldReserveExpansion && needs.expansionClaimers < 1) {
+            spawnMemory.targetRoom = expansionRoom;
+            spawnMemory.claimMode = 'reserve';
+        }
+
+        if (sRole === 'remoteMiner' && needs.expansionRemoteMiners < 4) {
+            spawnMemory.targetRoom = expansionRoom;
+            spawnMemory.homeRoom = rooms.HOME;
+        }
+
+        const body = resolveSpawnBody(spawn, sRole);
+        if (!body) {
+            continue;
+        }
+
+        const spawnRes = spawn.spawnCreep(body, name, { memory: spawnMemory });
+        if (spawnRes === OK) {
+            plannedSpawns.push(spawnMemory);
+            spawnActions.push(`${spawn.name}:${sRole}[${body.length}]->${spawnMemory.targetRoom || spawnMemory.workRoom || spawn.room.name}`);
+            logger.log(`🐣 ${spawn.name} spawning: ${name}`, 'success');
+        } else {
+            logger.log(`${spawn.name} blocked: role=${sRole} code=${spawnRes}`, 'warn');
+        }
     }
 
     logger.report({
@@ -213,12 +314,19 @@ module.exports.loop = function () {
             expansion: rooms.EXPANSION
         },
         assignments: roomAssignments,
-        spawn: spawn ? {
-            busy: !!spawn.spawning,
-            name: spawn.spawning ? spawn.spawning.name : null,
-            remainingTime: spawn.spawning ? spawn.spawning.remainingTime : 0,
-            action: spawnAction
+        spawn: allSpawns.length ? {
+            total: allSpawns.length,
+            busy: allSpawns.filter(s => s.spawning).length,
+            actions: spawnActions
         } : null,
+        defense: {
+            active: !!defenseActive,
+            room: defenseTargetRoom,
+            need: defenseNeed,
+            current: defenseTargetRoom ? _.filter(Game.creeps, c => c.memory.role === 'defender' && c.memory.targetRoom === defenseTargetRoom).length : 0,
+            homeThreat: homeThreat,
+            targetThreat: targetThreat
+        },
         queue: queuePreview
     });
 };

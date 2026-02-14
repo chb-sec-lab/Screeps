@@ -22,6 +22,13 @@ Quick live checks and recovery commands for operation.
 - `hauler@E57S55`: `1`
 - `scavenger`: `2`
 
+## Scavenger Priority
+
+- `1` deliver if loaded
+- `2` scavenge (drops, ruins, tombs)
+- `3` haul-assist from room buffers
+- `4` distribute/rebalance local energy sinks
+
 ## Heartbeat Interpretation
 
 - `ASSIGN B@T:x/2 RP@T:y/2 U@T:z/1 C@E:a/1 RM@E:b/4 H@E:c/1`
