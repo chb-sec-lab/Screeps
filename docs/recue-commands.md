@@ -14,6 +14,8 @@ Quick live checks and recovery commands for operation.
 
 ## Expected Mission Quotas
 
+- `builder@E58S56` (home): `1`
+- `repairer@E58S56` (home): `1`
 - `builder@E57S56`: `2`
 - `repairer@E57S56`: `2`
 - `upgrader@E57S56`: `2`
@@ -32,7 +34,7 @@ Quick live checks and recovery commands for operation.
 
 ## Heartbeat Interpretation
 
-- `ASSIGN B@T:x/2 RP@T:y/2 U@T:z/2 C@E:a/1 RM@E:b/4 H@E:c/1`
+- `ASSIGN B@H:h/1 RP@H:r/1 B@T:x/2 RP@T:y/2 U@T:z/2 C@E:a/1 RM@E:b/4 H@E:c/1`
 - `Spawn:BUSY n/m`: spawn capacity currently occupied.
 - `QUEUE ...`: current deficit chain by priority.
 - `DEF clear/alert threat(H/T/E):x/y/z`: hostile combat counts by home/target/expansion.

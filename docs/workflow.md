@@ -50,3 +50,4 @@ Define a predictable development and delivery process for game code, documentati
 - Do not commit invalid timestamp formats.
 - Keep role policies and quotas aligned between `manifest.md` and runtime behavior.
 - Keep `Memory.audit` retention bounded to avoid memory bloat.
+- Prefer deterministic anti-oscillation guards for logistics roles (scavenger/hauler/remoteMiner).

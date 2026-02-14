@@ -11,6 +11,10 @@ const STRATEGIC_AUDIT_INTERVAL = 3600;
 const AUDIT_RETENTION_TACTICAL = 120;
 const AUDIT_RETENTION_STRATEGIC = 100;
 const TARGET_UPGRADER_QUOTA = 2;
+const TARGET_BUILDER_QUOTA = 2;
+const TARGET_REPAIRER_QUOTA = 2;
+const HOME_BUILDER_QUOTA = 1;
+const HOME_REPAIRER_QUOTA = 1;
 
 let modules = {};
 const roleNames = ['harvester', 'hauler', 'scavenger', 'repairer', 'defender', 'vanguard', 'medic', 'breacher', 'remoteMiner', 'builder', 'claimer', 'upgrader'];
@@ -97,6 +101,15 @@ module.exports.loop = function () {
         creep.memory.home = rooms.HOME;
         creep.memory.target = rooms.TARGET;
 
+        // Migration guard: remote expansion haulers must always deliver to HOME.
+        if (
+            creep.memory.role === 'hauler' &&
+            creep.memory.targetRoom === rooms.EXPANSION &&
+            creep.memory.homeRoom !== rooms.HOME
+        ) {
+            creep.memory.homeRoom = rooms.HOME;
+        }
+
         // Auto-fix Harvesters without source
         if (creep.memory.role === 'harvester' && !creep.memory.targetSourceId && homeRoom) {
             const best = _.sortBy(homeRoom.find(FIND_SOURCES), s => sourceAssignments[s.id])[0];
@@ -158,6 +171,8 @@ module.exports.loop = function () {
     }
 
     function readNeeds() {
+        const homeBuilders = countAssigned('builder', rooms.HOME, 'workRoom');
+        const homeRepairers = countAssigned('repairer', rooms.HOME, 'workRoom');
         const targetBuilders = countAssigned('builder', targetRoom, 'workRoom');
         const targetRepairers = countAssigned('repairer', targetRoom, 'workRoom');
         const targetUpgraders = countAssigned('upgrader', targetRoom, 'targetRoom');
@@ -168,6 +183,8 @@ module.exports.loop = function () {
         const expansionController = Game.rooms[expansionRoom] && Game.rooms[expansionRoom].controller;
         const shouldReserveExpansion = !expansionController || !expansionController.my;
         return {
+            homeBuilders,
+            homeRepairers,
             targetBuilders,
             targetRepairers,
             targetUpgraders,
@@ -208,6 +225,10 @@ module.exports.loop = function () {
 
     const baseNeeds = readNeeds();
     roomAssignments = {
+        homeBuilders: baseNeeds.homeBuilders,
+        homeBuilderNeed: HOME_BUILDER_QUOTA,
+        homeRepairers: baseNeeds.homeRepairers,
+        homeRepairerNeed: HOME_REPAIRER_QUOTA,
         targetBuilders: baseNeeds.targetBuilders,
         targetRepairers: baseNeeds.targetRepairers,
         targetUpgraders: baseNeeds.targetUpgraders,
@@ -234,8 +255,10 @@ module.exports.loop = function () {
         addQueueEntry(countRole('vanguard') >= roles.COUNTS.vanguard, 'vanguard', countRole('vanguard'), roles.COUNTS.vanguard);
         addQueueEntry(countRole('medic') >= roles.COUNTS.medic, 'medic', countRole('medic'), roles.COUNTS.medic);
     }
-    addQueueEntry(baseNeeds.targetBuilders >= 2, `builder@${targetRoom}`, baseNeeds.targetBuilders, 2);
-    addQueueEntry(baseNeeds.targetRepairers >= 2, `repairer@${targetRoom}`, baseNeeds.targetRepairers, 2);
+    addQueueEntry(baseNeeds.homeBuilders >= HOME_BUILDER_QUOTA, `builder@${rooms.HOME}`, baseNeeds.homeBuilders, HOME_BUILDER_QUOTA);
+    addQueueEntry(baseNeeds.homeRepairers >= HOME_REPAIRER_QUOTA, `repairer@${rooms.HOME}`, baseNeeds.homeRepairers, HOME_REPAIRER_QUOTA);
+    addQueueEntry(baseNeeds.targetBuilders >= TARGET_BUILDER_QUOTA, `builder@${targetRoom}`, baseNeeds.targetBuilders, TARGET_BUILDER_QUOTA);
+    addQueueEntry(baseNeeds.targetRepairers >= TARGET_REPAIRER_QUOTA, `repairer@${targetRoom}`, baseNeeds.targetRepairers, TARGET_REPAIRER_QUOTA);
     addQueueEntry(baseNeeds.targetUpgraders >= TARGET_UPGRADER_QUOTA, `upgrader@${targetRoom}`, baseNeeds.targetUpgraders, TARGET_UPGRADER_QUOTA);
     if (baseNeeds.shouldReserveExpansion) {
         addQueueEntry(baseNeeds.expansionClaimers >= 1, `claimer@${expansionRoom}`, baseNeeds.expansionClaimers, 1);
@@ -262,8 +285,10 @@ module.exports.loop = function () {
         else if (countRole('harvester') < roles.COUNTS.harvester) sRole = 'harvester';
         else if (armyOn && countRole('vanguard') < roles.COUNTS.vanguard) sRole = 'vanguard';
         else if (armyOn && countRole('medic') < roles.COUNTS.medic) sRole = 'medic';
-        else if (needs.targetBuilders < 2) sRole = 'builder';
-        else if (needs.targetRepairers < 2) sRole = 'repairer';
+        else if (needs.homeBuilders < HOME_BUILDER_QUOTA) sRole = 'builder';
+        else if (needs.homeRepairers < HOME_REPAIRER_QUOTA) sRole = 'repairer';
+        else if (needs.targetBuilders < TARGET_BUILDER_QUOTA) sRole = 'builder';
+        else if (needs.targetRepairers < TARGET_REPAIRER_QUOTA) sRole = 'repairer';
         else if (needs.targetUpgraders < TARGET_UPGRADER_QUOTA) sRole = 'upgrader';
         else if (needs.shouldReserveExpansion && needs.expansionClaimers < 1) sRole = 'claimer';
         else if (needs.expansionRemoteMiners < 4) sRole = 'remoteMiner';
@@ -277,11 +302,15 @@ module.exports.loop = function () {
         const name = roles.generateName(sRole);
         spawnMemory = { role: sRole };
 
-        if (sRole === 'builder' && needs.targetBuilders < 2) {
+        if (sRole === 'builder' && needs.homeBuilders < HOME_BUILDER_QUOTA) {
+            spawnMemory.workRoom = rooms.HOME;
+        } else if (sRole === 'builder' && needs.targetBuilders < TARGET_BUILDER_QUOTA) {
             spawnMemory.workRoom = targetRoom;
         }
 
-        if (sRole === 'repairer' && needs.targetRepairers < 2) {
+        if (sRole === 'repairer' && needs.homeRepairers < HOME_REPAIRER_QUOTA) {
+            spawnMemory.workRoom = rooms.HOME;
+        } else if (sRole === 'repairer' && needs.targetRepairers < TARGET_REPAIRER_QUOTA) {
             spawnMemory.workRoom = targetRoom;
         }
 

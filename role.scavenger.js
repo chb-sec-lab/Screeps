@@ -97,6 +97,28 @@ module.exports = {
             });
         }
 
+        function hasUrgentSink(room) {
+            if (!room) return false;
+            const needsSpawnEnergy = room.find(FIND_STRUCTURES, {
+                filter: s =>
+                    (s.structureType === STRUCTURE_SPAWN || s.structureType === STRUCTURE_EXTENSION) &&
+                    s.store &&
+                    s.store.getFreeCapacity(RESOURCE_ENERGY) > 0
+            }).length > 0;
+
+            if (needsSpawnEnergy) return true;
+
+            const needsTowerEnergy = room.find(FIND_STRUCTURES, {
+                filter: s =>
+                    s.structureType === STRUCTURE_TOWER &&
+                    s.store &&
+                    s.store.getFreeCapacity(RESOURCE_ENERGY) > 0 &&
+                    s.store[RESOURCE_ENERGY] < s.store.getCapacity(RESOURCE_ENERGY) * 0.9
+            }).length > 0;
+
+            return needsTowerEnergy;
+        }
+
         function doDeliver() {
             if (creep.store.getUsedCapacity(RESOURCE_ENERGY) === 0) return false;
             const delivery = findDeliveryTarget(creep.room);
@@ -164,6 +186,8 @@ module.exports = {
                 return doDeliver();
             }
 
+            if (!hasUrgentSink(creep.room)) return false;
+
             const withdrawTarget = findWithdrawTarget(creep.room);
             if (!withdrawTarget) return false;
             if (creep.withdraw(withdrawTarget, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
@@ -174,6 +198,8 @@ module.exports = {
 
         function doDistribute() {
             if (doDeliver()) return true;
+
+            if (!hasUrgentSink(creep.room)) return false;
 
             const source = findWithdrawTarget(creep.room);
             if (!source) return false;

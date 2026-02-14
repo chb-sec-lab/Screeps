@@ -18,9 +18,9 @@
   <main class="shell grid">
     <section class="card wide"><h2>Purpose</h2><p>Quick live checks and recovery commands for operation.</p></section>
     <section class="card"><h2>Room Constants</h2><ul><li>HOME: <code>E58S56</code></li><li>TARGET: <code>E57S56</code></li><li>EXPANSION: <code>E57S55</code></li></ul></section>
-    <section class="card"><h2>Expected Mission Quotas</h2><ul><li><code>builder@E57S56</code>: <code>2</code></li><li><code>repairer@E57S56</code>: <code>2</code></li><li><code>upgrader@E57S56</code>: <code>2</code></li><li><code>upgrader</code> global fallback: <code>4</code></li><li><code>claimer@E57S55</code>: <code>1</code> (reserve)</li><li><code>remoteMiner@E57S55</code>: <code>4</code></li><li><code>hauler@E57S55</code>: <code>1</code></li><li><code>scavenger</code>: <code>2</code></li></ul></section>
+    <section class="card"><h2>Expected Mission Quotas</h2><ul><li><code>builder@E58S56</code> (home): <code>1</code></li><li><code>repairer@E58S56</code> (home): <code>1</code></li><li><code>builder@E57S56</code>: <code>2</code></li><li><code>repairer@E57S56</code>: <code>2</code></li><li><code>upgrader@E57S56</code>: <code>2</code></li><li><code>upgrader</code> global fallback: <code>4</code></li><li><code>claimer@E57S55</code>: <code>1</code> (reserve)</li><li><code>remoteMiner@E57S55</code>: <code>4</code></li><li><code>hauler@E57S55</code>: <code>1</code></li><li><code>scavenger</code>: <code>2</code></li></ul></section>
     <section class="card"><h2>Scavenger Priority</h2><ul><li><code>1</code> deliver if loaded</li><li><code>2</code> scavenge (drops, ruins, tombs)</li><li><code>3</code> haul-assist from room buffers</li><li><code>4</code> distribute/rebalance local energy sinks</li></ul></section>
-    <section class="card"><h2>Heartbeat Interpretation</h2><ul><li><code>ASSIGN B@T:x/2 RP@T:y/2 U@T:z/2 C@E:a/1 RM@E:b/4 H@E:c/1</code></li><li><code>Spawn:BUSY n/m</code>: spawn capacity currently occupied.</li><li><code>QUEUE ...</code>: current deficit chain by priority.</li><li><code>DEF clear/alert threat(H/T/E):x/y/z</code>: hostile combat counts by home/target/expansion.</li></ul></section>
+    <section class="card"><h2>Heartbeat Interpretation</h2><ul><li><code>ASSIGN B@H:h/1 RP@H:r/1 B@T:x/2 RP@T:y/2 U@T:z/2 C@E:a/1 RM@E:b/4 H@E:c/1</code></li><li><code>Spawn:BUSY n/m</code>: spawn capacity currently occupied.</li><li><code>QUEUE ...</code>: current deficit chain by priority.</li><li><code>DEF clear/alert threat(H/T/E):x/y/z</code>: hostile combat counts by home/target/expansion.</li></ul></section>
     <section class="card"><h2>Audit Signals</h2><ul><li>Tactical audit (every 200 ticks):</li><li><code>AUDIT-T &lt;tick&gt; | ENERGY &lt;sum&gt; | HOSTILES &lt;sum&gt; | SPAWN &lt;busy&gt;/&lt;total&gt;</code></li><li>Strategic audit (every 3600 ticks):</li><li><code>--- STRATEGIC AUDIT &lt;tick&gt; ---</code> plus per-room health lines.</li></ul></section>
     <section class="card wide"><h2>Console Checks</h2><ul><li>Role distribution:</li><li><code>_.countBy(Game.creeps, c =&gt; c.memory.role)</code></li></ul>
 <ul><li>Repairers in target:</li><li><code>_.filter(Game.creeps, c =&gt; c.memory.role === 'repairer' &amp;&amp; c.memory.workRoom === 'E57S56').length</code></li></ul>
@@ -32,6 +32,6 @@
     <section class="card"><h2>Common Recovery Actions</h2><ul><li>Wrong mission room assignment:</li><li>update role memory (<code>workRoom</code>, <code>targetRoom</code>, <code>homeRoom</code>) and allow queue to stabilize.</li></ul>
 <ul><li>Spawn starvation in target room:</li><li>prioritize extension fill and keep local hauler throughput high.</li></ul></section>
   </main>
-  <footer class="shell footer"><p>Docs version <code>6.6.0</code> | Released (UTC) <code>2026-02-14T23:07:37Z</code></p></footer>
+  <footer class="shell footer"><p>Docs version <code>6.7.0</code> | Released (UTC) <code>2026-02-14T23:29:47Z</code></p></footer>
 </body>
 </html>

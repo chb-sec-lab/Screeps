@@ -30,6 +30,8 @@ System-level policy for architecture boundaries, mission priorities, and operati
 
 ## Enforced Quotas
 
+- `builder@E58S56` (home): `1`
+- `repairer@E58S56` (home): `1`
 - `builder@E57S56`: `2`
 - `repairer@E57S56`: `2`
 - `upgrader@E57S56`: `2`
@@ -59,6 +61,8 @@ System-level policy for architecture boundaries, mission priorities, and operati
 - Defense is spawned on demand when hostiles are detected in `HOME`, `TARGET`, or `EXPANSION`.
 - Defender demand remains active for a cooldown window after last detection to prevent spawn flapping.
 - Ramparts are maintained by repairers with a hard minimum floor (`10k`) and optional soft reinforcement in home room.
+- Remote haulers use minimum pickup thresholds to avoid low-value room-to-room oscillation.
+- Scavengers avoid withdraw/distribute loops unless the room has urgent sinks (spawn/extension/tower demand).
 
 ## Documentation Governance
 

@@ -27,7 +27,7 @@ module.exports = {
                 }
 
                 const dropped = creep.pos.findClosestByPath(FIND_DROPPED_RESOURCES, {
-                    filter: r => r.resourceType === RESOURCE_ENERGY && r.amount > 20
+                    filter: r => r.resourceType === RESOURCE_ENERGY && r.amount >= 100
                 });
                 if (dropped) {
                     if (creep.pickup(dropped) === ERR_NOT_IN_RANGE) creep.moveTo(dropped);
@@ -51,7 +51,7 @@ module.exports = {
                 }
 
                 const container = creep.pos.findClosestByPath(FIND_STRUCTURES, {
-                    filter: s => s.structureType === STRUCTURE_CONTAINER && s.store && s.store[RESOURCE_ENERGY] > 0
+                    filter: s => s.structureType === STRUCTURE_CONTAINER && s.store && s.store[RESOURCE_ENERGY] >= 200
                 });
                 if (container) {
                     if (creep.withdraw(container, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) creep.moveTo(container);

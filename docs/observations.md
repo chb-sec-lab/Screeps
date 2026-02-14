@@ -65,3 +65,10 @@ Capture non-urgent observations that improve system design, role policy, and ope
 - Impact: reduced mining throughput, avoidable movement cost, and slower controller upgrade velocity
 - Action: stabilized remote miner danger logic (no stale no-vision panic parking), increased target-room upgrader quota to `2`, raised global upgrader fallback to `4`, and prioritized upgrader energy withdrawal from storage/container/link before harvest fallback
 - Evidence: prior logs showed repeated movement thrashing, while new policy aligns `ASSIGN U@T` target and reduces long pathing to sources
+
+- Date-Time (UTC): `2026-02-14T23:29:47Z`
+- Context: Final night-hardening pass for role stability and room coverage
+- Observation: home room could lose builder/repairer coverage, scavengers could self-loop container energy, and one remote hauler could shuttle low-value loads between rooms
+- Impact: maintenance risk in home room and wasted pathing/CPU in logistics roles
+- Action: enforced `builder@HOME:1` and `repairer@HOME:1` with pinned `workRoom`, added scavenger urgent-sink gating, added remote-hauler minimum pickup thresholds, and migrated stale hauler memory (`homeRoom`) to home constant
+- Evidence: spawn assignment now reports `B@H` and `RP@H` targets, and role loops use explicit anti-oscillation checks
