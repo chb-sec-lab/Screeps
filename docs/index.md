@@ -39,6 +39,8 @@ Heartbeat-Logs liefern alle 20 Ticks:
 
 - HTML docs (recommended for navigation):
 - `overview.html`, `manifest.html`, `principles.html`, `architecture.html`, `runbook.html`, `observations.html`, `alerts.html`
+- Markdown remains the editable source:
+- update `.md` files, then run `python3 scripts/build-docs.py`
 - [System Manifest](manifest.md): Betriebsregeln, Quoten, Ownership
 - [Engineering Principles](principles.md): Architektur- und Qualitaetsgrundsaetze
 - [Operational Runbook](recue-commands.md): Live-Checks und Recovery-Aktionen

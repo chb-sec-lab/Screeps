@@ -71,3 +71,12 @@ Source of truth for architecture, operating rules, and mission priorities.
 - `alerts.md`: incidents, mitigations, and verified resolutions.
 - Entry style stays compact: context, impact, action, evidence.
 - Documentation navigation changes are treated as operational changes and must also be logged.
+
+## Docs Build Pipeline
+
+- Markdown files (`docs/*.md`) are the source of truth for documentation content.
+- Published website pages (`docs/*.html`) are generated artifacts for GitHub Pages.
+- Build command:
+- `python3 scripts/build-docs.py`
+- Generated pages:
+- `overview.html`, `manifest.html`, `principles.html`, `architecture.html`, `runbook.html`, `observations.html`, `alerts.html`

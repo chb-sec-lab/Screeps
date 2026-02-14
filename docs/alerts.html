@@ -1,8 +1,25 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>SCOS | Alerts</title><link rel="stylesheet" href="site.css"></head>
-<body><div class="bg-orb orb-a"></div><div class="bg-orb orb-b"></div>
-<header class="shell hero"><p class="kicker">SCOS Documentation</p><h1>Alerts</h1><p class="lead">Brief incident records with mitigation and prevention actions.</p>
-<nav class="doc-links"><a href="index.html">Portfolio</a><a href="overview.html">Overview</a><a href="manifest.html">Manifest</a><a href="principles.html">Principles</a><a href="architecture.html">Architecture</a><a href="runbook.html">Runbook</a><a href="observations.html">Observations</a><a href="alerts.html">Alerts</a><a href="../index.html">Hub</a></nav></header>
-<main class="shell grid"><section class="card"><h2>Severity</h2><ul><li><code>SEV-1</code> survival threat</li><li><code>SEV-2</code> major degradation</li><li><code>SEV-3</code> local issue</li></ul></section>
-<section class="card"><h2>Template</h2><ul><li>Date</li><li>Severity</li><li>Trigger</li><li>Scope</li><li>Response</li><li>Resolution</li></ul></section>
-<section class="card wide"><p><a href="alerts.md">Open full alerts.md</a></p></section></main></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SCOS | Alerts</title>
+  <link rel="stylesheet" href="site.css">
+</head>
+<body>
+  <div class="bg-orb orb-a"></div>
+  <div class="bg-orb orb-b"></div>
+  <header class="shell hero">
+    <p class="kicker">SCOS Documentation</p>
+    <h1>Alerts</h1>
+    <p class="lead">Incident-focused records with response and prevention actions.</p>
+    <nav class="doc-links" aria-label="Docs navigation"><a href="index.html">Portfolio</a><a href="overview.html">Overview</a><a href="manifest.html">Manifest</a><a href="principles.html">Principles</a><a href="architecture.html">Architecture</a><a href="runbook.html">Runbook</a><a href="observations.html">Observations</a><a href="alerts.html">Alerts</a><a href="../index.html">Hub</a></nav>
+  </header>
+  <main class="shell grid">
+    <section class="card wide"><h2>Purpose</h2><p>Track urgent production incidents and response quality. Keep entries brief and factual.</p></section>
+    <section class="card"><h2>Severity Scale</h2><ul><li><code>SEV-1</code>: Immediate threat to survival (home collapse, spawn deadlock, complete defense failure)</li><li><code>SEV-2</code>: Major degradation (target room unsafe, mission blocked, repeated spawn failures)</li><li><code>SEV-3</code>: Local issue with workaround (single-role instability, temporary routing issue)</li></ul></section>
+    <section class="card"><h2>Entry Template</h2><ul><li>Date (UTC): <code>YYYY-MM-DD</code></li><li>Severity: <code>SEV-x</code></li><li>Trigger: what happened</li><li>Scope: affected room(s)/role(s)</li><li>Immediate Response: first mitigation</li><li>Resolution: final fix</li><li>Follow-up: preventive action</li></ul></section>
+    <section class="card"><h2>Entries</h2><ul><li>Date (UTC): <code>2026-02-14</code></li><li>Severity: <code>SEV-2</code></li><li>Trigger: Invader pressure in <code>E57S56</code> while logistics and builder traffic were active</li><li>Scope: <code>remoteMiner</code>, <code>upgrader</code>, <code>builder</code> losses and interruptions</li><li>Immediate Response: threat-driven defender priority and emergency spawn path</li><li>Resolution: defender routing with memory-based target assignment</li><li>Follow-up: continue extension rollout in <code>E57S56</code> to improve local spawn throughput</li></ul></section>
+  </main>
+</body>
+</html>

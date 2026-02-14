@@ -1,8 +1,28 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>SCOS | Observations</title><link rel="stylesheet" href="site.css"></head>
-<body><div class="bg-orb orb-a"></div><div class="bg-orb orb-b"></div>
-<header class="shell hero"><p class="kicker">SCOS Documentation</p><h1>Observations</h1><p class="lead">Brief non-urgent operational learnings and resulting actions.</p>
-<nav class="doc-links"><a href="index.html">Portfolio</a><a href="overview.html">Overview</a><a href="manifest.html">Manifest</a><a href="principles.html">Principles</a><a href="architecture.html">Architecture</a><a href="runbook.html">Runbook</a><a href="observations.html">Observations</a><a href="alerts.html">Alerts</a><a href="../index.html">Hub</a></nav></header>
-<main class="shell grid"><section class="card"><h2>Template</h2><ul><li>Date</li><li>Context</li><li>Observation</li><li>Impact</li><li>Action</li><li>Evidence</li></ul></section>
-<section class="card"><h2>Current</h2><ul><li>Spawn2 energy fallback behavior</li><li>Scavenger and repair squad rollout</li></ul></section>
-<section class="card wide"><p><a href="observations.md">Open full observations.md</a></p></section></main></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SCOS | Observations</title>
+  <link rel="stylesheet" href="site.css">
+</head>
+<body>
+  <div class="bg-orb orb-a"></div>
+  <div class="bg-orb orb-b"></div>
+  <header class="shell hero">
+    <p class="kicker">SCOS Documentation</p>
+    <h1>Observations</h1>
+    <p class="lead">Concise non-urgent findings and follow-up actions.</p>
+    <nav class="doc-links" aria-label="Docs navigation"><a href="index.html">Portfolio</a><a href="overview.html">Overview</a><a href="manifest.html">Manifest</a><a href="principles.html">Principles</a><a href="architecture.html">Architecture</a><a href="runbook.html">Runbook</a><a href="observations.html">Observations</a><a href="alerts.html">Alerts</a><a href="../index.html">Hub</a></nav>
+  </header>
+  <main class="shell grid">
+    <section class="card wide"><h2>Purpose</h2><p>Capture non-urgent observations that improve system design, role policy, and operations quality.</p></section>
+    <section class="card"><h2>Entry Template</h2><ul><li>Date (UTC): <code>YYYY-MM-DD</code></li><li>Context: short situation statement</li><li>Observation: factual finding</li><li>Impact: why it matters</li><li>Action: what was changed or planned</li><li>Evidence: log line, metric, or replay note</li></ul></section>
+    <section class="card wide"><h2>Entries</h2><ul><li>Date (UTC): <code>2026-02-14</code></li><li>Context: Multi-spawn rollout with <code>Spawn2</code> in <code>E57S56</code></li><li>Observation: <code>Spawn2</code> repeatedly returned <code>ERR_NOT_ENOUGH_ENERGY</code> for full-size bodies</li><li>Impact: Defense and logistics reaction time degraded during invader pressure</li><li>Action: Added per-spawn adaptive body fallback in orchestration</li><li>Evidence: repeated <code>code=-6</code> lines in runtime logs</li></ul>
+<ul><li>Date (UTC): <code>2026-02-14</code></li><li>Context: Expansion room logistics scaling</li><li>Observation: Need for dedicated salvage collection and infra upkeep in target room</li><li>Impact: Lost dropped energy and delayed maintenance without towers in <code>E57S56</code></li><li>Action: Added <code>scavenger</code> role and <code>repairer</code> squad policy (<code>repairer@E57S56</code>)</li><li>Evidence: assignment and queue indicators in heartbeat (<code>ASSIGN</code>, <code>QUEUE</code>)</li></ul>
+<ul><li>Date (UTC): <code>2026-02-14</code></li><li>Context: Documentation and navigation reliability for GitHub Pages</li><li>Observation: root site and docs pages were inconsistent for cross-navigation</li><li>Impact: harder portfolio readability and slower operator onboarding</li><li>Action: added root hub <code>index.html</code> and standardized linked docs pages (<code>overview.html</code>, <code>manifest.html</code>, <code>principles.html</code>, <code>architecture.html</code>, <code>runbook.html</code>, <code>observations.html</code>, <code>alerts.html</code>)</li><li>Evidence: all pages now expose a shared navigation bar and reciprocal links</li></ul>
+<ul><li>Date (UTC): <code>2026-02-14</code></li><li>Context: Scavenger runtime behavior under low salvage conditions</li><li>Observation: scavengers could oscillate between rooms or stay loaded too long</li><li>Impact: reduced logistics efficiency and visible movement thrashing</li><li>Action: stabilized scavenger with deterministic priority (<code>deliver &gt; scavenge &gt; haul-assist &gt; distribute</code>) and salvage target locking</li><li>Evidence: role state persisted in memory (<code>salvageRoom</code>, <code>salvageId</code>, <code>salvageType</code>) and unload-first behavior</li></ul>
+<ul><li>Date (UTC): <code>2026-02-14</code></li><li>Context: Remote miner deposit routing</li><li>Observation: miners were not consistently preferring nearest local sinks</li><li>Impact: unnecessary travel and slower local room energy utilization</li><li>Action: added adjacent-sink check and local-first deposit path before home overflow fallback</li><li>Evidence: nearest sink selection now includes spawn/extension/container/storage/link in current room</li></ul></section>
+  </main>
+</body>
+</html>

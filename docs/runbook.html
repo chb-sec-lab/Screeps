@@ -1,8 +1,32 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>SCOS | Runbook</title><link rel="stylesheet" href="site.css"></head>
-<body><div class="bg-orb orb-a"></div><div class="bg-orb orb-b"></div>
-<header class="shell hero"><p class="kicker">SCOS Documentation</p><h1>Operational Runbook</h1><p class="lead">Live checks and short recovery procedures.</p>
-<nav class="doc-links"><a href="index.html">Portfolio</a><a href="overview.html">Overview</a><a href="manifest.html">Manifest</a><a href="principles.html">Principles</a><a href="architecture.html">Architecture</a><a href="runbook.html">Runbook</a><a href="observations.html">Observations</a><a href="alerts.html">Alerts</a><a href="../index.html">Hub</a></nav></header>
-<main class="shell grid"><section class="card"><h2>Fast Checks</h2><ul><li>Role counts</li><li>Room assignments</li><li>Spawn queue deficits</li></ul></section>
-<section class="card"><h2>Quotas</h2><ul><li><code>builder@E57S56</code> 2</li><li><code>repairer@E57S56</code> 2</li><li><code>remoteMiner@E57S55</code> 4</li><li><code>hauler@E57S55</code> 1</li></ul></section>
-<section class="card wide"><p><a href="recue-commands.md">Open full runbook markdown</a></p></section></main></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SCOS | Operational Runbook</title>
+  <link rel="stylesheet" href="site.css">
+</head>
+<body>
+  <div class="bg-orb orb-a"></div>
+  <div class="bg-orb orb-b"></div>
+  <header class="shell hero">
+    <p class="kicker">SCOS Documentation</p>
+    <h1>Operational Runbook</h1>
+    <p class="lead">Live checks and recovery procedures for day-to-day operation.</p>
+    <nav class="doc-links" aria-label="Docs navigation"><a href="index.html">Portfolio</a><a href="overview.html">Overview</a><a href="manifest.html">Manifest</a><a href="principles.html">Principles</a><a href="architecture.html">Architecture</a><a href="runbook.html">Runbook</a><a href="observations.html">Observations</a><a href="alerts.html">Alerts</a><a href="../index.html">Hub</a></nav>
+  </header>
+  <main class="shell grid">
+    <section class="card wide"><h2>Purpose</h2><p>Quick live checks and recovery commands for operation.</p></section>
+    <section class="card"><h2>Room Constants</h2><ul><li>HOME: <code>E58S56</code></li><li>TARGET: <code>E57S56</code></li><li>EXPANSION: <code>E57S55</code></li></ul></section>
+    <section class="card"><h2>Expected Mission Quotas</h2><ul><li><code>builder@E57S56</code>: <code>2</code></li><li><code>repairer@E57S56</code>: <code>2</code></li><li><code>upgrader@E57S56</code>: <code>1</code></li><li><code>claimer@E57S55</code>: <code>1</code> (reserve)</li><li><code>remoteMiner@E57S55</code>: <code>4</code></li><li><code>hauler@E57S55</code>: <code>1</code></li><li><code>scavenger</code>: <code>2</code></li></ul></section>
+    <section class="card"><h2>Scavenger Priority</h2><ul><li><code>1</code> deliver if loaded</li><li><code>2</code> scavenge (drops, ruins, tombs)</li><li><code>3</code> haul-assist from room buffers</li><li><code>4</code> distribute/rebalance local energy sinks</li></ul></section>
+    <section class="card"><h2>Heartbeat Interpretation</h2><ul><li><code>ASSIGN B@T:x/2 RP@T:y/2 U@T:z/1 C@E:a/1 RM@E:b/4 H@E:c/1</code></li><li><code>Spawn:BUSY n/m</code>: spawn capacity currently occupied.</li><li><code>QUEUE ...</code>: current deficit chain by priority.</li></ul></section>
+    <section class="card wide"><h2>Console Checks</h2><ul><li>Role distribution:</li><li><code>_.countBy(Game.creeps, c =&gt; c.memory.role)</code></li></ul>
+<ul><li>Repairers in target:</li><li><code>_.filter(Game.creeps, c =&gt; c.memory.role === 'repairer' &amp;&amp; c.memory.workRoom === 'E57S56').length</code></li></ul>
+<ul><li>Scavengers:</li><li><code>_.filter(Game.creeps, c =&gt; c.memory.role === 'scavenger').length</code></li></ul>
+<ul><li>Expansion haulers:</li><li><code>_.filter(Game.creeps, c =&gt; c.memory.role === 'hauler' &amp;&amp; c.memory.targetRoom === 'E57S55').length</code></li></ul></section>
+    <section class="card"><h2>Common Recovery Actions</h2><ul><li>Wrong mission room assignment:</li><li>update role memory (<code>workRoom</code>, <code>targetRoom</code>, <code>homeRoom</code>) and allow queue to stabilize.</li></ul>
+<ul><li>Spawn starvation in target room:</li><li>prioritize extension fill and keep local hauler throughput high.</li></ul></section>
+  </main>
+</body>
+</html>
