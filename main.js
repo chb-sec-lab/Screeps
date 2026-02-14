@@ -10,6 +10,7 @@ const TACTICAL_AUDIT_INTERVAL = 200;
 const STRATEGIC_AUDIT_INTERVAL = 3600;
 const AUDIT_RETENTION_TACTICAL = 120;
 const AUDIT_RETENTION_STRATEGIC = 100;
+const TARGET_UPGRADER_QUOTA = 2;
 
 let modules = {};
 const roleNames = ['harvester', 'hauler', 'scavenger', 'repairer', 'defender', 'vanguard', 'medic', 'breacher', 'remoteMiner', 'builder', 'claimer', 'upgrader'];
@@ -52,8 +53,16 @@ module.exports.loop = function () {
     const hasLiveThreat = homeThreat > 0 || targetThreat > 0 || expansionThreat > 0;
 
     if (hasLiveThreat) {
-        const urgentRoom = _.maxBy(Object.keys(roomThreats), roomName => roomThreats[roomName]);
-        const urgentThreat = roomThreats[urgentRoom] || 1;
+        let urgentRoom = rooms.HOME;
+        let urgentThreat = roomThreats[rooms.HOME] || 0;
+        Object.keys(roomThreats).forEach(roomName => {
+            const threat = roomThreats[roomName] || 0;
+            if (threat > urgentThreat) {
+                urgentThreat = threat;
+                urgentRoom = roomName;
+            }
+        });
+        urgentThreat = Math.max(1, urgentThreat);
 
         Memory.defense.activeUntil = Game.time + DEFENSE_COOLDOWN_TICKS;
         Memory.defense.targetRoom = urgentRoom;
@@ -202,6 +211,7 @@ module.exports.loop = function () {
         targetBuilders: baseNeeds.targetBuilders,
         targetRepairers: baseNeeds.targetRepairers,
         targetUpgraders: baseNeeds.targetUpgraders,
+        targetUpgraderNeed: TARGET_UPGRADER_QUOTA,
         expansionClaimers: baseNeeds.expansionClaimers,
         expansionRemoteMiners: baseNeeds.expansionRemoteMiners,
         expansionHaulers: baseNeeds.expansionHaulers,
@@ -226,7 +236,7 @@ module.exports.loop = function () {
     }
     addQueueEntry(baseNeeds.targetBuilders >= 2, `builder@${targetRoom}`, baseNeeds.targetBuilders, 2);
     addQueueEntry(baseNeeds.targetRepairers >= 2, `repairer@${targetRoom}`, baseNeeds.targetRepairers, 2);
-    addQueueEntry(baseNeeds.targetUpgraders >= 1, `upgrader@${targetRoom}`, baseNeeds.targetUpgraders, 1);
+    addQueueEntry(baseNeeds.targetUpgraders >= TARGET_UPGRADER_QUOTA, `upgrader@${targetRoom}`, baseNeeds.targetUpgraders, TARGET_UPGRADER_QUOTA);
     if (baseNeeds.shouldReserveExpansion) {
         addQueueEntry(baseNeeds.expansionClaimers >= 1, `claimer@${expansionRoom}`, baseNeeds.expansionClaimers, 1);
     }
@@ -254,7 +264,7 @@ module.exports.loop = function () {
         else if (armyOn && countRole('medic') < roles.COUNTS.medic) sRole = 'medic';
         else if (needs.targetBuilders < 2) sRole = 'builder';
         else if (needs.targetRepairers < 2) sRole = 'repairer';
-        else if (needs.targetUpgraders < 1) sRole = 'upgrader';
+        else if (needs.targetUpgraders < TARGET_UPGRADER_QUOTA) sRole = 'upgrader';
         else if (needs.shouldReserveExpansion && needs.expansionClaimers < 1) sRole = 'claimer';
         else if (needs.expansionRemoteMiners < 4) sRole = 'remoteMiner';
         else if (countRole('remoteMiner') < roles.COUNTS.remoteMiner) sRole = 'remoteMiner';
@@ -285,7 +295,7 @@ module.exports.loop = function () {
             spawnMemory.homeRoom = rooms.HOME;
         }
 
-        if (sRole === 'upgrader' && needs.targetUpgraders < 1) {
+        if (sRole === 'upgrader' && needs.targetUpgraders < TARGET_UPGRADER_QUOTA) {
             spawnMemory.targetRoom = targetRoom;
         }
 

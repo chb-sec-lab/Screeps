@@ -58,3 +58,10 @@ Capture non-urgent observations that improve system design, role policy, and ope
 - Impact: permanent defense would waste energy and spawn bandwidth under clear-room conditions
 - Action: switched to threat-triggered defender spawning across home/target/expansion, added cooldown window, introduced tactical/strategic audits, and added rampart floor maintenance
 - Evidence: repeated heartbeats showed `NRG 1800/1800`, `DEF clear threat(H/T/E):0/0/0`, and `QUEUE clear` during observed interval
+
+- Date-Time (UTC): `2026-02-14T23:07:37Z`
+- Context: Post-combat runtime stabilization and controller progression optimization
+- Observation: remote miners oscillated after intruder cleanup and upgraders spent excessive time harvesting from natural sources
+- Impact: reduced mining throughput, avoidable movement cost, and slower controller upgrade velocity
+- Action: stabilized remote miner danger logic (no stale no-vision panic parking), increased target-room upgrader quota to `2`, raised global upgrader fallback to `4`, and prioritized upgrader energy withdrawal from storage/container/link before harvest fallback
+- Evidence: prior logs showed repeated movement thrashing, while new policy aligns `ASSIGN U@T` target and reduces long pathing to sources

@@ -32,11 +32,12 @@ System-level policy for architecture boundaries, mission priorities, and operati
 
 - `builder@E57S56`: `2`
 - `repairer@E57S56`: `2`
-- `upgrader@E57S56`: `1`
+- `upgrader@E57S56`: `2`
 - `claimer@E57S55` (reserve): `1`
 - `remoteMiner@E57S55`: `4`
 - `hauler@E57S55`: `1`
 - `scavenger` (global): `2`
+- `upgrader` (global fallback): `4`
 - `defender`: `0` baseline, escalates on live threat with cooldown.
 
 ## Observability Contract

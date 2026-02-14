@@ -31,3 +31,11 @@ Track urgent production incidents and response quality. Keep entries brief and f
 - Immediate Response: threat-driven defender priority and emergency spawn path
 - Resolution: defender routing with memory-based target assignment
 - Follow-up: continue extension rollout in `E57S56` to improve local spawn throughput
+
+- Date-Time (UTC): `2026-02-14T22:34:00Z`
+- Severity: `SEV-2`
+- Trigger: kernel loop crash during active intruder period (`TypeError: _.maxBy is not a function`)
+- Scope: full colony orchestration paused due to exception in `main.js`
+- Immediate Response: replaced unsupported lodash helper with runtime-safe native loop selection for urgent threat room
+- Resolution: loop recovered and threat handling resumed without repeated crash spam
+- Follow-up: avoid non-portable lodash helpers in Screeps runtime and prefer explicit JS loops in critical paths

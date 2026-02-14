@@ -17,7 +17,7 @@ module.exports = {
         claimer:     0,
         remoteMiner: 8, // Global fallback count (room-specific quotas are handled in main.js)
         builder:     1,
-        upgrader:    3,
+        upgrader:    4,
         vanguard:    0, // NO WAR MODE
         medic:       0, // NO WAR MODE
         breacher:    0

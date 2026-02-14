@@ -18,9 +18,45 @@ module.exports = {
         if (creep.memory.upgrading) {
             if (creep.upgradeController(creep.room.controller) === ERR_NOT_IN_RANGE) creep.moveTo(creep.room.controller);
         } else {
-            const src = creep.room.storage || creep.pos.findClosestByRange(FIND_SOURCES_ACTIVE);
-            const action = (src instanceof Structure) ? creep.withdraw(src, RESOURCE_ENERGY) : creep.harvest(src);
-            if (action === ERR_NOT_IN_RANGE) creep.moveTo(src);
+            let src = creep.pos.findClosestByPath(FIND_STRUCTURES, {
+                filter: s =>
+                    s.store &&
+                    s.store[RESOURCE_ENERGY] > 0 &&
+                    (
+                        s.structureType === STRUCTURE_STORAGE ||
+                        s.structureType === STRUCTURE_CONTAINER ||
+                        s.structureType === STRUCTURE_LINK
+                    )
+            });
+
+            if (!src) {
+                src = creep.pos.findClosestByPath(FIND_RUINS, {
+                    filter: r => r.store && r.store[RESOURCE_ENERGY] > 0
+                });
+            }
+
+            if (!src) {
+                src = creep.pos.findClosestByPath(FIND_TOMBSTONES, {
+                    filter: t => t.store && t.store[RESOURCE_ENERGY] > 0
+                });
+            }
+
+            if (!src) {
+                src = creep.pos.findClosestByPath(FIND_DROPPED_RESOURCES, {
+                    filter: r => r.resourceType === RESOURCE_ENERGY && r.amount >= 25
+                });
+            }
+
+            if (src) {
+                const action = (src.amount !== undefined) ? creep.pickup(src) : creep.withdraw(src, RESOURCE_ENERGY);
+                if (action === ERR_NOT_IN_RANGE) creep.moveTo(src);
+                return;
+            }
+
+            const natural = creep.pos.findClosestByPath(FIND_SOURCES_ACTIVE);
+            if (natural) {
+                if (creep.harvest(natural) === ERR_NOT_IN_RANGE) creep.moveTo(natural);
+            }
         }
     }
 };

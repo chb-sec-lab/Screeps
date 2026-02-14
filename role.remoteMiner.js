@@ -36,14 +36,9 @@ module.exports = {
             creep.memory.lastDangerTick = Game.time;
         }
 
-        let isDangerous = false;
-        if (hostilesInSight) {
-            isDangerous = true;
-        } else if (!targetView) {
-            const recentlyDangerous =
-                creep.memory.lastDangerTick && (Game.time - creep.memory.lastDangerTick < 50);
-            if (recentlyDangerous) isDangerous = true;
-        }
+        // Only react to direct, visible threat.
+        // No-vision "recent danger" created oscillation/crowding in home room.
+        const isDangerous = hostilesInSight;
 
         if (isDangerous) {
             creep.say(hostilesInSight ? '📢 GEFAHR!' : '⌛ Abwarten');
@@ -52,13 +47,8 @@ module.exports = {
                 const exit = creep.pos.findClosestByRange(creep.room.findExitTo(homeRoom));
                 creep.moveTo(exit, { visualizePathStyle: { stroke: '#ff0000' } });
             } else {
-                const parkingSpot = new RoomPosition(3, 11, homeRoom);
-                if (!creep.pos.inRangeTo(parkingSpot, 3)) {
-                    creep.moveTo(parkingSpot, { visualizePathStyle: { stroke: '#555555' } });
-                    creep.say('🅿️ Parking');
-                } else {
-                    creep.say('💤 Standby');
-                }
+                // Hold position in safe room to avoid "dance" from crowding one parking point.
+                creep.say('💤 Standby');
             }
             return;
         }
