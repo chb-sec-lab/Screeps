@@ -15,6 +15,11 @@ module.exports = {
         if (!target) {
             target = creep.pos.findClosestByRange(FIND_HOSTILE_CREEPS);
         }
+        if (!target) {
+            target = creep.pos.findClosestByRange(FIND_HOSTILE_STRUCTURES, {
+                filter: s => s.structureType === STRUCTURE_INVADER_CORE
+            });
+        }
 
         // --- 2. COMBAT ACTIONS ---
         if (target) {

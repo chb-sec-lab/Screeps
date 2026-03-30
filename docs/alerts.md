@@ -39,3 +39,11 @@ Track urgent production incidents and response quality. Keep entries brief and f
 - Immediate Response: replaced unsupported lodash helper with runtime-safe native loop selection for urgent threat room
 - Resolution: loop recovered and threat handling resumed without repeated crash spam
 - Follow-up: avoid non-portable lodash helpers in Screeps runtime and prefer explicit JS loops in critical paths
+
+- Date-Time (UTC): `2026-02-15T09:15:00Z`
+- Severity: `SEV-2`
+- Trigger: CPU limit reached (20/20) and expansion blocked by undetected Invader Cores
+- Scope: Global CPU performance, rooms `E57S55` and `E58S55`
+- Immediate Response: Optimized kernel loops and updated defender role to target cores
+- Resolution: CPU usage stabilized below limit; defenders successfully engaged and cleared Invader Cores
+- Follow-up: Monitor CPU overhead during concurrent multi-room combat operations

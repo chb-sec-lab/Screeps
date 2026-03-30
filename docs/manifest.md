@@ -11,6 +11,7 @@ System-level policy for architecture boundaries, mission priorities, and operati
 - Home room: `E58S56`
 - Target room: `E57S56`
 - Expansion room: `E57S55`
+- Mining room: `E58S55`
 
 ## Operational Priorities
 
@@ -35,7 +36,7 @@ System-level policy for architecture boundaries, mission priorities, and operati
 - `builder@E57S56`: `2`
 - `repairer@E57S56`: `2`
 - `upgrader@E57S56`: `2`
-- `claimer@E57S55` (reserve): `1`
+- `claimer@E57S55` (reserve/mine): `1`
 - `remoteMiner@E57S55`: `4`
 - `hauler@E57S55`: `1`
 - `scavenger` (global): `2`

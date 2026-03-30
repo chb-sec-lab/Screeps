@@ -19,6 +19,7 @@ SCOS is a multi-room Screeps operating system focused on reliable expansion, exp
 - Home room: `E58S56`
 - Target room: `E57S56`
 - Expansion room: `E57S55`
+- Mining room: `E58S55`
 
 ## Control Model
 

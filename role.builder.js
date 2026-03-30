@@ -174,7 +174,7 @@ module.exports = {
             // 2) BUILD PRIORITIES (spawn -> containers -> towers -> others -> roads last)
             const sites = creep.room.find(FIND_CONSTRUCTION_SITES);
 
-            const pickSite = (arr) => creep.pos.findClosestByPath(arr);
+            const pickSite = (arr) => creep.pos.findClosestByRange(arr);
 
             let targetSite = null;
 

@@ -11,6 +11,7 @@ Quick live checks and recovery commands for operation.
 - HOME: `E58S56`
 - TARGET: `E57S56`
 - EXPANSION: `E57S55`
+- MINING: `E58S55`
 
 ## Expected Mission Quotas
 

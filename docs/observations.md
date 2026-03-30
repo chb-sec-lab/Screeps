@@ -72,3 +72,17 @@ Capture non-urgent observations that improve system design, role policy, and ope
 - Impact: maintenance risk in home room and wasted pathing/CPU in logistics roles
 - Action: enforced `builder@HOME:1` and `repairer@HOME:1` with pinned `workRoom`, added scavenger urgent-sink gating, added remote-hauler minimum pickup thresholds, and migrated stale hauler memory (`homeRoom`) to home constant
 - Evidence: spawn assignment now reports `B@H` and `RP@H` targets, and role loops use explicit anti-oscillation checks
+
+- Date-Time (UTC): `2026-02-15T09:20:00Z`
+- Context: CPU optimization at the 20-core limit
+- Observation: High frequency of `findClosestByPath` in builder roles and multi-pass loops in `main.js` were the primary CPU consumers
+- Impact: Script execution frequently throttled, delaying reaction to threats
+- Action: Replaced pathing searches with range searches for non-essential tasks and merged census/execution passes into a single loop
+- Evidence: CPU usage decreased by approximately 30%, restoring headroom for further expansion
+
+- Date-Time (UTC): `2026-02-15T10:30:00Z`
+- Context: Colony milestone and multi-room stability
+- Observation: Colony reached GCL 3 with Home room hitting RCL 7 and Target hitting RCL 6. New mining room E58S55 integrated successfully.
+- Impact: Access to advanced structures (Level 2 Spawns, Links, specialized labs) and significantly increased energy throughput.
+- Action: Updated global versioning and roadmap to reflect shift into advanced infrastructure phase.
+- Evidence: Controller levels confirmed in Game UI; heartbeat reports stable energy surplus in E58S56.

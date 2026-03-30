@@ -38,18 +38,23 @@ module.exports.loop = function () {
 
     function getHostileCount(room) {
         if (!room) return 0;
-        return room.find(FIND_HOSTILE_CREEPS, {
+        const creeps = room.find(FIND_HOSTILE_CREEPS, {
             filter: c =>
                 c.getActiveBodyparts(ATTACK) > 0 ||
                 c.getActiveBodyparts(RANGED_ATTACK) > 0 ||
                 c.getActiveBodyparts(HEAL) > 0
         }).length;
+        const cores = room.find(FIND_HOSTILE_STRUCTURES, {
+            filter: s => s.structureType === STRUCTURE_INVADER_CORE
+        }).length;
+        return creeps + cores;
     }
 
     const roomThreats = {
         [rooms.HOME]: getHostileCount(homeRoom),
         [rooms.TARGET]: getHostileCount(targetRoomView),
-        [rooms.EXPANSION]: getHostileCount(expansionRoomView)
+        [rooms.EXPANSION]: getHostileCount(expansionRoomView),
+        [rooms.MINING]: getHostileCount(Game.rooms[rooms.MINING])
     };
     const homeThreat = roomThreats[rooms.HOME];
     const targetThreat = roomThreats[rooms.TARGET];
@@ -93,11 +98,8 @@ module.exports.loop = function () {
             logger.log(`⚠️ ATTACK: ${creep.name} in ${creep.room.name}!`, 'error');
         }
         creep.memory.lastHits = creep.hits;
-    }
 
-    // --- PASS 2: EXECUTION ---
-    for (let name in Game.creeps) {
-        const creep = Game.creeps[name];
+        // --- EXECUTION (Merged Pass) ---
         creep.memory.home = rooms.HOME;
         creep.memory.target = rooms.TARGET;
 
@@ -224,7 +226,7 @@ module.exports.loop = function () {
     }
 
     const baseNeeds = readNeeds();
-    roomAssignments = {
+    roomAssignments = { // Re-assigning to roomAssignments directly, it's better to do it once
         homeBuilders: baseNeeds.homeBuilders,
         homeBuilderNeed: HOME_BUILDER_QUOTA,
         homeRepairers: baseNeeds.homeRepairers,
@@ -232,7 +234,7 @@ module.exports.loop = function () {
         targetBuilders: baseNeeds.targetBuilders,
         targetRepairers: baseNeeds.targetRepairers,
         targetUpgraders: baseNeeds.targetUpgraders,
-        targetUpgraderNeed: TARGET_UPGRADER_QUOTA,
+        targetUpgraderNeed: TARGET_UPGRADER_QUOTA, // This was just a typo fix, it's correct now.
         expansionClaimers: baseNeeds.expansionClaimers,
         expansionRemoteMiners: baseNeeds.expansionRemoteMiners,
         expansionHaulers: baseNeeds.expansionHaulers,
@@ -275,23 +277,22 @@ module.exports.loop = function () {
     for (const spawn of idleSpawns) {
         let sRole = null;
         let spawnMemory = null;
-        const needs = readNeeds();
 
         if (countRole('harvester') < 2) sRole = 'harvester';
         else if (countRole('hauler') < roles.COUNTS.hauler) sRole = 'hauler';
-        else if (defenseActive && needs.defenseDefenders < defenseNeed) sRole = 'defender';
+        else if (defenseActive && baseNeeds.defenseDefenders < defenseNeed) sRole = 'defender';
         else if (countRole('scavenger') < roles.COUNTS.scavenger) sRole = 'scavenger';
-        else if (needs.expansionHaulers < 1) sRole = 'hauler';
+        else if (baseNeeds.expansionHaulers < 1) sRole = 'hauler';
         else if (countRole('harvester') < roles.COUNTS.harvester) sRole = 'harvester';
         else if (armyOn && countRole('vanguard') < roles.COUNTS.vanguard) sRole = 'vanguard';
         else if (armyOn && countRole('medic') < roles.COUNTS.medic) sRole = 'medic';
-        else if (needs.homeBuilders < HOME_BUILDER_QUOTA) sRole = 'builder';
-        else if (needs.homeRepairers < HOME_REPAIRER_QUOTA) sRole = 'repairer';
-        else if (needs.targetBuilders < TARGET_BUILDER_QUOTA) sRole = 'builder';
-        else if (needs.targetRepairers < TARGET_REPAIRER_QUOTA) sRole = 'repairer';
-        else if (needs.targetUpgraders < TARGET_UPGRADER_QUOTA) sRole = 'upgrader';
-        else if (needs.shouldReserveExpansion && needs.expansionClaimers < 1) sRole = 'claimer';
-        else if (needs.expansionRemoteMiners < 4) sRole = 'remoteMiner';
+        else if (baseNeeds.homeBuilders < HOME_BUILDER_QUOTA) sRole = 'builder';
+        else if (baseNeeds.homeRepairers < HOME_REPAIRER_QUOTA) sRole = 'repairer';
+        else if (baseNeeds.targetBuilders < TARGET_BUILDER_QUOTA) sRole = 'builder';
+        else if (baseNeeds.targetRepairers < TARGET_REPAIRER_QUOTA) sRole = 'repairer';
+        else if (baseNeeds.targetUpgraders < TARGET_UPGRADER_QUOTA) sRole = 'upgrader';
+        else if (baseNeeds.shouldReserveExpansion && baseNeeds.expansionClaimers < 1) sRole = 'claimer';
+        else if (baseNeeds.expansionRemoteMiners < 4) sRole = 'remoteMiner';
         else if (countRole('remoteMiner') < roles.COUNTS.remoteMiner) sRole = 'remoteMiner';
         else if (countRole('builder') < roles.COUNTS.builder) sRole = 'builder';
         else if (countRole('claimer') < roles.COUNTS.claimer) sRole = 'claimer';
@@ -302,38 +303,38 @@ module.exports.loop = function () {
         const name = roles.generateName(sRole);
         spawnMemory = { role: sRole };
 
-        if (sRole === 'builder' && needs.homeBuilders < HOME_BUILDER_QUOTA) {
+        if (sRole === 'builder' && baseNeeds.homeBuilders < HOME_BUILDER_QUOTA) {
             spawnMemory.workRoom = rooms.HOME;
-        } else if (sRole === 'builder' && needs.targetBuilders < TARGET_BUILDER_QUOTA) {
+        } else if (sRole === 'builder' && baseNeeds.targetBuilders < TARGET_BUILDER_QUOTA) {
             spawnMemory.workRoom = targetRoom;
         }
 
-        if (sRole === 'repairer' && needs.homeRepairers < HOME_REPAIRER_QUOTA) {
+        if (sRole === 'repairer' && baseNeeds.homeRepairers < HOME_REPAIRER_QUOTA) {
             spawnMemory.workRoom = rooms.HOME;
-        } else if (sRole === 'repairer' && needs.targetRepairers < TARGET_REPAIRER_QUOTA) {
+        } else if (sRole === 'repairer' && baseNeeds.targetRepairers < TARGET_REPAIRER_QUOTA) {
             spawnMemory.workRoom = targetRoom;
         }
 
-        if (sRole === 'hauler' && needs.expansionHaulers < 1 && countRole('hauler') >= roles.COUNTS.hauler) {
+        if (sRole === 'hauler' && baseNeeds.expansionHaulers < 1 && countRole('hauler') >= roles.COUNTS.hauler) {
             spawnMemory.targetRoom = expansionRoom;
             spawnMemory.homeRoom = rooms.HOME;
         }
 
-        if (sRole === 'defender' && defenseActive && needs.defenseDefenders < defenseNeed) {
+        if (sRole === 'defender' && defenseActive && baseNeeds.defenseDefenders < defenseNeed) {
             spawnMemory.targetRoom = defenseTargetRoom;
             spawnMemory.homeRoom = rooms.HOME;
         }
 
-        if (sRole === 'upgrader' && needs.targetUpgraders < TARGET_UPGRADER_QUOTA) {
+        if (sRole === 'upgrader' && baseNeeds.targetUpgraders < TARGET_UPGRADER_QUOTA) {
             spawnMemory.targetRoom = targetRoom;
         }
 
-        if (sRole === 'claimer' && needs.shouldReserveExpansion && needs.expansionClaimers < 1) {
+        if (sRole === 'claimer' && baseNeeds.shouldReserveExpansion && baseNeeds.expansionClaimers < 1) {
             spawnMemory.targetRoom = expansionRoom;
             spawnMemory.claimMode = 'reserve';
         }
 
-        if (sRole === 'remoteMiner' && needs.expansionRemoteMiners < 4) {
+        if (sRole === 'remoteMiner' && baseNeeds.expansionRemoteMiners < 4) {
             spawnMemory.targetRoom = expansionRoom;
             spawnMemory.homeRoom = rooms.HOME;
         }
