@@ -86,13 +86,15 @@ module.exports.loop = function () {
 
     // --- PASS 1: CENSUS & SOURCE TRACKING ---
     const sourceAssignments = {};
-    if (homeRoom) homeRoom.find(FIND_SOURCES).forEach(s => sourceAssignments[s.id] = 0);
+    [homeRoom, targetRoomView, expansionRoomView].forEach(room => {
+        if (room) room.find(FIND_SOURCES).forEach(s => sourceAssignments[s.id] = 0);
+    });
 
     for (let name in Game.creeps) {
         const creep = Game.creeps[name];
         census[creep.memory.role]++;
         if (creep.memory.role === 'harvester' && creep.memory.targetSourceId) {
-            sourceAssignments[creep.memory.targetSourceId]++;
+            sourceAssignments[creep.memory.targetSourceId] = (sourceAssignments[creep.memory.targetSourceId] || 0) + 1;
         }
         
         // Attack Detection
@@ -115,11 +117,14 @@ module.exports.loop = function () {
         }
 
         // Auto-fix Harvesters without source
-        if (creep.memory.role === 'harvester' && !creep.memory.targetSourceId && homeRoom) {
-            const best = _.sortBy(homeRoom.find(FIND_SOURCES), s => sourceAssignments[s.id])[0];
-            if (best) {
-                creep.memory.targetSourceId = best.id;
-                sourceAssignments[best.id]++;
+        if (creep.memory.role === 'harvester' && !creep.memory.targetSourceId) {
+            if (creep.room) {
+                const sources = creep.room.find(FIND_SOURCES);
+                const best = _.sortBy(sources, s => sourceAssignments[s.id] || 0)[0];
+                if (best) {
+                    creep.memory.targetSourceId = best.id;
+                    sourceAssignments[best.id] = (sourceAssignments[best.id] || 0) + 1;
+                }
             }
         }
 

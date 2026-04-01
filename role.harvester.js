@@ -5,8 +5,12 @@
 module.exports = {
     run: function(creep) {
         if (creep.store.getFreeCapacity() > 0) {
-            const source = creep.pos.findClosestByPath(FIND_SOURCES_ACTIVE);
-            if (creep.harvest(source) === ERR_NOT_IN_RANGE) {
+            let source = Game.getObjectById(creep.memory.targetSourceId);
+            if (!source) {
+                source = creep.pos.findClosestByPath(FIND_SOURCES_ACTIVE);
+            }
+            
+            if (source && creep.harvest(source) === ERR_NOT_IN_RANGE) {
                 creep.moveTo(source, { visualizePathStyle: { stroke: '#ffaa00' } });
             }
         } else {

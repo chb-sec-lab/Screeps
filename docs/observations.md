@@ -100,3 +100,10 @@ Capture non-urgent observations that improve system design, role policy, and ope
 - Impact: Degraded energy throughput and worker efficiency in the target room. Stored energy was wasted.
 - Action: Generalized the `hauler` role to operate in any `workRoom`. Spawned a dedicated local hauler for `E57S56` to manage internal logistics, moving energy from containers to spawns, extensions, and towers.
 - Evidence: New `H@T:1/1` assignment in heartbeat logs. Containers in `E57S56` are now actively used as buffers.
+
+- Date-Time (UTC): `2026-02-15T14:00:00Z`
+- Context: Major infrastructure rollout in `E58S56` and `E57S56` (second tower, storage, roads, extra extensions) and Harvester inefficiency.
+- Observation: Harvesters in `E57S56` were clustering on the left source and ignoring the right source. `role.harvester.js` was missing memory-based target locking, defaulting to the closest active source.
+- Impact: Significant loss of potential energy throughput in the target room despite the new advanced infrastructure.
+- Action: Updated `main.js` source assignments to be multi-room aware, and fixed `role.harvester.js` to strictly respect `creep.memory.targetSourceId`.
+- Evidence: Harvesters are now distributed evenly across both energy sources in `E57S56`.
