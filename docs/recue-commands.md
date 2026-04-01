@@ -20,6 +20,7 @@ Quick live checks and recovery commands for operation.
 - `builder@E57S56`: `2`
 - `repairer@E57S56`: `2`
 - `upgrader@E57S56`: `2`
+- `hauler@E57S56`: `1` (local logistics)
 - `upgrader` global fallback: `4`
 - `claimer@E57S55`: `1` (reserve)
 - `remoteMiner@E57S55`: `4`
@@ -35,7 +36,7 @@ Quick live checks and recovery commands for operation.
 
 ## Heartbeat Interpretation
 
-- `ASSIGN B@H:h/1 RP@H:r/1 B@T:x/2 RP@T:y/2 U@T:z/2 C@E:a/1 RM@E:b/4 H@E:c/1`
+- `ASSIGN B@H:h/1 RP@H:r/1 B@T:x/2 RP@T:y/2 U@T:z/2 H@T:d/1 C@E:a/1 RM@E:b/4 H@E:c/1`
 - `Spawn:BUSY n/m`: spawn capacity currently occupied.
 - `QUEUE ...`: current deficit chain by priority.
 - `DEF clear/alert threat(H/T/E):x/y/z`: hostile combat counts by home/target/expansion.

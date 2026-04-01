@@ -86,3 +86,17 @@ Capture non-urgent observations that improve system design, role policy, and ope
 - Impact: Access to advanced structures (Level 2 Spawns, Links, specialized labs) and significantly increased energy throughput.
 - Action: Updated global versioning and roadmap to reflect shift into advanced infrastructure phase.
 - Evidence: Controller levels confirmed in Game UI; heartbeat reports stable energy surplus in E58S56.
+
+- Date-Time (UTC): `2026-02-15T12:00:00Z`
+- Context: E57S56 maintenance instability and missing MINING miners
+- Observation: Tower in E57S56 was idle because main.js hardcoded tower logic only for the HOME room. Also, remote miners for E58S55 were listed in the manifest but omitted from the main.js spawn queue.
+- Impact: Target room infrastructure degraded without tower support. E58S55 energy sources remained unharvested.
+- Action: Integrated structure.tower.js globally into main.js for all tracked rooms. Added missing miningRemoteMiners quota to main.js and updated utils.logger.js.
+- Evidence: Target room towers now actively repair; RM@M appears in HEARTBEAT assignments.
+
+- Date-Time (UTC): `2026-02-15T12:30:00Z`
+- Context: Logistics inefficiency in target room `E57S56`
+- Observation: Containers in `E57S56` were being filled but never emptied, while worker creeps (builders, upgraders) were inefficiently harvesting from sources. The room lacked a dedicated local logistics role.
+- Impact: Degraded energy throughput and worker efficiency in the target room. Stored energy was wasted.
+- Action: Generalized the `hauler` role to operate in any `workRoom`. Spawned a dedicated local hauler for `E57S56` to manage internal logistics, moving energy from containers to spawns, extensions, and towers.
+- Evidence: New `H@T:1/1` assignment in heartbeat logs. Containers in `E57S56` are now actively used as buffers.

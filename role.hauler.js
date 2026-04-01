@@ -14,14 +14,15 @@ const rooms = require('config.rooms');
 
 module.exports = {
     run: function (creep) {
-        const targetRoom = creep.memory.targetRoom || null;
-        const homeRoom = creep.memory.homeRoom || rooms.HOME;
+        const remoteTargetRoom = creep.memory.targetRoom || null;
+        const deliveryRoom = creep.memory.homeRoom || rooms.HOME;
+        const localWorkRoom = creep.memory.workRoom || rooms.HOME;
 
-        if (targetRoom) {
+        if (remoteTargetRoom) {
             // Assigned remote hauler: loot in target room, deliver in home room.
             if (creep.store.getUsedCapacity(RESOURCE_ENERGY) === 0) {
-                if (creep.room.name !== targetRoom) {
-                    const exit = creep.pos.findClosestByRange(creep.room.findExitTo(targetRoom));
+                if (creep.room.name !== remoteTargetRoom) {
+                    const exit = creep.pos.findClosestByRange(creep.room.findExitTo(remoteTargetRoom));
                     if (exit) creep.moveTo(exit);
                     return;
                 }
@@ -62,13 +63,13 @@ module.exports = {
                 return;
             }
 
-            if (creep.room.name !== homeRoom) {
-                const exit = creep.pos.findClosestByRange(creep.room.findExitTo(homeRoom));
+            if (creep.room.name !== deliveryRoom) {
+                const exit = creep.pos.findClosestByRange(creep.room.findExitTo(deliveryRoom));
                 if (exit) creep.moveTo(exit);
                 return;
             }
-        } else if (creep.room.name !== homeRoom) {
-            const exit = creep.pos.findClosestByRange(creep.room.findExitTo(homeRoom));
+        } else if (creep.room.name !== localWorkRoom) {
+            const exit = creep.pos.findClosestByRange(creep.room.findExitTo(localWorkRoom));
             if (exit) creep.moveTo(exit);
             return;
         }
