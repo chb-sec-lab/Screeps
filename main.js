@@ -11,12 +11,15 @@ const TACTICAL_AUDIT_INTERVAL = 200;
 const STRATEGIC_AUDIT_INTERVAL = 3600;
 const AUDIT_RETENTION_TACTICAL = 120;
 const AUDIT_RETENTION_STRATEGIC = 100;
-const TARGET_UPGRADER_QUOTA = 2;
-const TARGET_BUILDER_QUOTA = 2;
+const TARGET_UPGRADER_QUOTA = 1;
+const TARGET_BUILDER_QUOTA = 1;
 const TARGET_REPAIRER_QUOTA = 2;
 const TARGET_HAULER_QUOTA = 1;
 const HOME_BUILDER_QUOTA = 1;
 const HOME_REPAIRER_QUOTA = 1;
+const MINING_BUILDER_QUOTA = 2; // Bootstrap new claimed room
+const EXPANSION_MINER_QUOTA = 0; // Blocked by Invader Core
+const EXPANSION_HAULER_QUOTA = 0; // Blocked by Invader Core
 
 let modules = {};
 const roleNames = ['harvester', 'hauler', 'scavenger', 'repairer', 'defender', 'vanguard', 'medic', 'breacher', 'remoteMiner', 'builder', 'claimer', 'upgrader'];
@@ -175,13 +178,14 @@ module.exports.loop = function () {
         const targetRepairers = countAssigned('repairer', targetRoom, 'workRoom');
         const targetUpgraders = countAssigned('upgrader', targetRoom, 'targetRoom');
         const targetHaulers = countAssigned('hauler', targetRoom, 'workRoom');
-        const expansionClaimers = countAssigned('claimer', expansionRoom, 'targetRoom');
+        const miningBuilders = countAssigned('builder', rooms.MINING, 'workRoom');
+        const miningClaimers = countAssigned('claimer', rooms.MINING, 'targetRoom');
         const expansionRemoteMiners = countAssigned('remoteMiner', expansionRoom, 'targetRoom');
         const expansionHaulers = countAssigned('hauler', expansionRoom, 'targetRoom');
         const miningRemoteMiners = countAssigned('remoteMiner', rooms.MINING, 'targetRoom');
         const defenseDefenders = defenseTargetRoom ? countAssigned('defender', defenseTargetRoom, 'targetRoom') : 0;
-        const expansionController = Game.rooms[expansionRoom] && Game.rooms[expansionRoom].controller;
-        const shouldReserveExpansion = !expansionController || !expansionController.my;
+        const miningController = Game.rooms[rooms.MINING] && Game.rooms[rooms.MINING].controller;
+        const shouldReserveMining = !miningController || !miningController.my;
         return {
             homeBuilders,
             homeRepairers,
@@ -189,12 +193,13 @@ module.exports.loop = function () {
             targetRepairers,
             targetUpgraders,
             targetHaulers,
-            expansionClaimers,
+            miningBuilders,
+            miningClaimers,
             expansionRemoteMiners,
             expansionHaulers,
             miningRemoteMiners,
             defenseDefenders,
-            shouldReserveExpansion
+            shouldReserveMining
         };
     }
 
@@ -236,7 +241,8 @@ module.exports.loop = function () {
         targetUpgraders: baseNeeds.targetUpgraders,
         targetUpgraderNeed: TARGET_UPGRADER_QUOTA, // This was just a typo fix, it's correct now.
         targetHaulers: baseNeeds.targetHaulers,
-        expansionClaimers: baseNeeds.expansionClaimers,
+        miningBuilders: baseNeeds.miningBuilders,
+        miningClaimers: baseNeeds.miningClaimers,
         expansionRemoteMiners: baseNeeds.expansionRemoteMiners,
         expansionHaulers: baseNeeds.expansionHaulers,
         miningRemoteMiners: baseNeeds.miningRemoteMiners,
@@ -253,7 +259,7 @@ module.exports.loop = function () {
     if (defenseActive) {
         addQueueEntry(baseNeeds.defenseDefenders >= defenseNeed, `defender@${defenseTargetRoom}`, baseNeeds.defenseDefenders, defenseNeed);
     }
-    addQueueEntry(baseNeeds.expansionHaulers >= 1, `hauler@${expansionRoom}`, baseNeeds.expansionHaulers, 1);
+    addQueueEntry(baseNeeds.expansionHaulers >= EXPANSION_HAULER_QUOTA, `hauler@${expansionRoom}`, baseNeeds.expansionHaulers, EXPANSION_HAULER_QUOTA);
     addQueueEntry(countRole('harvester') >= roles.COUNTS.harvester, 'harvester.target', countRole('harvester'), roles.COUNTS.harvester);
     if (armyOn) {
         addQueueEntry(countRole('vanguard') >= roles.COUNTS.vanguard, 'vanguard', countRole('vanguard'), roles.COUNTS.vanguard);
@@ -265,11 +271,12 @@ module.exports.loop = function () {
     addQueueEntry(baseNeeds.targetRepairers >= TARGET_REPAIRER_QUOTA, `repairer@${targetRoom}`, baseNeeds.targetRepairers, TARGET_REPAIRER_QUOTA);
     addQueueEntry(baseNeeds.targetHaulers >= TARGET_HAULER_QUOTA, `hauler@${targetRoom}`, baseNeeds.targetHaulers, TARGET_HAULER_QUOTA);
     addQueueEntry(baseNeeds.targetUpgraders >= TARGET_UPGRADER_QUOTA, `upgrader@${targetRoom}`, baseNeeds.targetUpgraders, TARGET_UPGRADER_QUOTA);
-    if (baseNeeds.shouldReserveExpansion) {
-        addQueueEntry(baseNeeds.expansionClaimers >= 1, `claimer@${expansionRoom}`, baseNeeds.expansionClaimers, 1);
+    addQueueEntry(baseNeeds.miningBuilders >= MINING_BUILDER_QUOTA, `builder@${rooms.MINING}`, baseNeeds.miningBuilders, MINING_BUILDER_QUOTA);
+    if (baseNeeds.shouldReserveMining) {
+        addQueueEntry(baseNeeds.miningClaimers >= 1, `claimer@${rooms.MINING}`, baseNeeds.miningClaimers, 1);
     }
-    addQueueEntry(baseNeeds.expansionRemoteMiners >= 4, `remoteMiner@${expansionRoom}`, baseNeeds.expansionRemoteMiners, 4);
-        addQueueEntry(baseNeeds.miningRemoteMiners >= 4, `remoteMiner@${rooms.MINING}`, baseNeeds.miningRemoteMiners, 4);
+    addQueueEntry(baseNeeds.expansionRemoteMiners >= EXPANSION_MINER_QUOTA, `remoteMiner@${expansionRoom}`, baseNeeds.expansionRemoteMiners, EXPANSION_MINER_QUOTA);
+    addQueueEntry(baseNeeds.miningRemoteMiners >= 4, `remoteMiner@${rooms.MINING}`, baseNeeds.miningRemoteMiners, 4);
     addQueueEntry(countRole('remoteMiner') >= roles.COUNTS.remoteMiner, 'remoteMiner', countRole('remoteMiner'), roles.COUNTS.remoteMiner);
     addQueueEntry(countRole('builder') >= roles.COUNTS.builder, 'builder', countRole('builder'), roles.COUNTS.builder);
     addQueueEntry(countRole('claimer') >= roles.COUNTS.claimer, 'claimer', countRole('claimer'), roles.COUNTS.claimer);
@@ -287,7 +294,7 @@ module.exports.loop = function () {
         else if (defenseActive && baseNeeds.defenseDefenders < defenseNeed) sRole = 'defender';
         else if (baseNeeds.targetHaulers < TARGET_HAULER_QUOTA) sRole = 'hauler';
         else if (countRole('scavenger') < roles.COUNTS.scavenger) sRole = 'scavenger';
-        else if (baseNeeds.expansionHaulers < 1) sRole = 'hauler';
+        else if (baseNeeds.expansionHaulers < EXPANSION_HAULER_QUOTA) sRole = 'hauler';
         else if (countRole('harvester') < roles.COUNTS.harvester) sRole = 'harvester';
         else if (armyOn && countRole('vanguard') < roles.COUNTS.vanguard) sRole = 'vanguard';
         else if (armyOn && countRole('medic') < roles.COUNTS.medic) sRole = 'medic';
@@ -296,8 +303,9 @@ module.exports.loop = function () {
         else if (baseNeeds.targetBuilders < TARGET_BUILDER_QUOTA) sRole = 'builder';
         else if (baseNeeds.targetRepairers < TARGET_REPAIRER_QUOTA) sRole = 'repairer';
         else if (baseNeeds.targetUpgraders < TARGET_UPGRADER_QUOTA) sRole = 'upgrader';
-        else if (baseNeeds.shouldReserveExpansion && baseNeeds.expansionClaimers < 1) sRole = 'claimer';
-        else if (baseNeeds.expansionRemoteMiners < 4) sRole = 'remoteMiner';
+        else if (baseNeeds.miningBuilders < MINING_BUILDER_QUOTA) sRole = 'builder';
+        else if (baseNeeds.shouldReserveMining && baseNeeds.miningClaimers < 1) sRole = 'claimer';
+        else if (baseNeeds.expansionRemoteMiners < EXPANSION_MINER_QUOTA) sRole = 'remoteMiner';
         else if (baseNeeds.miningRemoteMiners < 4) sRole = 'remoteMiner';
         else if (countRole('remoteMiner') < roles.COUNTS.remoteMiner) sRole = 'remoteMiner';
         else if (countRole('builder') < roles.COUNTS.builder) sRole = 'builder';
@@ -313,6 +321,8 @@ module.exports.loop = function () {
             spawnMemory.workRoom = rooms.HOME;
         } else if (sRole === 'builder' && baseNeeds.targetBuilders < TARGET_BUILDER_QUOTA) {
             spawnMemory.workRoom = targetRoom;
+        } else if (sRole === 'builder' && baseNeeds.miningBuilders < MINING_BUILDER_QUOTA) {
+            spawnMemory.workRoom = rooms.MINING;
         }
 
         if (sRole === 'repairer' && baseNeeds.homeRepairers < HOME_REPAIRER_QUOTA) {
@@ -326,7 +336,7 @@ module.exports.loop = function () {
                 // This is a home hauler, no extra memory needed, it will default to workRoom=HOME
             } else if (baseNeeds.targetHaulers < TARGET_HAULER_QUOTA) {
                 spawnMemory.workRoom = targetRoom;
-            } else if (baseNeeds.expansionHaulers < 1) {
+            } else if (baseNeeds.expansionHaulers < EXPANSION_HAULER_QUOTA) {
                 spawnMemory.targetRoom = expansionRoom;
                 spawnMemory.homeRoom = rooms.HOME;
             }
@@ -341,13 +351,13 @@ module.exports.loop = function () {
             spawnMemory.targetRoom = targetRoom;
         }
 
-        if (sRole === 'claimer' && baseNeeds.shouldReserveExpansion && baseNeeds.expansionClaimers < 1) {
-            spawnMemory.targetRoom = expansionRoom;
-            spawnMemory.claimMode = 'reserve';
+        if (sRole === 'claimer' && baseNeeds.shouldReserveMining && baseNeeds.miningClaimers < 1) {
+            spawnMemory.targetRoom = rooms.MINING;
+            spawnMemory.claimMode = 'claim';
         }
 
         if (sRole === 'remoteMiner') {
-            if (baseNeeds.expansionRemoteMiners < 4) {
+            if (baseNeeds.expansionRemoteMiners < EXPANSION_MINER_QUOTA) {
                 spawnMemory.targetRoom = expansionRoom;
                 spawnMemory.homeRoom = rooms.HOME;
             } else if (baseNeeds.miningRemoteMiners < 4) {

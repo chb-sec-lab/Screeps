@@ -17,14 +17,16 @@ Quick live checks and recovery commands for operation.
 
 - `builder@E58S56` (home): `1`
 - `repairer@E58S56` (home): `1`
-- `builder@E57S56`: `2`
+- `builder@E57S56`: `1`
 - `repairer@E57S56`: `2`
-- `upgrader@E57S56`: `2`
+- `upgrader@E57S56`: `1`
 - `hauler@E57S56`: `1` (local logistics)
 - `upgrader` global fallback: `4`
-- `claimer@E57S55`: `1` (reserve)
-- `remoteMiner@E57S55`: `4`
-- `hauler@E57S55`: `1`
+- `builder@E58S55`: `2` (bootstrap)
+- `claimer@E58S55`: `1` (claim)
+- `remoteMiner@E57S55`: `0`
+- `remoteMiner@E58S55`: `4`
+- `hauler@E57S55`: `0`
 - `scavenger`: `2`
 
 ## Scavenger Priority

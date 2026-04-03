@@ -33,13 +33,15 @@ System-level policy for architecture boundaries, mission priorities, and operati
 
 - `builder@E58S56` (home): `1`
 - `repairer@E58S56` (home): `1`
-- `builder@E57S56`: `2`
+- `builder@E57S56`: `1`
 - `repairer@E57S56`: `2`
-- `upgrader@E57S56`: `2`
+- `upgrader@E57S56`: `1`
 - `hauler@E57S56`: `1`
-- `claimer@E57S55` (reserve/mine): `1`
-- `remoteMiner@E57S55`: `4`
-- `hauler@E57S55`: `1`
+- `builder@E58S55` (bootstrap): `2`
+- `claimer@E58S55` (claim): `1`
+- `remoteMiner@E57S55`: `0`
+- `remoteMiner@E58S55`: `4`
+- `hauler@E57S55`: `0`
 - `scavenger` (global): `2`
 - `upgrader` (global fallback): `4`
 - `defender`: `0` baseline, escalates on live threat with cooldown.

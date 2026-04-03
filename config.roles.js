@@ -1,6 +1,6 @@
 /**
- * config.roles.js - SCOS v6.2.1
- * Updated: 2026-02-12 17:45 CET
+ * config.roles.js - SCOS v6.2.2
+ * Updated: 2026-02-15
  * Status: NO_WAR_MODE (Expansion Priority)
  */
 module.exports = {
@@ -15,7 +15,7 @@ module.exports = {
         repairer:    0,
         defender:    0,
         claimer:     0,
-        remoteMiner: 8, // Global fallback count (room-specific quotas are handled in main.js)
+        remoteMiner: 0, // Managed exclusively by room quotas in main.js
         builder:     1,
         upgrader:    4,
         vanguard:    0, // NO WAR MODE

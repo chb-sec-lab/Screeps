@@ -107,3 +107,45 @@ Capture non-urgent observations that improve system design, role policy, and ope
 - Impact: Significant loss of potential energy throughput in the target room despite the new advanced infrastructure.
 - Action: Updated `main.js` source assignments to be multi-room aware, and fixed `role.harvester.js` to strictly respect `creep.memory.targetSourceId`.
 - Evidence: Harvesters are now distributed evenly across both energy sources in `E57S56`.
+
+- Date-Time (UTC): `2026-02-15T15:30:00Z`
+- Context: Idling remote miners and haulers in `E57S55` during Invader Core presence.
+- Observation: An Invader Core reserves the room controller, physically preventing creeps from harvesting sources (`ERR_NOT_OWNER`). The creeps were not just idle; their actions were blocked by game rules.
+- Impact: Massive energy/CPU waste as creeps stood paralyzed.
+- Action: Shifted strategy from reserving to actively claiming the 3rd room (`E58S55`) utilizing GCL 3. Spawning 2 pioneer builders (`B@M`) to bootstrap the new room while ignoring the blocked room.
+- Evidence: Creeps in `E57S55` threw invisible harvest errors; claimer successfully switched to `claimController`.
+
+- Date-Time (UTC): `2026-02-15T15:45:00Z`
+- Context: Retrospective on `E57S55` Invader Core attrition.
+- Observation: Invader Cores repeatedly spawned (10+ destroyed cores counted) because the room was only reserved. Game mechanics prevent regular Invader Cores from spawning in fully claimed rooms.
+- Impact: Prolonged resource drain and blocked remote mining (`ERR_NOT_OWNER`). A premature shift to `claim` (utilizing GCL 3) would have prevented the spawns entirely.
+- Action: Strategic rule established: If a vital expansion room is under heavy Invader Core attrition and GCL is available, prioritize `claim` over `reserve` to permanently suppress Invader spawns.
+- Evidence: Visual confirmation of 10+ core ruins in `E57S55`.
+
+- Date-Time (UTC): `2026-02-15T16:00:00Z`
+- Context: Remaining miner/hauler pair paralyzed in `E57S55`.
+- Observation: Maintaining a quota of 1 for the reserved room caused creeps to spawn, travel, and silently fail at `harvest()` due to `ERR_NOT_OWNER`.
+- Impact: Deadlocked creeps wasting CPU and spawn energy.
+- Action: Set `E57S55` quotas (`EXPANSION_MINER_QUOTA` and `EXPANSION_HAULER_QUOTA`) to 0 in `main.js`. Added explicit `ERR_NOT_OWNER` check in `role.remoteMiner.js` to flee room and emit '⛔ Core!'.
+- Evidence: Miner stood completely still at the source, hauler waited endlessly for energy.
+
+- Date-Time (UTC): `2026-02-15T16:15:00Z`
+- Context: Remote logistics safety.
+- Observation: Haulers on remote missions lacked self-preservation logic and would blindly path into rooms with hostiles or Invader Cores.
+- Impact: Potential loss of haulers and carried resources if routed through or operating in compromised rooms.
+- Action: Added early-exit enemy avoidance logic to `role.hauler.js`. Haulers now flee to their designated delivery room if they encounter armed hostiles or cores in remote rooms.
+- Evidence: Code updated to scan for armed hostiles and cores; hauler state changes to '📢 Flee!'.
+
+- Date-Time (UTC): `2026-02-15T16:30:00Z`
+- Context: Log analysis post-deployment of E57S55 abandonment.
+- Observation: A small overlap window during deployment allowed `hauler@E57S55` and `remoteMiner@E57S55` to spawn before the quota dropped to 0, resulting in `1/0` assignments. Furthermore, global `config.roles.js` still had a hardcoded `remoteMiner: 8` fallback, competing with local quotas.
+- Impact: Risk of the spawner constantly replacing remote miners without proper room targets due to the global fallback exceeding actual sum of room quotas.
+- Action: Reduced `remoteMiner` global fallback in `config.roles.js` from `8` to `0`, ensuring all remote mining is strictly managed by `main.js` multi-room logic.
+- Evidence: Console logs displayed `RM@E:1/0 H@E:1/0` and `RM@M:8/4`.
+
+- Date-Time (UTC): `2026-02-15T16:45:00Z`
+- Context: Finalizing the abandonment of `E57S55` and stabilizing `E58S55`.
+- Observation: All stranded creeps in `E57S55` were successfully redirected to the new mining room `E58S55` via manual memory override in the console. The system heartbeat reflects clean 0/0 assignments for the abandoned room.
+- Impact: Operations are fully stable again, CPU is no longer wasted on deadlocked/fleeing creeps, and the new mining room is operating at full capacity without Invader Core suppression.
+- Action: System state confirmed healthy. Transition from 'reserve' to 'claim' strategy for GCL 3 expansions validated.
+- Evidence: Heartbeat shows `RM@E:0/0 H@E:0/0`.

@@ -6,7 +6,7 @@
 
 SCOS is a production-oriented Screeps system focused on stability, observability, and scalable multi-room expansion.
 
-- Version: `6.8.0`
+- Version: `6.9.0`
 - Kernel: single-pass orchestration with priority spawn ladder
 - Status: `GCL 3` | `RCL 7` (Home) | `RCL 6` (Target) | Stable
 
@@ -19,12 +19,13 @@ SCOS is a production-oriented Screeps system focused on stability, observability
 
 ## Enforced Mission Quotas
 
-- `builder@E57S56`: `2`
-- `upgrader@E57S56`: `2`
-- `claimer@E57S55` (reserve): `1`
-- `remoteMiner@E57S55`: `4`
+- `builder@E57S56`: `1`
+- `upgrader@E57S56`: `1`
+- `builder@E58S55`: `2`
+- `claimer@E58S55` (claim): `1`
+- `remoteMiner@E57S55`: `0`
 - `remoteMiner@E58S55`: `4`
-- `hauler@E57S55`: `1`
+- `hauler@E57S55`: `0`
 
 ## Observability Model
 

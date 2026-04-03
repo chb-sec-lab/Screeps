@@ -205,6 +205,10 @@ module.exports = {
             const harvestResult = creep.harvest(source);
             if (harvestResult === ERR_NOT_IN_RANGE) {
                 creep.moveTo(source, { visualizePathStyle: { stroke: '#ffaa00' } });
+            } else if (harvestResult === ERR_NOT_OWNER) {
+                creep.say('⛔ Core!');
+                const exit = creep.pos.findClosestByRange(creep.room.findExitTo(homeRoom));
+                if (exit) creep.moveTo(exit, { visualizePathStyle: { stroke: '#ff0000' } });
             }
             return;
 

@@ -47,3 +47,11 @@ Track urgent production incidents and response quality. Keep entries brief and f
 - Immediate Response: Optimized kernel loops and updated defender role to target cores
 - Resolution: CPU usage stabilized below limit; defenders successfully engaged and cleared Invader Cores
 - Follow-up: Monitor CPU overhead during concurrent multi-room combat operations
+
+- Date-Time (UTC): `2026-02-15T15:00:00Z`
+- Severity: `SEV-2`
+- Trigger: Persistent hostile presence in `E57S55` caused total loss of energy imports, starving the target room `E57S56` infrastructure.
+- Scope: `E57S56` (infrastructure buffers) and `E57S55` (remote miners/claimer).
+- Immediate Response: Reduced `TARGET_UPGRADER_QUOTA` and `TARGET_BUILDER_QUOTA` to 1. Reduced `E57S55` remote miners to 1.
+- Resolution: Shifted the `claimer` spawn priority to `E58S55` to safely secure and double energy output from the secondary mining room.
+- Follow-up: Evaluate if `E57S55` should be abandoned completely if hostility continues.
