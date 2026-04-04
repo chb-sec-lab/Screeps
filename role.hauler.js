@@ -36,6 +36,12 @@ module.exports = {
         }
 
         if (remoteTargetRoom) {
+            // --- PRE-FLIGHT CHECK: Wait for healing if damaged before leaving safe room ---
+            if (creep.hits < creep.hitsMax && creep.room.name === deliveryRoom) {
+                creep.say('🩹 Pit Stop');
+                return; // Warte im sicheren Raum, bis der Tower dich vollgeheilt hat
+            }
+
             // Assigned remote hauler: loot in target room, deliver in home room.
             if (creep.store.getUsedCapacity(RESOURCE_ENERGY) === 0) {
                 if (creep.room.name !== remoteTargetRoom) {

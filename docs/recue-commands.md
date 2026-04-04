@@ -80,3 +80,6 @@ Quick live checks and recovery commands for operation.
 
 - Spawn starvation in target room:
 - prioritize extension fill and keep local hauler throughput high.
+
+- Decommissioning obsolete/stuck creeps:
+- Set `Game.creeps['name'].memory.recycle = true` in console to send them to the nearest spawn for energy recycling instead of using `suicide()`.

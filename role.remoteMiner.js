@@ -143,6 +143,12 @@ module.exports = {
         if (creep.store.getFreeCapacity() > 0) {
             // Need Energy: Go to Target Room
             if (creep.room.name !== targetRoom) {
+                // --- PRE-FLIGHT CHECK: Wait for healing if damaged before leaving safe room ---
+                if (creep.hits < creep.hitsMax && creep.room.name === homeRoom) {
+                    creep.say('🩹 Pit Stop');
+                    return; // Warte im sicheren Raum, bis der Tower dich vollgeheilt hat
+                }
+
                 const exit = creep.pos.findClosestByRange(creep.room.findExitTo(targetRoom));
                 creep.moveTo(exit, { visualizePathStyle: { stroke: '#ffffff' } });
                 return;

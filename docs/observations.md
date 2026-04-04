@@ -149,3 +149,80 @@ Capture non-urgent observations that improve system design, role policy, and ope
 - Impact: Operations are fully stable again, CPU is no longer wasted on deadlocked/fleeing creeps, and the new mining room is operating at full capacity without Invader Core suppression.
 - Action: System state confirmed healthy. Transition from 'reserve' to 'claim' strategy for GCL 3 expansions validated.
 - Evidence: Heartbeat shows `RM@E:0/0 H@E:0/0`.
+
+- Date-Time (UTC): `2026-02-15T18:00:00Z`
+- Context: Milestones in E58S55 (MINING) room.
+- Observation: Room successfully progressed to RCL 2 with Spawn3 built, containers placed, and 5 extensions under construction.
+- Impact: E58S55 is now transitioning from a pure remote mining outpost to a fully functional base.
+- Action: Added `MINING_UPGRADER_QUOTA: 1` and `MINING_HAULER_QUOTA: 1` to orchestrator to fully leverage the new local infrastructure and push RCL further.
+- Evidence: Code updated to spawn local haulers and upgraders in MINING room.
+
+- Date-Time (UTC): `2026-02-15T18:15:00Z`
+- Context: E57S55 (EXPANSION) continuous Invader Core disruptions.
+- Observation: The target room was heavily disrupted by Invader Cores and claimers. Defenders took too long to traverse, and builders/haulers were getting stuck at borders trying to fulfill stale memory tasks.
+- Impact: Wasted CPU and idle creeps hanging around room borders unable to operate safely.
+- Action: Completely abandoned E57S55 by commenting it out of `config.rooms.js` registry. E58S55 is now the exclusive focus for expansion.
+- Evidence: Builder `pickBestWorkRoom` no longer evaluates E57S55.
+
+- Date-Time (UTC): `2026-02-15T18:30:00Z`
+- Context: Complete energy starvation in E57S56 (TARGET) despite presence of local creeps.
+- Observation: The 6 base harvesters were correctly locking to sources in the HOME room (where they spawned), leaving E57S56 completely unmined. Haulers in E57S56 had no stored energy to transport.
+- Impact: Storage and extensions remained empty. Upgraders and builders had to harvest manually, drastically reducing efficiency.
+- Action: Introduced a dedicated `TARGET_MINER_QUOTA: 4` utilizing the `remoteMiner` role but with `homeRoom` and `targetRoom` both set to E57S56, instructing them to mine and deposit locally.
+- Evidence: Heartbeat now tracks `RM@T:4` and haulers have energy to move.
+
+- Date-Time (UTC): `2026-02-15T19:00:00Z`
+- Context: Evaluation of claiming `E57S55` to permanently stop Invader Cores.
+- Observation: The colony is currently at Global Control Level (GCL) 3, meaning the maximum number of claimed rooms is 3 (`E58S56`, `E57S56`, and newly established `E58S55`).
+- Impact: `E57S55` cannot be claimed to suppress Invader Cores. It can only be reserved, which allows Cores to continuously respawn and harass operations.
+- Action: Officially abandoned `E57S55` as an expansion target and re-routed all logic and constants to `E58S55`.
+- Evidence: Game mechanics dictate Invader Cores spawn in unowned/reserved rooms to disrupt remote mining.
+
+- Date-Time (UTC): `2026-02-15T19:30:00Z`
+- Context: Pathfinding across multi-room topology containing hostiles.
+- Observation: Standard `creep.moveTo()` blindly takes the shortest route, which dragged creeps through the heavily hostile `E57S55` when traveling diagonally between `E57S56` and `E58S55`.
+- Impact: Flee mechanics clashed with shortest-path logic, creating infinite room-border oscillation.
+- Action: Added strict transit corridors in the kernel (`main.js`) to force routing through the safe `HOME` room (`E58S56`) and a forced EVAC state for any creep stepping into `E57S55`.
+- Evidence: Creeps displayed "📢 Flee!" directly followed by stepping back onto the exit tile continuously.
+
+- Date-Time (UTC): `2026-02-15T20:00:00Z`
+- Context: Replacing hardcoded "Safe Corridors" with dynamic PathFinder routing.
+- Observation: Hardcoding specific room-to-room detours in `main.js` is unscalable and brittle as the colony expands.
+- Impact: Prevents writing complex routing rules for every new room combination.
+- Action: Implemented a global `BLACKLIST` in `config.rooms.js` and a prototype override for `Creep.prototype.moveTo` in `main.js`. Returning `false` in `opts.roomCallback` forces the global PathFinder to treat the entire room as unwalkable.
+- Evidence: Hardcoded detours removed from kernel; creeps naturally path around `E57S55` using default movement calls.
+
+- Date-Time (UTC): `2026-02-15T20:30:00Z`
+- Context: Cross-room healing constraints and Creep survival.
+- Observation: Towers cannot heal across room boundaries due to Screeps mechanics, leading to damaged creeps returning to dangerous rooms before being fully healed.
+- Impact: Increased mortality rate for logistics and mining creeps operating in remote rooms.
+- Action: Added a "Pre-flight Check" (Pit Stop) logic to `role.hauler.js` and `role.remoteMiner.js`. Creeps now pause their mission and wait in their Home room if `hits < hitsMax` so the local Tower can fully heal them before they cross the border.
+- Evidence: Damaged creeps display "🩹 Pit Stop" and remain in the safe room until fully repaired.
+
+- Date-Time (UTC): `2026-02-15T21:00:00Z`
+- Context: Defender survivability in sustained cross-room combat.
+- Observation: Defenders fought to the death in target rooms because they lacked self-preservation logic, forcing the colony to constantly spend energy replacing them.
+- Impact: High energy drain during invasions and temporary loss of room control while replacements traveled.
+- Action: Implemented "Tactical Retreat" and "Pit Stop" logic in `role.defender.js`. Defenders now flee to `HOME` if their health drops below 40% (`hits < hitsMax * 0.4`), where they hold position until Towers fully heal them.
+- Evidence: Defenders emit "🚑 Retreat!" and return to home safely, reusing the same body for multiple engagements.
+
+- Date-Time (UTC): `2026-02-15T22:30:00Z`
+- Context: Defense capability during heavy invader pressure (2+ hostiles).
+- Observation: A single unassisted defender was vulnerable to being overwhelmed by grouped hostiles, leading to attrition and resource drain.
+- Impact: Slower threat clearance and higher rebuilding costs for defense units.
+- Action: Activated the dormant `role.healer.js` script and integrated dynamic threat scaling in `main.js`. The system now scales up to 3 defenders based on enemy count, and automatically deploys a dedicated `healer` if threat levels reach 2 or more.
+- Evidence: Spawn queue now displays `healer@TARGET` when multiple hostiles appear, and logger tracks `heal:1/1` during DEF ALERT.
+
+- Date-Time (UTC): `2026-02-15T23:00:00Z`
+- Context: Transitioning to advanced economy (Phase 4 Roadmap).
+- Observation: `E58S56` (HOME) reached RCL 7 and `E57S56` (TARGET) reached RCL 6, enabling Extractor structures and mineral harvesting.
+- Impact: The colony can now gather raw minerals necessary for Labs, boosts, and market trades.
+- Action: Implemented dynamic `mineralMiner` queue detection in `main.js`. It automatically identifies rooms with `RCL >= 6`, an active `Extractor`, and `mineral.amount > 0` to spawn and dispatch a dedicated `mineralMiner` who delivers directly to the Terminal/Storage.
+- Evidence: Heartbeat assignments now track `MM@<Room>` quotas and `MINM` population appears.
+
+- Date-Time (UTC): `2026-02-15T23:45:00Z`
+- Context: CPU Bucket limits and Creep lifecycle management.
+- Observation: Highly optimized code leads to a full CPU bucket (10,000), wasting potential market value. Obsolete creeps previously had to be manually killed (`suicide`), wasting their initial energy cost.
+- Impact: Lost opportunity for Pixel generation (credits) and wasted energy from unneeded creeps.
+- Action: Added automated `Game.cpu.generatePixel()` when bucket is full. Implemented a universal `creep.memory.recycle` flag that routes creeps to the nearest spawn to reclaim their energy cost.
+- Evidence: `Game.cpu.bucket` check at the end of the main loop and `recycleCreep` logic intercepting standard role execution.

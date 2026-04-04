@@ -55,3 +55,35 @@ Track urgent production incidents and response quality. Keep entries brief and f
 - Immediate Response: Reduced `TARGET_UPGRADER_QUOTA` and `TARGET_BUILDER_QUOTA` to 1. Reduced `E57S55` remote miners to 1.
 - Resolution: Shifted the `claimer` spawn priority to `E58S55` to safely secure and double energy output from the secondary mining room.
 - Follow-up: Evaluate if `E57S55` should be abandoned completely if hostility continues.
+
+- Date-Time (UTC): `2026-02-15T19:00:00Z`
+- Severity: `SEV-3`
+- Trigger: Armada of creeps (haulers, builders, upgraders) stuck oscillating at the border of `E57S55`.
+- Scope: Legacy creeps holding `E57S55` in memory + Flawed flee logic.
+- Immediate Response: Added automatic memory purge in `main.js` execution loop to instantly redirect `E57S55` assignments to the active `E58S55` room.
+- Resolution: Creeps instantly unblocked and resumed work. 
+- Follow-up: Reassigned the `EXPANSION` constant in `config.rooms.js` to officially cut ties with `E57S55`.
+
+- Date-Time (UTC): `2026-02-15T19:30:00Z`
+- Severity: `SEV-2`
+- Trigger: Creep Armada still bouncing endlessly between `E58S55` and `E57S55` despite memory purge.
+- Scope: Global pathfinding and Flee logic.
+- Immediate Response: Investigated map topology. Identified that the default Screeps `PathFinder` routes creeps traveling between `TARGET (E57S56)` and `MINING (E58S55)` through the `E57S55` shortcut. Upon entering, the `hauler` Flee logic triggers, forcing them back, creating an infinite loop.
+- Resolution: Implemented strict **Quarantine Zone** and **Safe Corridor** logic in `main.js`. Creeps in `E57S55` are forced to EVAC immediately overriding any role logic. Cross-room travel between TARGET and MINING is hard-routed through `HOME`.
+- Follow-up: Future remote strategies must explicitly map safe transit corridors if adjacent rooms are occupied by hostile Invader Cores.
+
+- Date-Time (UTC): `2026-02-15T22:05:00Z`
+- Severity: `SEV-2`
+- Trigger: Kernel loop crash (`ReferenceError: dynamicMinerQueue is not defined`).
+- Scope: Full colony orchestration halted.
+- Immediate Response: Added missing `dynamicMinerQueue` array initialization and population loop right before it is assigned to `roomAssignments` in `main.js`.
+- Resolution: Loop successfully recovered and dynamic harvester spawning resumed.
+- Follow-up: Ensure full variable scope transfers during module patching.
+
+- Date-Time (UTC): `2026-02-15T23:30:00Z`
+- Severity: `SEV-3`
+- Trigger: Harvesters and Scavengers endlessly ping-ponging at room borders (`E58S56` -> `E57S56` and `E58S55`).
+- Scope: Logistics and Mining roles across multi-room deployments.
+- Immediate Response: Identified state-machine flaws. Harvesters were locking onto `HOME` sources during spawn and trying to return to them from target rooms. Scavengers with partial energy loads crossed borders for tiny salvage amounts when local delivery failed.
+- Resolution: Updated `main.js` to automatically clear cross-room source locks and only assign sources when harvesters reach their `targetRoom`. Modified `role.scavenger.js` to strictly forbid cross-room scavenging if already carrying energy (using `localOnly` scoping).
+- Follow-up: Future roles with "lock-on" behavior must validate that their locked target exists in the correct designated operational room.

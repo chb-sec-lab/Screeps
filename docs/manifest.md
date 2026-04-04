@@ -27,6 +27,7 @@ System-level policy for architecture boundaries, mission priorities, and operati
 - `claimer`: `memory.targetRoom`, `memory.claimMode`
 - `remoteMiner`: `memory.targetRoom`, `memory.homeRoom`
 - `hauler` (remote mission): `memory.targetRoom`, `memory.homeRoom`
+- `mineralMiner`: `memory.workRoom` (auto-assigned to rooms with active Extractors)
 - Role modules remain generic and room-agnostic.
 
 ## Enforced Quotas
@@ -37,13 +38,17 @@ System-level policy for architecture boundaries, mission priorities, and operati
 - `repairer@E57S56`: `2`
 - `upgrader@E57S56`: `1`
 - `hauler@E57S56`: `1`
+- `remoteMiner@E57S56` (local extraction): `4`
 - `builder@E58S55` (bootstrap): `2`
+- `upgrader@E58S55`: `1`
+- `hauler@E58S55`: `1`
 - `claimer@E58S55` (claim): `1`
 - `remoteMiner@E57S55`: `0`
 - `remoteMiner@E58S55`: `4`
 - `hauler@E57S55`: `0`
 - `scavenger` (global): `2`
 - `upgrader` (global fallback): `4`
+- `mineralMiner`: Dynamic (1 per active Extractor in RCL 6+ rooms).
 - `defender`: `0` baseline, escalates on live threat with cooldown.
 
 ## Observability Contract
@@ -67,6 +72,7 @@ System-level policy for architecture boundaries, mission priorities, and operati
 - Ramparts are maintained by repairers with a hard minimum floor (`10k`) and optional soft reinforcement in home room.
 - Remote haulers use minimum pickup thresholds to avoid low-value room-to-room oscillation.
 - Scavengers avoid withdraw/distribute loops unless the room has urgent sinks (spawn/extension/tower demand).
+- Obsolete or stuck creeps can be decommissioned by setting `memory.recycle = true`, routing them to the nearest spawn for energy reclamation.
 
 ## Documentation Governance
 

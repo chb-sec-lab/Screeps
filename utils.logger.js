@@ -20,11 +20,13 @@ module.exports = {
             defender: 'DEF',
             remoteMiner: 'RMIN',
             builder: 'BLD',
+            healer: 'HEAL',
             upgrader: 'UPG',
             claimer: 'CLM',
             vanguard: 'VAN',
             medic: 'MED',
-            breacher: 'BRC'
+            breacher: 'BRC',
+            mineralMiner: 'MINM'
         };
 
         const pop = Object.entries(stats.census)
@@ -36,9 +38,10 @@ module.exports = {
             ? `HOME:${stats.rooms.home} TARGET:${stats.rooms.target} EXP:${stats.rooms.expansion}`
             : 'HOME:? TARGET:? EXP:?';
 
+        const mineralInfo = stats.assignments && stats.assignments.dynamicMineralMiners ? stats.assignments.dynamicMineralMiners.map(q => `MM@${q.room}:${q.current}/${q.required}`).join(' ') + ' ' : '';
         const assignmentInfo = stats.assignments
-            ? `B@H:${stats.assignments.homeBuilders || 0}/${stats.assignments.homeBuilderNeed || 1} B@T:${stats.assignments.targetBuilders || 0}/1 B@M:${stats.assignments.miningBuilders || 0}/2 RP@T:${stats.assignments.targetRepairers || 0}/2 U@T:${stats.assignments.targetUpgraders || 0}/${stats.assignments.targetUpgraderNeed || 1} H@T:${stats.assignments.targetHaulers || 0}/1 C@M:${stats.assignments.miningClaimers || 0}/1 RM@E:${stats.assignments.expansionRemoteMiners || 0}/0 H@E:${stats.assignments.expansionHaulers || 0}/0 RM@M:${stats.assignments.miningRemoteMiners || 0}/4`
-            : 'B@H:0/1 B@T:0/1 B@M:0/2 RP@T:0/2 U@T:0/1 H@T:0/1 C@M:0/1 RM@E:0/0 H@E:0/0 RM@M:0/4';
+            ? `${mineralInfo}${stats.assignments.dynamicMiners ? stats.assignments.dynamicMiners.map(q => `HV@${q.room}:${q.current}/${q.required}`).join(' ') + ' ' : ''}B@H:${stats.assignments.homeBuilders || 0}/${stats.assignments.homeBuilderNeed || 1} B@T:${stats.assignments.targetBuilders || 0}/1 RP@T:${stats.assignments.targetRepairers || 0}/2 U@T:${stats.assignments.targetUpgraders || 0}/${stats.assignments.targetUpgraderNeed || 1} H@T:${stats.assignments.targetHaulers || 0}/1 B@M:${stats.assignments.miningBuilders || 0}/2 U@M:${stats.assignments.miningUpgraders || 0}/1 H@M:${stats.assignments.miningHaulers || 0}/1 RM@M:${stats.assignments.miningRemoteMiners || 0}/4 C@M:${stats.assignments.miningClaimers || 0}/1`
+            : 'B@H:0/1 B@T:0/1 RP@T:0/2 U@T:0/1 H@T:0/1 B@M:0/2 U@M:0/1 H@M:0/1 RM@M:0/4 C@M:0/1';
 
         let spawnInfo = 'Spawn:none';
         if (stats.spawn) {
@@ -64,7 +67,7 @@ module.exports = {
         const expansionThreat = stats.defense ? (stats.defense.expansionThreat || 0) : 0;
         const threatTriplet = `${homeThreat}/${targetThreat}/${expansionThreat}`;
         const defenseInfo = (stats.defense && stats.defense.active)
-            ? `DEF ALERT room:${stats.defense.room} defenders:${stats.defense.current}/${stats.defense.need} threat(H/T/E):${threatTriplet}`
+            ? `DEF ALERT room:${stats.defense.room} def:${stats.defense.current}/${stats.defense.need} heal:${stats.defense.currentHealers}/${stats.defense.healerNeed} threat(H/T/E):${threatTriplet}`
             : `DEF clear threat(H/T/E):${threatTriplet}`;
 
         console.log(`--- HEARTBEAT ${Game.time} ---`);

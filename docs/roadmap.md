@@ -45,7 +45,9 @@ Hauler: Fast creep (CARRY/MOVE) that only moves energy to Storage.
 
 Goal: Leverage RCL 6/7 technology (Links, Spawns, Labs) and market integration.
 
-[ ] Remote Mining: Harvest energy from neighboring rooms.
+[x] Remote Mining: Harvest energy from neighboring rooms.
+
+[x] Mineral Extraction: Dynamic `mineralMiner` generation for rooms with RCL >= 6 and active Extractors.
 
 [ ] Automated Construction: Code that automatically places construction sites.
 

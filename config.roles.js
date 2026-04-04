@@ -20,7 +20,9 @@ module.exports = {
         upgrader:    4,
         vanguard:    0, // NO WAR MODE
         medic:       0, // NO WAR MODE
-        breacher:    0
+        breacher:    0,
+        healer:      0,
+        mineralMiner:0 // Managed dynamically by main.js (1 per active Extractor)
     },
 
     BODIES: {
@@ -35,6 +37,8 @@ module.exports = {
         upgrader:    [WORK, WORK, WORK, CARRY, CARRY, MOVE, MOVE, MOVE],
         vanguard:    [TOUGH, MOVE, MOVE, RANGED_ATTACK, HEAL], // Light version
         medic:       [MOVE, HEAL, HEAL],
-        breacher:    [WORK, WORK, MOVE, MOVE]
+        breacher:    [WORK, WORK, MOVE, MOVE],
+        healer:      [MOVE, MOVE, MOVE, HEAL, HEAL, HEAL],
+        mineralMiner:[WORK, WORK, WORK, WORK, CARRY, CARRY, MOVE, MOVE, MOVE]
     }
 };

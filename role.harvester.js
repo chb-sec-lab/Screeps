@@ -4,6 +4,13 @@
  */
 module.exports = {
     run: function(creep) {
+        const targetRoom = creep.memory.targetRoom;
+        if (targetRoom && creep.room.name !== targetRoom) {
+            const exit = creep.pos.findClosestByRange(creep.room.findExitTo(targetRoom));
+            if (exit) creep.moveTo(exit, { visualizePathStyle: { stroke: '#ffaa00' } });
+            return;
+        }
+
         if (creep.store.getFreeCapacity() > 0) {
             let source = Game.getObjectById(creep.memory.targetSourceId);
             if (!source) {
@@ -40,8 +47,14 @@ module.exports = {
                     creep.moveTo(target, { visualizePathStyle: { stroke: '#ffffff' } });
                 }
             } else {
-                // Idle at a safe spot if nowhere to put energy
-                creep.moveTo(Game.spawns['Spawn1'], { range: 3 });
+                // Idle at a safe spot locally if nowhere to put energy
+                creep.say('💤 Full');
+                let source = Game.getObjectById(creep.memory.targetSourceId);
+                if (source) {
+                    if (!creep.pos.inRangeTo(source, 3)) creep.moveTo(source, { range: 3, visualizePathStyle: { stroke: '#555555' } });
+                } else if (creep.room.controller) {
+                    if (!creep.pos.inRangeTo(creep.room.controller, 3)) creep.moveTo(creep.room.controller, { range: 3, visualizePathStyle: { stroke: '#555555' } });
+                }
             }
         }
     }

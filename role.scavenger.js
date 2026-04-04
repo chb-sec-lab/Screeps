@@ -129,25 +129,31 @@ module.exports = {
             return true;
         }
 
-        function doScavenge() {
+        function doScavenge(localOnly = false) {
             let job = null;
 
             // Keep current salvage assignment if still valid.
             if (creep.memory.salvageId && creep.memory.salvageRoom) {
-                const obj = Game.getObjectById(creep.memory.salvageId);
-                if (obj && obj.room && obj.room.name === creep.memory.salvageRoom) {
-                    if ((obj.amount && obj.amount >= minPickup) || (obj.store && obj.store[RESOURCE_ENERGY] > 0)) {
-                        job = {
-                            roomName: creep.memory.salvageRoom,
-                            type: creep.memory.salvageType,
-                            id: creep.memory.salvageId
-                        };
+                if (localOnly && creep.memory.salvageRoom !== creep.room.name) {
+                    creep.memory.salvageId = null;
+                    creep.memory.salvageRoom = null;
+                    creep.memory.salvageType = null;
+                } else {
+                    const obj = Game.getObjectById(creep.memory.salvageId);
+                    if (obj && obj.room && obj.room.name === creep.memory.salvageRoom) {
+                        if ((obj.amount && obj.amount >= minPickup) || (obj.store && obj.store[RESOURCE_ENERGY] > 0)) {
+                            job = {
+                                roomName: creep.memory.salvageRoom,
+                                type: creep.memory.salvageType,
+                                id: creep.memory.salvageId
+                            };
+                        }
                     }
                 }
             }
 
             if (!job) {
-                job = getBestSalvageJob();
+                job = localOnly ? getSalvageJobInRoom(creep.room.name) : getBestSalvageJob();
                 if (!job) {
                     creep.memory.salvageId = null;
                     creep.memory.salvageRoom = null;
@@ -209,8 +215,7 @@ module.exports = {
             return true;
         }
 
-        // Loaded scavengers must unload before taking new salvage work.
-        if (creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
+        if (creep.store.getFreeCapacity() === 0) {
             if (doDeliver()) return;
             if (creep.room.name !== rooms.HOME) {
                 const exit = creep.pos.findClosestByRange(creep.room.findExitTo(rooms.HOME));
@@ -218,10 +223,24 @@ module.exports = {
                 return;
             }
             if (doDistribute()) return;
+            creep.say('💤 Full');
+            return; 
+        } else if (creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
+            if (doDeliver()) return;
+            
+            if (doScavenge(true)) return; // Only scavenge in current room if already holding energy
+            
+            if (creep.room.name !== rooms.HOME) {
+                const exit = creep.pos.findClosestByRange(creep.room.findExitTo(rooms.HOME));
+                if (exit) creep.moveTo(exit, { visualizePathStyle: { stroke: '#00ffcc' } });
+                return;
+            }
+            
+            creep.say('💤 Wait');
+            return;
         }
 
-        // Deterministic priority prevents mode thrashing and ping-pong.
-        if (doScavenge()) return;
+        if (doScavenge(false)) return;
         if (doHaulAssist()) return;
         if (doDistribute()) return;
 

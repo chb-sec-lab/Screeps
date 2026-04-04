@@ -18,11 +18,33 @@ const TARGET_HAULER_QUOTA = 1;
 const HOME_BUILDER_QUOTA = 1;
 const HOME_REPAIRER_QUOTA = 1;
 const MINING_BUILDER_QUOTA = 2; // Bootstrap new claimed room
+const MINING_UPGRADER_QUOTA = 1;
+const MINING_HAULER_QUOTA = 1;
 const EXPANSION_MINER_QUOTA = 0; // Blocked by Invader Core
 const EXPANSION_HAULER_QUOTA = 0; // Blocked by Invader Core
 
+// --- GLOBAL PATHFINDER OVERRIDE ---
+// Automatisches Blockieren von Räumen für alle Creeps
+const originalMoveTo = Creep.prototype.moveTo;
+Creep.prototype.moveTo = function(target, opts) {
+    opts = opts || {};
+    const userCallback = opts.roomCallback;
+    
+    opts.roomCallback = function(roomName) {
+        if (rooms.BLACKLIST && rooms.BLACKLIST.includes(roomName)) {
+            return false; // ⛔ Weist den PathFinder an, diesen Raum komplett zu ignorieren
+        }
+        if (userCallback) {
+            return userCallback(roomName);
+        }
+        return undefined;
+    };
+    
+    return originalMoveTo.call(this, target, opts);
+};
+
 let modules = {};
-const roleNames = ['harvester', 'hauler', 'scavenger', 'repairer', 'defender', 'vanguard', 'medic', 'breacher', 'remoteMiner', 'builder', 'claimer', 'upgrader'];
+const roleNames = ['harvester', 'hauler', 'scavenger', 'repairer', 'defender', 'vanguard', 'medic', 'breacher', 'remoteMiner', 'builder', 'claimer', 'upgrader', 'healer', 'mineralMiner'];
 
 roleNames.forEach(name => {
     try { modules[name] = require('role.' + name); } catch (e) { /* Safe Load */ }
@@ -80,12 +102,14 @@ module.exports.loop = function () {
 
         Memory.defense.activeUntil = Game.time + DEFENSE_COOLDOWN_TICKS;
         Memory.defense.targetRoom = urgentRoom;
-        Memory.defense.need = Math.min(2, Math.max(1, urgentThreat));
+        Memory.defense.need = Math.min(3, Math.max(1, urgentThreat)); // Skaliert bis max 3 Defender
+        Memory.defense.healerNeed = urgentThreat >= 2 ? 1 : 0; // 1 Healer-Support ab 2+ Feinden
     }
 
     const defenseActive = Memory.defense.activeUntil && Game.time <= Memory.defense.activeUntil;
     const defenseTargetRoom = defenseActive ? (Memory.defense.targetRoom || rooms.TARGET) : null;
     const defenseNeed = defenseActive ? (Memory.defense.need || 1) : 0;
+    const defenseHealerNeed = defenseActive ? (Memory.defense.healerNeed || 0) : 0;
 
     // --- PASS 1: CENSUS & SOURCE TRACKING ---
     const sourceAssignments = {};
@@ -110,6 +134,25 @@ module.exports.loop = function () {
         creep.memory.home = rooms.HOME;
         creep.memory.target = rooms.TARGET;
 
+        // --- UNIVERSAL RECYCLE COMMAND ---
+        if (creep.memory.recycle) {
+            creep.say('♻️ Recycle');
+            const spawn = creep.pos.findClosestByPath(FIND_MY_SPAWNS) || creep.pos.findClosestByRange(FIND_MY_SPAWNS);
+            if (spawn) {
+                if (spawn.recycleCreep(creep) === ERR_NOT_IN_RANGE) {
+                    creep.moveTo(spawn, { visualizePathStyle: { stroke: '#ff00ff' } });
+                }
+            }
+            continue; // Skip normal role logic
+        }
+
+        // EMERGENCY MEMORY PURGE: Redirect stuck armada away from E57S55
+        let memoryPatched = false;
+        if (creep.memory.workRoom === 'E57S55') { creep.memory.workRoom = rooms.MINING; memoryPatched = true; }
+        if (creep.memory.targetRoom === 'E57S55') { creep.memory.targetRoom = rooms.MINING; memoryPatched = true; }
+        if (creep.memory.homeRoom === 'E57S55') { creep.memory.homeRoom = rooms.HOME; memoryPatched = true; }
+        if (memoryPatched) delete creep.memory._move; // Clear cached bad paths!
+
         // Migration guard: remote expansion haulers must always deliver to HOME.
         if (
             creep.memory.role === 'hauler' &&
@@ -119,14 +162,32 @@ module.exports.loop = function () {
             creep.memory.homeRoom = rooms.HOME;
         }
 
+        // QUARANTINE ZONE & SAFE CORRIDOR LOGIC
+        // The pathfinder naturally tries to shortcut through E57S55. We must actively forbid it.
+        if (creep.room.name === 'E57S55') {
+            creep.say('🚨 EVAC');
+            const evacExit = creep.pos.findClosestByRange(creep.room.findExitTo(rooms.MINING));
+            if (evacExit) creep.moveTo(evacExit, { visualizePathStyle: { stroke: '#ff0000' } });
+            continue; // Skip role execution to prevent Flee loops from breaking movement!
+        }
+        
         // Auto-fix Harvesters without source
-        if (creep.memory.role === 'harvester' && !creep.memory.targetSourceId) {
-            if (creep.room) {
-                const sources = creep.room.find(FIND_SOURCES);
-                const best = _.sortBy(sources, s => sourceAssignments[s.id] || 0)[0];
-                if (best) {
-                    creep.memory.targetSourceId = best.id;
-                    sourceAssignments[best.id] = (sourceAssignments[best.id] || 0) + 1;
+        if (creep.memory.role === 'harvester') {
+            if (creep.memory.targetSourceId && creep.memory.targetRoom) {
+                const s = Game.getObjectById(creep.memory.targetSourceId);
+                if (s && s.room.name !== creep.memory.targetRoom) {
+                    creep.memory.targetSourceId = null; // Clear wrong-room source
+                }
+            }
+            
+            if (!creep.memory.targetSourceId && (!creep.memory.targetRoom || creep.room.name === creep.memory.targetRoom)) {
+                if (creep.room) {
+                    const sources = creep.room.find(FIND_SOURCES);
+                    const best = _.sortBy(sources, s => sourceAssignments[s.id] || 0)[0];
+                    if (best) {
+                        creep.memory.targetSourceId = best.id;
+                        sourceAssignments[best.id] = (sourceAssignments[best.id] || 0) + 1;
+                    }
                 }
             }
         }
@@ -179,11 +240,14 @@ module.exports.loop = function () {
         const targetUpgraders = countAssigned('upgrader', targetRoom, 'targetRoom');
         const targetHaulers = countAssigned('hauler', targetRoom, 'workRoom');
         const miningBuilders = countAssigned('builder', rooms.MINING, 'workRoom');
+        const miningUpgraders = countAssigned('upgrader', rooms.MINING, 'targetRoom');
+        const miningHaulers = countAssigned('hauler', rooms.MINING, 'workRoom');
         const miningClaimers = countAssigned('claimer', rooms.MINING, 'targetRoom');
         const expansionRemoteMiners = countAssigned('remoteMiner', expansionRoom, 'targetRoom');
         const expansionHaulers = countAssigned('hauler', expansionRoom, 'targetRoom');
         const miningRemoteMiners = countAssigned('remoteMiner', rooms.MINING, 'targetRoom');
         const defenseDefenders = defenseTargetRoom ? countAssigned('defender', defenseTargetRoom, 'targetRoom') : 0;
+        const defenseHealers = defenseTargetRoom ? countAssigned('healer', defenseTargetRoom, 'targetRoom') : 0;
         const miningController = Game.rooms[rooms.MINING] && Game.rooms[rooms.MINING].controller;
         const shouldReserveMining = !miningController || !miningController.my;
         return {
@@ -194,11 +258,14 @@ module.exports.loop = function () {
             targetUpgraders,
             targetHaulers,
             miningBuilders,
+            miningUpgraders,
+            miningHaulers,
             miningClaimers,
             expansionRemoteMiners,
             expansionHaulers,
             miningRemoteMiners,
             defenseDefenders,
+            defenseHealers,
             shouldReserveMining
         };
     }
@@ -216,7 +283,9 @@ module.exports.loop = function () {
         upgrader: [WORK, CARRY, MOVE],
         remoteMiner: [WORK, CARRY, MOVE],
         harvester: [WORK, CARRY, MOVE],
-        claimer: [CLAIM, MOVE]
+        claimer: [CLAIM, MOVE],
+        healer: [MOVE, HEAL],
+        mineralMiner: [WORK, CARRY, MOVE]
     };
 
     function resolveSpawnBody(spawn, role) {
@@ -231,6 +300,34 @@ module.exports.loop = function () {
     }
 
     const baseNeeds = readNeeds();
+
+    const baseRooms = Object.values(Game.rooms).filter(room => room.find(FIND_MY_SPAWNS).length > 0);
+    const dynamicMinerQueue = [];
+    baseRooms.forEach(room => {
+        const sourcesCount = room.find(FIND_SOURCES).length;
+        const requiredMiners = sourcesCount * 2;
+        const currentMiners = countAssigned('harvester', room.name, 'targetRoom');
+        dynamicMinerQueue.push({
+            room: room.name,
+            current: currentMiners,
+            required: requiredMiners
+        });
+    });
+
+    const dynamicMineralQueue = [];
+    baseRooms.forEach(room => {
+        if (room.controller && room.controller.level >= 6) {
+            const mineral = room.find(FIND_MINERALS)[0];
+            if (mineral && mineral.amount > 0) {
+                const hasExtractor = room.find(FIND_STRUCTURES, { filter: s => s.structureType === STRUCTURE_EXTRACTOR }).length > 0;
+                if (hasExtractor) {
+                    const currentMiners = countAssigned('mineralMiner', room.name, 'workRoom');
+                    dynamicMineralQueue.push({ room: room.name, current: currentMiners, required: 1 });
+                }
+            }
+        }
+    });
+
     roomAssignments = { // Re-assigning to roomAssignments directly, it's better to do it once
         homeBuilders: baseNeeds.homeBuilders,
         homeBuilderNeed: HOME_BUILDER_QUOTA,
@@ -242,25 +339,40 @@ module.exports.loop = function () {
         targetUpgraderNeed: TARGET_UPGRADER_QUOTA, // This was just a typo fix, it's correct now.
         targetHaulers: baseNeeds.targetHaulers,
         miningBuilders: baseNeeds.miningBuilders,
+        miningUpgraders: baseNeeds.miningUpgraders,
+        miningHaulers: baseNeeds.miningHaulers,
         miningClaimers: baseNeeds.miningClaimers,
         expansionRemoteMiners: baseNeeds.expansionRemoteMiners,
         expansionHaulers: baseNeeds.expansionHaulers,
         miningRemoteMiners: baseNeeds.miningRemoteMiners,
-        defenseDefenders: baseNeeds.defenseDefenders
+        defenseDefenders: baseNeeds.defenseDefenders,
+        defenseHealers: baseNeeds.defenseHealers,
+        dynamicMiners: dynamicMinerQueue,
+        dynamicMineralMiners: dynamicMineralQueue
     };
 
     function addQueueEntry(ok, label, have, need) {
         if (!ok) queuePreview.push(`${label}:${have}/${need}`);
     }
 
-    addQueueEntry(countRole('harvester') >= 2, 'harvester.min', countRole('harvester'), 2);
+        dynamicMinerQueue.forEach(q => {
+            addQueueEntry(q.current >= Math.min(2, q.required), `harv.min@${q.room}`, q.current, Math.min(2, q.required));
+        });
     addQueueEntry(countRole('hauler') >= roles.COUNTS.hauler, 'hauler', countRole('hauler'), roles.COUNTS.hauler);
     addQueueEntry(countRole('scavenger') >= roles.COUNTS.scavenger, 'scavenger', countRole('scavenger'), roles.COUNTS.scavenger);
     if (defenseActive) {
         addQueueEntry(baseNeeds.defenseDefenders >= defenseNeed, `defender@${defenseTargetRoom}`, baseNeeds.defenseDefenders, defenseNeed);
+        if (defenseHealerNeed > 0) {
+            addQueueEntry(baseNeeds.defenseHealers >= defenseHealerNeed, `healer@${defenseTargetRoom}`, baseNeeds.defenseHealers, defenseHealerNeed);
+        }
     }
     addQueueEntry(baseNeeds.expansionHaulers >= EXPANSION_HAULER_QUOTA, `hauler@${expansionRoom}`, baseNeeds.expansionHaulers, EXPANSION_HAULER_QUOTA);
-    addQueueEntry(countRole('harvester') >= roles.COUNTS.harvester, 'harvester.target', countRole('harvester'), roles.COUNTS.harvester);
+        dynamicMinerQueue.forEach(q => {
+            addQueueEntry(q.current >= q.required, `harv.full@${q.room}`, q.current, q.required);
+        });
+    dynamicMineralQueue.forEach(q => {
+        addQueueEntry(q.current >= q.required, `min.miner@${q.room}`, q.current, q.required);
+    });
     if (armyOn) {
         addQueueEntry(countRole('vanguard') >= roles.COUNTS.vanguard, 'vanguard', countRole('vanguard'), roles.COUNTS.vanguard);
         addQueueEntry(countRole('medic') >= roles.COUNTS.medic, 'medic', countRole('medic'), roles.COUNTS.medic);
@@ -272,6 +384,8 @@ module.exports.loop = function () {
     addQueueEntry(baseNeeds.targetHaulers >= TARGET_HAULER_QUOTA, `hauler@${targetRoom}`, baseNeeds.targetHaulers, TARGET_HAULER_QUOTA);
     addQueueEntry(baseNeeds.targetUpgraders >= TARGET_UPGRADER_QUOTA, `upgrader@${targetRoom}`, baseNeeds.targetUpgraders, TARGET_UPGRADER_QUOTA);
     addQueueEntry(baseNeeds.miningBuilders >= MINING_BUILDER_QUOTA, `builder@${rooms.MINING}`, baseNeeds.miningBuilders, MINING_BUILDER_QUOTA);
+    addQueueEntry(baseNeeds.miningUpgraders >= MINING_UPGRADER_QUOTA, `upgrader@${rooms.MINING}`, baseNeeds.miningUpgraders, MINING_UPGRADER_QUOTA);
+    addQueueEntry(baseNeeds.miningHaulers >= MINING_HAULER_QUOTA, `hauler@${rooms.MINING}`, baseNeeds.miningHaulers, MINING_HAULER_QUOTA);
     if (baseNeeds.shouldReserveMining) {
         addQueueEntry(baseNeeds.miningClaimers >= 1, `claimer@${rooms.MINING}`, baseNeeds.miningClaimers, 1);
     }
@@ -289,13 +403,18 @@ module.exports.loop = function () {
         let sRole = null;
         let spawnMemory = null;
 
-        if (countRole('harvester') < 2) sRole = 'harvester';
+            const minHarvesterDeficit = dynamicMinerQueue.find(q => q.current < Math.min(2, q.required));
+            const fullHarvesterDeficit = dynamicMinerQueue.find(q => q.current < q.required);
+            const mineralDeficit = dynamicMineralQueue.find(q => q.current < q.required);
+
+            if (minHarvesterDeficit) sRole = 'harvester';
         else if (countRole('hauler') < roles.COUNTS.hauler) sRole = 'hauler';
         else if (defenseActive && baseNeeds.defenseDefenders < defenseNeed) sRole = 'defender';
+        else if (defenseActive && baseNeeds.defenseHealers < defenseHealerNeed) sRole = 'healer';
         else if (baseNeeds.targetHaulers < TARGET_HAULER_QUOTA) sRole = 'hauler';
         else if (countRole('scavenger') < roles.COUNTS.scavenger) sRole = 'scavenger';
         else if (baseNeeds.expansionHaulers < EXPANSION_HAULER_QUOTA) sRole = 'hauler';
-        else if (countRole('harvester') < roles.COUNTS.harvester) sRole = 'harvester';
+            else if (fullHarvesterDeficit) sRole = 'harvester';
         else if (armyOn && countRole('vanguard') < roles.COUNTS.vanguard) sRole = 'vanguard';
         else if (armyOn && countRole('medic') < roles.COUNTS.medic) sRole = 'medic';
         else if (baseNeeds.homeBuilders < HOME_BUILDER_QUOTA) sRole = 'builder';
@@ -304,7 +423,10 @@ module.exports.loop = function () {
         else if (baseNeeds.targetRepairers < TARGET_REPAIRER_QUOTA) sRole = 'repairer';
         else if (baseNeeds.targetUpgraders < TARGET_UPGRADER_QUOTA) sRole = 'upgrader';
         else if (baseNeeds.miningBuilders < MINING_BUILDER_QUOTA) sRole = 'builder';
+        else if (baseNeeds.miningUpgraders < MINING_UPGRADER_QUOTA) sRole = 'upgrader';
+        else if (baseNeeds.miningHaulers < MINING_HAULER_QUOTA) sRole = 'hauler';
         else if (baseNeeds.shouldReserveMining && baseNeeds.miningClaimers < 1) sRole = 'claimer';
+        else if (mineralDeficit) sRole = 'mineralMiner';
         else if (baseNeeds.expansionRemoteMiners < EXPANSION_MINER_QUOTA) sRole = 'remoteMiner';
         else if (baseNeeds.miningRemoteMiners < 4) sRole = 'remoteMiner';
         else if (countRole('remoteMiner') < roles.COUNTS.remoteMiner) sRole = 'remoteMiner';
@@ -316,6 +438,14 @@ module.exports.loop = function () {
 
         const name = roles.generateName(sRole);
         spawnMemory = { role: sRole };
+
+            if (sRole === 'harvester') {
+                if (minHarvesterDeficit) {
+                    spawnMemory.targetRoom = minHarvesterDeficit.room;
+                } else if (fullHarvesterDeficit) {
+                    spawnMemory.targetRoom = fullHarvesterDeficit.room;
+                }
+            }
 
         if (sRole === 'builder' && baseNeeds.homeBuilders < HOME_BUILDER_QUOTA) {
             spawnMemory.workRoom = rooms.HOME;
@@ -336,6 +466,8 @@ module.exports.loop = function () {
                 // This is a home hauler, no extra memory needed, it will default to workRoom=HOME
             } else if (baseNeeds.targetHaulers < TARGET_HAULER_QUOTA) {
                 spawnMemory.workRoom = targetRoom;
+        } else if (baseNeeds.miningHaulers < MINING_HAULER_QUOTA) {
+            spawnMemory.workRoom = rooms.MINING;
             } else if (baseNeeds.expansionHaulers < EXPANSION_HAULER_QUOTA) {
                 spawnMemory.targetRoom = expansionRoom;
                 spawnMemory.homeRoom = rooms.HOME;
@@ -345,6 +477,15 @@ module.exports.loop = function () {
         if (sRole === 'defender' && defenseActive && baseNeeds.defenseDefenders < defenseNeed) {
             spawnMemory.targetRoom = defenseTargetRoom;
             spawnMemory.homeRoom = rooms.HOME;
+        }
+
+        if (sRole === 'healer' && defenseActive && baseNeeds.defenseHealers < defenseHealerNeed) {
+            spawnMemory.targetRoom = defenseTargetRoom;
+            spawnMemory.homeRoom = rooms.HOME;
+        }
+
+        if (sRole === 'mineralMiner' && mineralDeficit) {
+            spawnMemory.workRoom = mineralDeficit.room;
         }
 
         if (sRole === 'upgrader' && baseNeeds.targetUpgraders < TARGET_UPGRADER_QUOTA) {
@@ -357,7 +498,7 @@ module.exports.loop = function () {
         }
 
         if (sRole === 'remoteMiner') {
-            if (baseNeeds.expansionRemoteMiners < EXPANSION_MINER_QUOTA) {
+                if (baseNeeds.expansionRemoteMiners < EXPANSION_MINER_QUOTA) {
                 spawnMemory.targetRoom = expansionRoom;
                 spawnMemory.homeRoom = rooms.HOME;
             } else if (baseNeeds.miningRemoteMiners < 4) {
@@ -374,6 +515,10 @@ module.exports.loop = function () {
         const spawnRes = spawn.spawnCreep(body, name, { memory: spawnMemory });
         if (spawnRes === OK) {
             plannedSpawns.push(spawnMemory);
+                if (spawnMemory.role === 'harvester') {
+                    const qEntry = dynamicMinerQueue.find(q => q.room === spawnMemory.targetRoom);
+                    if (qEntry) qEntry.current++;
+                }
             spawnActions.push(`${spawn.name}:${sRole}[${body.length}]->${spawnMemory.targetRoom || spawnMemory.workRoom || spawn.room.name}`);
             logger.log(`🐣 ${spawn.name} spawning: ${name}`, 'success');
         } else {
@@ -401,6 +546,8 @@ module.exports.loop = function () {
             room: defenseTargetRoom,
             need: defenseNeed,
             current: defenseTargetRoom ? _.filter(Game.creeps, c => c.memory.role === 'defender' && c.memory.targetRoom === defenseTargetRoom).length : 0,
+            healerNeed: defenseHealerNeed,
+            currentHealers: defenseTargetRoom ? _.filter(Game.creeps, c => c.memory.role === 'healer' && c.memory.targetRoom === defenseTargetRoom).length : 0,
             homeThreat: homeThreat,
             targetThreat: targetThreat,
             expansionThreat: expansionThreat
@@ -479,5 +626,11 @@ module.exports.loop = function () {
             Memory.audit.strategic = Memory.audit.strategic.slice(-AUDIT_RETENTION_STRATEGIC);
         }
         logger.auditStrategic(strategicSnapshot);
+    }
+
+    // --- PASS 6: PIXEL GENERATION (Market/CPU) ---
+    if (Game.cpu.bucket === 10000 && Game.cpu.generatePixel) {
+        Game.cpu.generatePixel();
+        logger.log('💎 Pixel generated! (10,000 Bucket converted)', 'success');
     }
 };

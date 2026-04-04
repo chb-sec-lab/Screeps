@@ -8,6 +8,23 @@ module.exports = {
         const targetRoom = creep.memory.targetRoom || creep.memory.target || 'E57S56';
         const homeRoom = creep.memory.homeRoom || creep.memory.home || 'E58S56';
 
+        // --- 0. PRE-FLIGHT & TACTICAL RETREAT ---
+        // Pit Stop: Wenn wir im sicheren Raum sind und nicht volle HP haben -> Warten auf Tower
+        if (creep.room.name === homeRoom && creep.hits < creep.hitsMax) {
+            creep.say('🩹 Pit Stop');
+            if (creep.getActiveBodyparts(HEAL) > 0) creep.heal(creep);
+            return;
+        }
+
+        // Tactical Retreat: Wenn Lebenspunkte kritisch (< 40%) -> Flucht nach Hause
+        if (creep.hits < creep.hitsMax * 0.4 && creep.room.name !== homeRoom) {
+            creep.say('🚑 Retreat!');
+            if (creep.getActiveBodyparts(HEAL) > 0) creep.heal(creep);
+            const exit = creep.pos.findClosestByRange(creep.room.findExitTo(homeRoom));
+            if (exit) creep.moveTo(exit, {visualizePathStyle: {stroke: '#ffaa00'}});
+            return;
+        }
+
         // --- 1. TARGET ACQUISITION ---
         let target = creep.pos.findClosestByRange(FIND_HOSTILE_CREEPS, {
             filter: c => c.getActiveBodyparts(HEAL) > 0
