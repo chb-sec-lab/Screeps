@@ -87,3 +87,11 @@ Track urgent production incidents and response quality. Keep entries brief and f
 - Immediate Response: Identified state-machine flaws. Harvesters were locking onto `HOME` sources during spawn and trying to return to them from target rooms. Scavengers with partial energy loads crossed borders for tiny salvage amounts when local delivery failed.
 - Resolution: Updated `main.js` to automatically clear cross-room source locks and only assign sources when harvesters reach their `targetRoom`. Modified `role.scavenger.js` to strictly forbid cross-room scavenging if already carrying energy (using `localOnly` scoping).
 - Follow-up: Future roles with "lock-on" behavior must validate that their locked target exists in the correct designated operational room.
+
+- Date-Time (UTC): `2026-02-16T00:15:00Z`
+- Severity: `SEV-3`
+- Trigger: Creeps (specifically Scavengers) hanging at room borders again, trying to reach abandoned `E57S55`.
+- Scope: Global PathFinder and Creep Memory.
+- Immediate Response: Identified a recurring "Border Ping-Pong" pattern. Cause 1: `PathFinder` hit `maxOps: 2000` when calculating detours around the blacklisted room, returning incomplete paths. Cause 2: Hardcoded memory purges missed custom role keys like `salvageRoom`.
+- Resolution: Increased `opts.maxOps` to `8000` in the global `moveTo` prototype. Replaced the static memory purge with a dynamic loop that scrubs `E57S55` from *all* memory keys.
+- Follow-up: Abandoning a room requires Universal Memory Scrubbing, not just targeting known keys.

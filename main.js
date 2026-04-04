@@ -30,6 +30,10 @@ Creep.prototype.moveTo = function(target, opts) {
     opts = opts || {};
     const userCallback = opts.roomCallback;
     
+    // 🛠️ FIX: Give PathFinder enough CPU headroom to calculate detours around blacklisted rooms!
+    // If it hits maxOps (default 2000), it returns an incomplete path, causing creeps to freeze at room borders.
+    if (!opts.maxOps) opts.maxOps = 8000;
+
     opts.roomCallback = function(roomName) {
         if (rooms.BLACKLIST && rooms.BLACKLIST.includes(roomName)) {
             return false; // ⛔ Weist den PathFinder an, diesen Raum komplett zu ignorieren
@@ -146,11 +150,23 @@ module.exports.loop = function () {
             continue; // Skip normal role logic
         }
 
-        // EMERGENCY MEMORY PURGE: Redirect stuck armada away from E57S55
+        // --- UNIVERSAL MEMORY PURGE: Scrub E57S55 completely ---
         let memoryPatched = false;
-        if (creep.memory.workRoom === 'E57S55') { creep.memory.workRoom = rooms.MINING; memoryPatched = true; }
-        if (creep.memory.targetRoom === 'E57S55') { creep.memory.targetRoom = rooms.MINING; memoryPatched = true; }
-        if (creep.memory.homeRoom === 'E57S55') { creep.memory.homeRoom = rooms.HOME; memoryPatched = true; }
+        for (let key in creep.memory) {
+            if (creep.memory[key] === 'E57S55') {
+                if (key === 'salvageRoom' || key === 'salvageId') {
+                    creep.memory.salvageRoom = null;
+                    creep.memory.salvageId = null;
+                } else if (key === 'workRoom' || key === 'targetRoom') {
+                    creep.memory[key] = rooms.MINING;
+                } else if (key === 'homeRoom') {
+                    creep.memory[key] = rooms.HOME;
+                } else {
+                    creep.memory[key] = null;
+                }
+                memoryPatched = true;
+            }
+        }
         if (memoryPatched) delete creep.memory._move; // Clear cached bad paths!
 
         // Migration guard: remote expansion haulers must always deliver to HOME.
@@ -390,7 +406,7 @@ module.exports.loop = function () {
         addQueueEntry(baseNeeds.miningClaimers >= 1, `claimer@${rooms.MINING}`, baseNeeds.miningClaimers, 1);
     }
     addQueueEntry(baseNeeds.expansionRemoteMiners >= EXPANSION_MINER_QUOTA, `remoteMiner@${expansionRoom}`, baseNeeds.expansionRemoteMiners, EXPANSION_MINER_QUOTA);
-    addQueueEntry(baseNeeds.miningRemoteMiners >= 4, `remoteMiner@${rooms.MINING}`, baseNeeds.miningRemoteMiners, 4);
+    addQueueEntry(baseNeeds.miningRemoteMiners >= 2, `remoteMiner@${rooms.MINING}`, baseNeeds.miningRemoteMiners, 2);
     addQueueEntry(countRole('remoteMiner') >= roles.COUNTS.remoteMiner, 'remoteMiner', countRole('remoteMiner'), roles.COUNTS.remoteMiner);
     addQueueEntry(countRole('builder') >= roles.COUNTS.builder, 'builder', countRole('builder'), roles.COUNTS.builder);
     addQueueEntry(countRole('claimer') >= roles.COUNTS.claimer, 'claimer', countRole('claimer'), roles.COUNTS.claimer);
@@ -428,7 +444,7 @@ module.exports.loop = function () {
         else if (baseNeeds.shouldReserveMining && baseNeeds.miningClaimers < 1) sRole = 'claimer';
         else if (mineralDeficit) sRole = 'mineralMiner';
         else if (baseNeeds.expansionRemoteMiners < EXPANSION_MINER_QUOTA) sRole = 'remoteMiner';
-        else if (baseNeeds.miningRemoteMiners < 4) sRole = 'remoteMiner';
+        else if (baseNeeds.miningRemoteMiners < 2) sRole = 'remoteMiner';
         else if (countRole('remoteMiner') < roles.COUNTS.remoteMiner) sRole = 'remoteMiner';
         else if (countRole('builder') < roles.COUNTS.builder) sRole = 'builder';
         else if (countRole('claimer') < roles.COUNTS.claimer) sRole = 'claimer';
@@ -501,7 +517,7 @@ module.exports.loop = function () {
                 if (baseNeeds.expansionRemoteMiners < EXPANSION_MINER_QUOTA) {
                 spawnMemory.targetRoom = expansionRoom;
                 spawnMemory.homeRoom = rooms.HOME;
-            } else if (baseNeeds.miningRemoteMiners < 4) {
+            } else if (baseNeeds.miningRemoteMiners < 2) {
                 spawnMemory.targetRoom = rooms.MINING;
                 spawnMemory.homeRoom = rooms.HOME;
             }

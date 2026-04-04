@@ -25,7 +25,7 @@ Quick live checks and recovery commands for operation.
 - `builder@E58S55`: `2` (bootstrap)
 - `claimer@E58S55`: `1` (claim)
 - `remoteMiner@E57S55`: `0`
-- `remoteMiner@E58S55`: `4`
+- `remoteMiner@E58S55`: `2`
 - `hauler@E57S55`: `0`
 - `scavenger`: `2`
 
@@ -82,4 +82,6 @@ Quick live checks and recovery commands for operation.
 - prioritize extension fill and keep local hauler throughput high.
 
 - Decommissioning obsolete/stuck creeps:
-- Set `Game.creeps['name'].memory.recycle = true` in console to send them to the nearest spawn for energy recycling instead of using `suicide()`.
+- Single creep: `Game.creeps['name'].memory.recycle = true`
+- Mass recycle by role (e.g. idle scavengers):
+  `Object.values(Game.creeps).filter(c => c.memory.role === 'scavenger').forEach(c => c.memory.recycle = true);`

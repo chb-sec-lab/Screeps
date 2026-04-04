@@ -44,7 +44,7 @@ System-level policy for architecture boundaries, mission priorities, and operati
 - `hauler@E58S55`: `1`
 - `claimer@E58S55` (claim): `1`
 - `remoteMiner@E57S55`: `0`
-- `remoteMiner@E58S55`: `4`
+- `remoteMiner@E58S55`: `2` (Room only has 1 source)
 - `hauler@E57S55`: `0`
 - `scavenger` (global): `2`
 - `upgrader` (global fallback): `4`

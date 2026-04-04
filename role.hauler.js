@@ -19,7 +19,7 @@ module.exports = {
         const localWorkRoom = creep.memory.workRoom || rooms.HOME;
 
         // --- 1. FEIND-VERMEIDUNG (EIGENSCHUTZ) ---
-        // Wenn der Hauler in einem fremden Raum ist, scanne nach Bedrohungen
+        let danger = false;
         if (creep.room.name !== deliveryRoom && creep.room.name !== localWorkRoom) {
             const hostiles = creep.room.find(FIND_HOSTILE_CREEPS, {
                 filter: c => c.getActiveBodyparts(ATTACK) > 0 || c.getActiveBodyparts(RANGED_ATTACK) > 0 || c.getActiveBodyparts(HEAL) > 0
@@ -28,11 +28,20 @@ module.exports = {
                 filter: s => s.structureType === STRUCTURE_INVADER_CORE
             });
             if (hostiles.length > 0 || cores.length > 0) {
+                danger = true;
+                creep.memory.fleeCooldown = Game.time + 50; // Remember danger!
+            }
+        }
+
+        if (danger || (creep.memory.fleeCooldown && Game.time < creep.memory.fleeCooldown)) {
+            if (creep.room.name !== deliveryRoom && creep.room.name !== localWorkRoom) {
                 creep.say('📢 Flee!');
                 const exit = creep.pos.findClosestByRange(creep.room.findExitTo(deliveryRoom));
                 if (exit) creep.moveTo(exit, { visualizePathStyle: { stroke: '#ff0000' } });
-                return; // Brich alle anderen Aktionen ab!
+            } else {
+                creep.say('💤 Safe');
             }
+            return; // Brich alle anderen Aktionen ab!
         }
 
         if (remoteTargetRoom) {

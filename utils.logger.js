@@ -40,8 +40,8 @@ module.exports = {
 
         const mineralInfo = stats.assignments && stats.assignments.dynamicMineralMiners ? stats.assignments.dynamicMineralMiners.map(q => `MM@${q.room}:${q.current}/${q.required}`).join(' ') + ' ' : '';
         const assignmentInfo = stats.assignments
-            ? `${mineralInfo}${stats.assignments.dynamicMiners ? stats.assignments.dynamicMiners.map(q => `HV@${q.room}:${q.current}/${q.required}`).join(' ') + ' ' : ''}B@H:${stats.assignments.homeBuilders || 0}/${stats.assignments.homeBuilderNeed || 1} B@T:${stats.assignments.targetBuilders || 0}/1 RP@T:${stats.assignments.targetRepairers || 0}/2 U@T:${stats.assignments.targetUpgraders || 0}/${stats.assignments.targetUpgraderNeed || 1} H@T:${stats.assignments.targetHaulers || 0}/1 B@M:${stats.assignments.miningBuilders || 0}/2 U@M:${stats.assignments.miningUpgraders || 0}/1 H@M:${stats.assignments.miningHaulers || 0}/1 RM@M:${stats.assignments.miningRemoteMiners || 0}/4 C@M:${stats.assignments.miningClaimers || 0}/1`
-            : 'B@H:0/1 B@T:0/1 RP@T:0/2 U@T:0/1 H@T:0/1 B@M:0/2 U@M:0/1 H@M:0/1 RM@M:0/4 C@M:0/1';
+            ? `${mineralInfo}${stats.assignments.dynamicMiners ? stats.assignments.dynamicMiners.map(q => `HV@${q.room}:${q.current}/${q.required}`).join(' ') + ' ' : ''}B@H:${stats.assignments.homeBuilders || 0}/${stats.assignments.homeBuilderNeed || 1} B@T:${stats.assignments.targetBuilders || 0}/1 RP@T:${stats.assignments.targetRepairers || 0}/2 U@T:${stats.assignments.targetUpgraders || 0}/${stats.assignments.targetUpgraderNeed || 1} H@T:${stats.assignments.targetHaulers || 0}/1 B@M:${stats.assignments.miningBuilders || 0}/2 U@M:${stats.assignments.miningUpgraders || 0}/1 H@M:${stats.assignments.miningHaulers || 0}/1 RM@M:${stats.assignments.miningRemoteMiners || 0}/2 C@M:${stats.assignments.miningClaimers || 0}/1`
+            : 'B@H:0/1 B@T:0/1 RP@T:0/2 U@T:0/1 H@T:0/1 B@M:0/2 U@M:0/1 H@M:0/1 RM@M:0/2 C@M:0/1';
 
         let spawnInfo = 'Spawn:none';
         if (stats.spawn) {

@@ -30,15 +30,18 @@ module.exports = {
                 c.getActiveBodyparts(HEAL) > 0
         }) : [];
 
-        const hostilesInSight = hostileCreeps.length > 0;
+        const hostileCores = targetView ? targetView.find(FIND_HOSTILE_STRUCTURES, {
+            filter: s => s.structureType === STRUCTURE_INVADER_CORE
+        }) : [];
+
+        const hostilesInSight = hostileCreeps.length > 0 || hostileCores.length > 0;
 
         if (hostilesInSight) {
             creep.memory.lastDangerTick = Game.time;
         }
 
-        // Only react to direct, visible threat.
-        // No-vision "recent danger" created oscillation/crowding in home room.
-        const isDangerous = hostilesInSight;
+        // FIX "Amnesia": Remember danger for 50 ticks so they don't bounce at the border
+        const isDangerous = hostilesInSight || (creep.memory.lastDangerTick && (Game.time - creep.memory.lastDangerTick < 50));
 
         if (isDangerous) {
             creep.say(hostilesInSight ? '📢 GEFAHR!' : '⌛ Abwarten');
@@ -213,6 +216,7 @@ module.exports = {
                 creep.moveTo(source, { visualizePathStyle: { stroke: '#ffaa00' } });
             } else if (harvestResult === ERR_NOT_OWNER) {
                 creep.say('⛔ Core!');
+                creep.memory.lastDangerTick = Game.time; // Trigger amnesia fix
                 const exit = creep.pos.findClosestByRange(creep.room.findExitTo(homeRoom));
                 if (exit) creep.moveTo(exit, { visualizePathStyle: { stroke: '#ff0000' } });
             }

@@ -226,3 +226,24 @@ Capture non-urgent observations that improve system design, role policy, and ope
 - Impact: Lost opportunity for Pixel generation (credits) and wasted energy from unneeded creeps.
 - Action: Added automated `Game.cpu.generatePixel()` when bucket is full. Implemented a universal `creep.memory.recycle` flag that routes creeps to the nearest spawn to reclaim their energy cost.
 - Evidence: `Game.cpu.bucket` check at the end of the main loop and `recycleCreep` logic intercepting standard role execution.
+
+- Date-Time (UTC): `2026-02-16T00:15:00Z`
+- Context: Creeps hanging at room borders when a room is abandoned.
+- Observation: Two engine mechanics caused "Ping-Pong" loops: 1. `PathFinder` defaults to 2000 `maxOps`, returning incomplete paths when detouring around blacklisted rooms. 2. Role-specific memory keys (like `salvageRoom`) retain the abandoned room.
+- Impact: Scavengers and haulers froze at borders, wasting CPU on repeated failed pathing attempts.
+- Action: Increased `opts.maxOps` to 8000 in the global `moveTo` override and replaced hardcoded memory key purges with a universal loop that scrubs the abandoned room from all memory fields.
+- Evidence: Creeps successfully calculated detours and resumed operations in valid rooms.
+
+- Date-Time (UTC): `2026-02-16T01:00:00Z`
+- Context: Ping-pong oscillation at borders of active rooms with Invader Cores.
+- Observation: The "Flee" logic for remote miners and haulers was strictly vision-based. When encountering a Core, they fled to a safe room, instantly lost vision of the Core, "forgot" the danger, and tried to return.
+- Impact: Endless ping-pong at the room border whenever an Invader Core was active.
+- Action: Implemented "No-Vision Amnesia" fix. Fleeing creeps now set a `lastDangerTick` or `fleeCooldown` in memory, forcing them to hold position in the safe room (`💤 Safe`/`⌛ Abwarten`) for 50 ticks before attempting to re-enter.
+- Evidence: Creeps now safely park in the home room instead of looping on the exit tiles.
+
+- Date-Time (UTC): `2026-02-16T01:30:00Z`
+- Context: Over-spawning of remote miners in E58S55.
+- Observation: The orchestrator was configured to spawn 4 `remoteMiner`s for E58S55, but the room only possesses 1 energy source. The idle surplus creeps hovered near room borders.
+- Impact: Wasted energy on spawning redundant creeps that had no work capacity available.
+- Action: Adjusted `MINING_REMOTE_MINER_QUOTA` (hardcoded 4 -> 2) in `main.js`, `manifest.md`, and `utils.logger.js`. Operator manually dispatched surplus creeps to the recycler via mass console command.
+- Evidence: Spawn queue now appropriately targets `RM@M:2`, preventing over-saturation.
