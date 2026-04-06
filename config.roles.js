@@ -10,8 +10,8 @@ module.exports = {
 
     COUNTS: {
         harvester:   6,
-        hauler:      2,
-        scavenger:   2,
+        hauler:      0, // Disabled for early game bootstrap (no containers yet)
+        scavenger:   0, // Disabled for early game bootstrap
         repairer:    0,
         defender:    0,
         claimer:     0,

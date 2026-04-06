@@ -5,8 +5,8 @@
  *  - Maintain rampart minimum floor, then roads/containers, then other structures.
  */
 const rooms = require('config.rooms');
-const RAMPART_MIN_HITS = 10000;
-const RAMPART_SOFT_CAP = 50000;
+const RAMPART_MIN_HITS = 50000;
+const RAMPART_SOFT_CAP = 100000;
 
 module.exports = {
     run: function (creep) {

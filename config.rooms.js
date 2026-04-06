@@ -4,23 +4,18 @@
  * Role: Strategic Command Room
  */
 module.exports = {
-    HOME: 'E58S56',
-    TARGET: 'E57S56',
-
-    // EXPANSION redirected to MINING room to avoid E57S55 Invader Core trap
-    EXPANSION: 'E58S55',
-    MINING: 'E58S55',
+    HOME: 'W7N8',
+    TARGET: 'W7N7', // 2 Sources (Planned secondary base)
+    EXPANSION: 'W6N8', // 1 Source (Right)
+    MINING: 'W8N8', // 1 Source (Left)
 
     // Global PathFinder Blacklist: Creeps will never route through these rooms
-    BLACKLIST: ['E57S55'],
+    BLACKLIST: ['W6N6'], // Invader Core
 
     // Toggle this to true to spawn the army and attack.
     WAR_MODE: false,
 
     registry: {
-        'E58S56': { role: 'HOME' },
-        'E57S56': { role: 'TARGET' },
-        // 'E57S55': { role: 'EXPANSION' }, // Abandoned due to heavy Invader Core activity
-        'E58S55': { role: 'MINING' }
+        'W7N8': { role: 'HOME' }
     }
 };

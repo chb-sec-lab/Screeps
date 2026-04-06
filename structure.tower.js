@@ -11,9 +11,14 @@
  */
 module.exports = {
     run: function (tower) {
+        
+        // --- DIPLOMACY WHITELIST ---
+        const ALLIES = [];
 
         // 1) DEFENSE
-        const hostile = tower.pos.findClosestByRange(FIND_HOSTILE_CREEPS);
+        const hostile = tower.pos.findClosestByRange(FIND_HOSTILE_CREEPS, {
+            filter: c => !ALLIES.includes(c.owner.username)
+        });
         if (hostile) {
             tower.attack(hostile);
             return;
@@ -31,8 +36,8 @@ module.exports = {
         // --- Tunables ---
         const CONTAINER_EMERGENCY_HITS = 20000;
 
-        // Rampart floor: set low early (otherwise endless energy sink)
-        const RAMPART_FLOOR = 10000;
+        // Rampart floor: elevated to 50k to provide substantial buffer against invaders
+        const RAMPART_FLOOR = 50000;
 
         // Energy gates
         const MIN_ENERGY_FOR_EMERGENCY = 100;   // allow emergency even when low

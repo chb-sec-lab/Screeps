@@ -6,6 +6,7 @@ const rooms = require('config.rooms');
 const roles = require('config.roles');
 const logger = require('utils.logger');
 const towerLogic = require('structure.tower');
+const planner = require('utils.planner');
 const DEFENSE_COOLDOWN_TICKS = 200;
 const TACTICAL_AUDIT_INTERVAL = 200;
 const STRATEGIC_AUDIT_INTERVAL = 3600;
@@ -16,6 +17,7 @@ const TARGET_BUILDER_QUOTA = 1;
 const TARGET_REPAIRER_QUOTA = 2;
 const TARGET_HAULER_QUOTA = 1;
 const HOME_BUILDER_QUOTA = 1;
+const HOME_UPGRADER_QUOTA = 2;
 const HOME_REPAIRER_QUOTA = 1;
 const MINING_BUILDER_QUOTA = 2; // Bootstrap new claimed room
 const MINING_UPGRADER_QUOTA = 1;
@@ -66,14 +68,17 @@ module.exports.loop = function () {
 
     // --- DEFENSE STATUS (Home + Target) ---
     if (!Memory.defense) Memory.defense = {};
+    
+    const ALLIES = []; // Whitelist for passing players
 
     function getHostileCount(room) {
         if (!room) return 0;
         const creeps = room.find(FIND_HOSTILE_CREEPS, {
             filter: c =>
-                c.getActiveBodyparts(ATTACK) > 0 ||
+                !ALLIES.includes(c.owner.username) &&
+                (c.getActiveBodyparts(ATTACK) > 0 ||
                 c.getActiveBodyparts(RANGED_ATTACK) > 0 ||
-                c.getActiveBodyparts(HEAL) > 0
+                c.getActiveBodyparts(HEAL) > 0)
         }).length;
         const cores = room.find(FIND_HOSTILE_STRUCTURES, {
             filter: s => s.structureType === STRUCTURE_INVADER_CORE
@@ -208,6 +213,13 @@ module.exports.loop = function () {
             }
         }
 
+        // --- CPU CIRCUIT BREAKER ---
+        // Prevent hard CPU timeout crashes (Script execution timed out).
+        if (Game.cpu.getUsed() > Game.cpu.tickLimit * 0.8) {
+            creep.say('⏸️ CPU');
+            continue; // Skip expensive role logic this tick, but keep the loop alive
+        }
+
         if (modules[creep.memory.role]) {
             try { modules[creep.memory.role].run(creep); } catch (e) { }
         }
@@ -250,6 +262,7 @@ module.exports.loop = function () {
 
     function readNeeds() {
         const homeBuilders = countAssigned('builder', rooms.HOME, 'workRoom');
+        const homeUpgraders = countAssigned('upgrader', rooms.HOME, 'targetRoom');
         const homeRepairers = countAssigned('repairer', rooms.HOME, 'workRoom');
         const targetBuilders = countAssigned('builder', targetRoom, 'workRoom');
         const targetRepairers = countAssigned('repairer', targetRoom, 'workRoom');
@@ -268,6 +281,7 @@ module.exports.loop = function () {
         const shouldReserveMining = !miningController || !miningController.my;
         return {
             homeBuilders,
+            homeUpgraders,
             homeRepairers,
             targetBuilders,
             targetRepairers,
@@ -347,6 +361,8 @@ module.exports.loop = function () {
     roomAssignments = { // Re-assigning to roomAssignments directly, it's better to do it once
         homeBuilders: baseNeeds.homeBuilders,
         homeBuilderNeed: HOME_BUILDER_QUOTA,
+            homeUpgraders: baseNeeds.homeUpgraders,
+            homeUpgraderNeed: HOME_UPGRADER_QUOTA,
         homeRepairers: baseNeeds.homeRepairers,
         homeRepairerNeed: HOME_REPAIRER_QUOTA,
         targetBuilders: baseNeeds.targetBuilders,
@@ -371,21 +387,37 @@ module.exports.loop = function () {
         if (!ok) queuePreview.push(`${label}:${have}/${need}`);
     }
 
-        dynamicMinerQueue.forEach(q => {
-            addQueueEntry(q.current >= Math.min(2, q.required), `harv.min@${q.room}`, q.current, Math.min(2, q.required));
-        });
-    addQueueEntry(countRole('hauler') >= roles.COUNTS.hauler, 'hauler', countRole('hauler'), roles.COUNTS.hauler);
-    addQueueEntry(countRole('scavenger') >= roles.COUNTS.scavenger, 'scavenger', countRole('scavenger'), roles.COUNTS.scavenger);
+    // --- VISUAL QUEUE DISPLAY (Must match priority ladder below) ---
+    dynamicMinerQueue.forEach(q => {
+        addQueueEntry(q.current >= Math.min(2, q.required), `harv.min@${q.room}`, q.current, Math.min(2, q.required));
+    });
     if (defenseActive) {
         addQueueEntry(baseNeeds.defenseDefenders >= defenseNeed, `defender@${defenseTargetRoom}`, baseNeeds.defenseDefenders, defenseNeed);
         if (defenseHealerNeed > 0) {
             addQueueEntry(baseNeeds.defenseHealers >= defenseHealerNeed, `healer@${defenseTargetRoom}`, baseNeeds.defenseHealers, defenseHealerNeed);
         }
     }
+    dynamicMinerQueue.forEach(q => {
+        addQueueEntry(q.current >= q.required, `harv.full@${q.room}`, q.current, q.required);
+    });
+    addQueueEntry(baseNeeds.homeBuilders >= HOME_BUILDER_QUOTA, `builder@${rooms.HOME}`, baseNeeds.homeBuilders, HOME_BUILDER_QUOTA);
+    addQueueEntry(baseNeeds.homeUpgraders >= HOME_UPGRADER_QUOTA, `upgrader@${rooms.HOME}`, baseNeeds.homeUpgraders, HOME_UPGRADER_QUOTA);
+    addQueueEntry(baseNeeds.targetBuilders >= TARGET_BUILDER_QUOTA, `builder@${targetRoom}`, baseNeeds.targetBuilders, TARGET_BUILDER_QUOTA);
+    addQueueEntry(baseNeeds.miningBuilders >= MINING_BUILDER_QUOTA, `builder@${rooms.MINING}`, baseNeeds.miningBuilders, MINING_BUILDER_QUOTA);
+    addQueueEntry(baseNeeds.targetUpgraders >= TARGET_UPGRADER_QUOTA, `upgrader@${targetRoom}`, baseNeeds.targetUpgraders, TARGET_UPGRADER_QUOTA);
+    addQueueEntry(baseNeeds.miningUpgraders >= MINING_UPGRADER_QUOTA, `upgrader@${rooms.MINING}`, baseNeeds.miningUpgraders, MINING_UPGRADER_QUOTA);
+    addQueueEntry(countRole('hauler') >= roles.COUNTS.hauler, 'hauler', countRole('hauler'), roles.COUNTS.hauler);
+    addQueueEntry(baseNeeds.targetHaulers >= TARGET_HAULER_QUOTA, `hauler@${targetRoom}`, baseNeeds.targetHaulers, TARGET_HAULER_QUOTA);
+    addQueueEntry(baseNeeds.miningHaulers >= MINING_HAULER_QUOTA, `hauler@${rooms.MINING}`, baseNeeds.miningHaulers, MINING_HAULER_QUOTA);
     addQueueEntry(baseNeeds.expansionHaulers >= EXPANSION_HAULER_QUOTA, `hauler@${expansionRoom}`, baseNeeds.expansionHaulers, EXPANSION_HAULER_QUOTA);
-        dynamicMinerQueue.forEach(q => {
-            addQueueEntry(q.current >= q.required, `harv.full@${q.room}`, q.current, q.required);
-        });
+    addQueueEntry(countRole('scavenger') >= roles.COUNTS.scavenger, 'scavenger', countRole('scavenger'), roles.COUNTS.scavenger);
+    addQueueEntry(baseNeeds.homeRepairers >= HOME_REPAIRER_QUOTA, `repairer@${rooms.HOME}`, baseNeeds.homeRepairers, HOME_REPAIRER_QUOTA);
+    addQueueEntry(baseNeeds.targetRepairers >= TARGET_REPAIRER_QUOTA, `repairer@${targetRoom}`, baseNeeds.targetRepairers, TARGET_REPAIRER_QUOTA);
+    if (baseNeeds.shouldReserveMining) {
+        addQueueEntry(baseNeeds.miningClaimers >= 1, `claimer@${rooms.MINING}`, baseNeeds.miningClaimers, 1);
+    }
+    addQueueEntry(baseNeeds.expansionRemoteMiners >= EXPANSION_MINER_QUOTA, `remoteMiner@${expansionRoom}`, baseNeeds.expansionRemoteMiners, EXPANSION_MINER_QUOTA);
+    addQueueEntry(baseNeeds.miningRemoteMiners >= 2, `remoteMiner@${rooms.MINING}`, baseNeeds.miningRemoteMiners, 2);
     dynamicMineralQueue.forEach(q => {
         addQueueEntry(q.current >= q.required, `min.miner@${q.room}`, q.current, q.required);
     });
@@ -393,20 +425,6 @@ module.exports.loop = function () {
         addQueueEntry(countRole('vanguard') >= roles.COUNTS.vanguard, 'vanguard', countRole('vanguard'), roles.COUNTS.vanguard);
         addQueueEntry(countRole('medic') >= roles.COUNTS.medic, 'medic', countRole('medic'), roles.COUNTS.medic);
     }
-    addQueueEntry(baseNeeds.homeBuilders >= HOME_BUILDER_QUOTA, `builder@${rooms.HOME}`, baseNeeds.homeBuilders, HOME_BUILDER_QUOTA);
-    addQueueEntry(baseNeeds.homeRepairers >= HOME_REPAIRER_QUOTA, `repairer@${rooms.HOME}`, baseNeeds.homeRepairers, HOME_REPAIRER_QUOTA);
-    addQueueEntry(baseNeeds.targetBuilders >= TARGET_BUILDER_QUOTA, `builder@${targetRoom}`, baseNeeds.targetBuilders, TARGET_BUILDER_QUOTA);
-    addQueueEntry(baseNeeds.targetRepairers >= TARGET_REPAIRER_QUOTA, `repairer@${targetRoom}`, baseNeeds.targetRepairers, TARGET_REPAIRER_QUOTA);
-    addQueueEntry(baseNeeds.targetHaulers >= TARGET_HAULER_QUOTA, `hauler@${targetRoom}`, baseNeeds.targetHaulers, TARGET_HAULER_QUOTA);
-    addQueueEntry(baseNeeds.targetUpgraders >= TARGET_UPGRADER_QUOTA, `upgrader@${targetRoom}`, baseNeeds.targetUpgraders, TARGET_UPGRADER_QUOTA);
-    addQueueEntry(baseNeeds.miningBuilders >= MINING_BUILDER_QUOTA, `builder@${rooms.MINING}`, baseNeeds.miningBuilders, MINING_BUILDER_QUOTA);
-    addQueueEntry(baseNeeds.miningUpgraders >= MINING_UPGRADER_QUOTA, `upgrader@${rooms.MINING}`, baseNeeds.miningUpgraders, MINING_UPGRADER_QUOTA);
-    addQueueEntry(baseNeeds.miningHaulers >= MINING_HAULER_QUOTA, `hauler@${rooms.MINING}`, baseNeeds.miningHaulers, MINING_HAULER_QUOTA);
-    if (baseNeeds.shouldReserveMining) {
-        addQueueEntry(baseNeeds.miningClaimers >= 1, `claimer@${rooms.MINING}`, baseNeeds.miningClaimers, 1);
-    }
-    addQueueEntry(baseNeeds.expansionRemoteMiners >= EXPANSION_MINER_QUOTA, `remoteMiner@${expansionRoom}`, baseNeeds.expansionRemoteMiners, EXPANSION_MINER_QUOTA);
-    addQueueEntry(baseNeeds.miningRemoteMiners >= 2, `remoteMiner@${rooms.MINING}`, baseNeeds.miningRemoteMiners, 2);
     addQueueEntry(countRole('remoteMiner') >= roles.COUNTS.remoteMiner, 'remoteMiner', countRole('remoteMiner'), roles.COUNTS.remoteMiner);
     addQueueEntry(countRole('builder') >= roles.COUNTS.builder, 'builder', countRole('builder'), roles.COUNTS.builder);
     addQueueEntry(countRole('claimer') >= roles.COUNTS.claimer, 'claimer', countRole('claimer'), roles.COUNTS.claimer);
@@ -414,6 +432,14 @@ module.exports.loop = function () {
 
     const idleSpawns = allSpawns.filter(s => !s.spawning);
     if (idleSpawns.length === 0 && allSpawns.length > 0) queuePreview = ['spawn busy'];
+
+    // --- FAILSAFE: GLOBAL POPULATION CAP ---
+    const HARD_POP_CAP = 60;
+    if (Object.keys(Game.creeps).length >= HARD_POP_CAP) {
+        queuePreview = [`POP CAP (${HARD_POP_CAP})`];
+        idleSpawns.length = 0; // Force-abort all spawn logic this tick
+        if (Game.time % 20 === 0) logger.log(`🛑 Global Population Cap (${HARD_POP_CAP}) reached! Spawning halted to prevent Quota Leaks.`, 'error');
+    }
 
     for (const spawn of idleSpawns) {
         let sRole = null;
@@ -423,32 +449,34 @@ module.exports.loop = function () {
             const fullHarvesterDeficit = dynamicMinerQueue.find(q => q.current < q.required);
             const mineralDeficit = dynamicMineralQueue.find(q => q.current < q.required);
 
-            if (minHarvesterDeficit) sRole = 'harvester';
-        else if (countRole('hauler') < roles.COUNTS.hauler) sRole = 'hauler';
-        else if (defenseActive && baseNeeds.defenseDefenders < defenseNeed) sRole = 'defender';
-        else if (defenseActive && baseNeeds.defenseHealers < defenseHealerNeed) sRole = 'healer';
-        else if (baseNeeds.targetHaulers < TARGET_HAULER_QUOTA) sRole = 'hauler';
-        else if (countRole('scavenger') < roles.COUNTS.scavenger) sRole = 'scavenger';
-        else if (baseNeeds.expansionHaulers < EXPANSION_HAULER_QUOTA) sRole = 'hauler';
-            else if (fullHarvesterDeficit) sRole = 'harvester';
-        else if (armyOn && countRole('vanguard') < roles.COUNTS.vanguard) sRole = 'vanguard';
-        else if (armyOn && countRole('medic') < roles.COUNTS.medic) sRole = 'medic';
-        else if (baseNeeds.homeBuilders < HOME_BUILDER_QUOTA) sRole = 'builder';
-        else if (baseNeeds.homeRepairers < HOME_REPAIRER_QUOTA) sRole = 'repairer';
-        else if (baseNeeds.targetBuilders < TARGET_BUILDER_QUOTA) sRole = 'builder';
-        else if (baseNeeds.targetRepairers < TARGET_REPAIRER_QUOTA) sRole = 'repairer';
-        else if (baseNeeds.targetUpgraders < TARGET_UPGRADER_QUOTA) sRole = 'upgrader';
-        else if (baseNeeds.miningBuilders < MINING_BUILDER_QUOTA) sRole = 'builder';
-        else if (baseNeeds.miningUpgraders < MINING_UPGRADER_QUOTA) sRole = 'upgrader';
-        else if (baseNeeds.miningHaulers < MINING_HAULER_QUOTA) sRole = 'hauler';
-        else if (baseNeeds.shouldReserveMining && baseNeeds.miningClaimers < 1) sRole = 'claimer';
-        else if (mineralDeficit) sRole = 'mineralMiner';
-        else if (baseNeeds.expansionRemoteMiners < EXPANSION_MINER_QUOTA) sRole = 'remoteMiner';
-        else if (baseNeeds.miningRemoteMiners < 2) sRole = 'remoteMiner';
-        else if (countRole('remoteMiner') < roles.COUNTS.remoteMiner) sRole = 'remoteMiner';
-        else if (countRole('builder') < roles.COUNTS.builder) sRole = 'builder';
-        else if (countRole('claimer') < roles.COUNTS.claimer) sRole = 'claimer';
-        else if (countRole('upgrader') < roles.COUNTS.upgrader) sRole = 'upgrader';
+    // --- STRICT SPAWN PRIORITY LADDER ---
+    if (minHarvesterDeficit) sRole = 'harvester';
+    else if (defenseActive && baseNeeds.defenseDefenders < defenseNeed) sRole = 'defender';
+    else if (defenseActive && baseNeeds.defenseHealers < defenseHealerNeed) sRole = 'healer';
+    else if (fullHarvesterDeficit) sRole = 'harvester';
+    else if (baseNeeds.homeBuilders < HOME_BUILDER_QUOTA) sRole = 'builder';
+    else if (baseNeeds.homeUpgraders < HOME_UPGRADER_QUOTA) sRole = 'upgrader';
+    else if (baseNeeds.targetBuilders < TARGET_BUILDER_QUOTA) sRole = 'builder';
+    else if (baseNeeds.miningBuilders < MINING_BUILDER_QUOTA) sRole = 'builder';
+    else if (baseNeeds.targetUpgraders < TARGET_UPGRADER_QUOTA) sRole = 'upgrader';
+    else if (baseNeeds.miningUpgraders < MINING_UPGRADER_QUOTA) sRole = 'upgrader';
+    else if (countRole('hauler') < roles.COUNTS.hauler) sRole = 'hauler';
+    else if (baseNeeds.targetHaulers < TARGET_HAULER_QUOTA) sRole = 'hauler';
+    else if (baseNeeds.miningHaulers < MINING_HAULER_QUOTA) sRole = 'hauler';
+    else if (baseNeeds.expansionHaulers < EXPANSION_HAULER_QUOTA) sRole = 'hauler';
+    else if (countRole('scavenger') < roles.COUNTS.scavenger) sRole = 'scavenger';
+    else if (baseNeeds.homeRepairers < HOME_REPAIRER_QUOTA) sRole = 'repairer';
+    else if (baseNeeds.targetRepairers < TARGET_REPAIRER_QUOTA) sRole = 'repairer';
+    else if (baseNeeds.shouldReserveMining && baseNeeds.miningClaimers < 1) sRole = 'claimer';
+    else if (baseNeeds.expansionRemoteMiners < EXPANSION_MINER_QUOTA) sRole = 'remoteMiner';
+    else if (baseNeeds.miningRemoteMiners < 2) sRole = 'remoteMiner';
+    else if (mineralDeficit) sRole = 'mineralMiner';
+    else if (armyOn && countRole('vanguard') < roles.COUNTS.vanguard) sRole = 'vanguard';
+    else if (armyOn && countRole('medic') < roles.COUNTS.medic) sRole = 'medic';
+    else if (countRole('remoteMiner') < roles.COUNTS.remoteMiner) sRole = 'remoteMiner';
+    else if (countRole('builder') < roles.COUNTS.builder) sRole = 'builder';
+    else if (countRole('claimer') < roles.COUNTS.claimer) sRole = 'claimer';
+    else if (countRole('upgrader') < roles.COUNTS.upgrader) sRole = 'upgrader';
 
         if (!sRole) continue;
 
@@ -504,8 +532,12 @@ module.exports.loop = function () {
             spawnMemory.workRoom = mineralDeficit.room;
         }
 
-        if (sRole === 'upgrader' && baseNeeds.targetUpgraders < TARGET_UPGRADER_QUOTA) {
+        if (sRole === 'upgrader' && baseNeeds.homeUpgraders < HOME_UPGRADER_QUOTA) {
+            spawnMemory.targetRoom = rooms.HOME;
+        } else if (sRole === 'upgrader' && baseNeeds.targetUpgraders < TARGET_UPGRADER_QUOTA) {
             spawnMemory.targetRoom = targetRoom;
+        } else if (sRole === 'upgrader' && baseNeeds.miningUpgraders < MINING_UPGRADER_QUOTA) {
+            spawnMemory.targetRoom = rooms.MINING;
         }
 
         if (sRole === 'claimer' && baseNeeds.shouldReserveMining && baseNeeds.miningClaimers < 1) {
@@ -606,7 +638,7 @@ module.exports.loop = function () {
                 energyCapacity: room ? room.energyCapacityAvailable : 0,
                 bufferedEnergy: getBufferedEnergy(room),
                 hostiles: roomThreats[roomName] || 0,
-                lowRamparts: getLowRampartCount(room, 10000),
+                lowRamparts: getLowRampartCount(room, 50000),
                 rolePopulation: rolePop
             };
         });
@@ -648,5 +680,13 @@ module.exports.loop = function () {
     if (Game.cpu.bucket === 10000 && Game.cpu.generatePixel) {
         Game.cpu.generatePixel();
         logger.log('💎 Pixel generated! (10,000 Bucket converted)', 'success');
+    }
+
+    // --- PASS 7: AUTOMATED BASE PLANNING ---
+    // Run very infrequently to save CPU, e.g., every 1000 ticks.
+    if (Game.time % 1000 === 0) {
+        Object.values(Game.rooms)
+            .filter(r => r.controller && r.controller.my)
+            .forEach(r => planner.run(r));
     }
 };

@@ -247,3 +247,45 @@ Capture non-urgent observations that improve system design, role policy, and ope
 - Impact: Wasted energy on spawning redundant creeps that had no work capacity available.
 - Action: Adjusted `MINING_REMOTE_MINER_QUOTA` (hardcoded 4 -> 2) in `main.js`, `manifest.md`, and `utils.logger.js`. Operator manually dispatched surplus creeps to the recycler via mass console command.
 - Evidence: Spawn queue now appropriately targets `RM@M:2`, preventing over-saturation.
+
+- Date-Time (UTC): `2026-02-16T03:30:00Z`
+- Context: Safeguarding against CPU Bucket exhaustion and Quota Leaks.
+- Observation: A single missing targetRoom assignment previously caused an infinite spawn loop, draining the 10k CPU bucket via PathFinder overloads and terminating the script early.
+- Impact: Hard script terminations bypassed Tower and Spawn logic, leading to total defense failure.
+- Action: Implemented a "CPU Circuit Breaker" in `main.js` that soft-yields creep execution if `Game.cpu.getUsed() > Game.cpu.tickLimit * 0.8`. Added a `HARD_POP_CAP` of 60 to globally block infinite spawn loops.
+- Evidence: Script gracefully logs `⏸️ CPU` over creeps instead of crashing the Screeps Node VM.
+
+- Date-Time (UTC): `2026-02-16T03:45:00Z`
+- Context: Rampart buffer threshold evaluation.
+- Observation: 10,000 hitpoints provide approximately 10 minutes of buffer against a standard Invader, which proved insufficient during severe kernel/CPU crashes.
+- Impact: Soft structures (Spawns, Towers) remain highly vulnerable if the active defense orchestration goes offline for over 15 minutes.
+- Action: Increased `RAMPART_FLOOR` globally from 10,000 to 50,000, extending the fallback safety margin to roughly ~1 hour of sustained attack. Raised soft cap to 100,000.
+- Evidence: Code updated in `role.builder.js`, `role.repairer.js`, `structure.tower.js`, and `main.js` audit logic.
+
+- Date-Time (UTC): `2026-02-16T04:00:00Z`
+- Context: System freeze for stability testing and baseline observation.
+- Observation: The colony has undergone rapid architectural changes (CPU breakers, automated road planning, rampart upgrades). The operator explicitly values offline stability ("the game belongs to me, not I to the game").
+- Impact: Prevents feature-creep and allows the new safety mechanisms (Pop Cap, CPU Breaker, 50k Ramparts) to be tested by natural game events.
+- Action: Suspended new feature deployments (e.g., Base Planner Phase 2). The system is now entering an active "Hands-Off" monitoring phase.
+- Evidence: Operator mandate. Roadmap marked Phase 1 of Base Planner as done and paused Phase 2.
+
+- Date-Time (UTC): `2026-02-16T05:30:00Z`
+- Context: Wipe and Respawn (The Phoenix Protocol).
+- Observation: The previous colony was wiped by a high-level PvP siege. The operator successfully respawned in a new sector (`W7N8`), retaining GCL 3.
+- Impact: The colony starts at RCL 1 but with a highly optimized codebase (SCOS v7), including automated base planning and diplomacy tools.
+- Action: Updated `config.rooms.js` topology to the new sector. Cleared the global pathing blacklist. Removed `jlk` from the diplomacy whitelist as the new sector is far away.
+- Evidence: Topology mapped to `W7N8`. `ALLIES` array in `main.js` and `structure.tower.js` is empty. Version bumped to `7.0.0`.
+
+- Date-Time (UTC): `2026-02-16T06:00:00Z`
+- Context: Scouting new novice sector around `W7N8`.
+- Observation: Northern rooms (`W7N9`, etc.) are blocked by mountains. `W7N7` (South) has 2 sources. `W8N8` (West) and `W6N8` (East) have 1 source each. `W6N6` contains an Invader Core. Novice area is protected for 16 days.
+- Impact: Defines the expansion roadmap for the next two weeks. 16-day shield allows pure economic boom without PvP risk.
+- Action: Updated topology in `config.rooms.js` and manifest. `TARGET` set to `W7N7` for future base. `W6N6` added to `BLACKLIST`.
+- Evidence: Map scouting by operator.
+
+- Date-Time (UTC): `2026-02-16T06:30:00Z`
+- Context: Early game bootstrap optimization (RCL 1-2).
+- Observation: Builders wasted time on roads while Extensions were pending. Haulers and Scavengers idled because no containers existed.
+- Impact: Slower progression to higher energy capacities.
+- Action: Disabled `hauler` and `scavenger` quotas in `config.roles.js` temporarily. Updated `role.builder.js` to prioritize `STRUCTURE_EXTENSION` immediately below Spawns.
+- Evidence: Creep distribution stabilizes; builders focus entirely on energy capacity.

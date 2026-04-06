@@ -95,3 +95,27 @@ Track urgent production incidents and response quality. Keep entries brief and f
 - Immediate Response: Identified a recurring "Border Ping-Pong" pattern. Cause 1: `PathFinder` hit `maxOps: 2000` when calculating detours around the blacklisted room, returning incomplete paths. Cause 2: Hardcoded memory purges missed custom role keys like `salvageRoom`.
 - Resolution: Increased `opts.maxOps` to `8000` in the global `moveTo` prototype. Replaced the static memory purge with a dynamic loop that scrubs `E57S55` from *all* memory keys.
 - Follow-up: Abandoning a room requires Universal Memory Scrubbing, not just targeting known keys.
+
+- Date-Time (UTC): `2026-02-16T03:15:00Z`
+- Severity: `SEV-1`
+- Trigger: Missing `targetRoom` memory assignment for `miningUpgraders` quota resulted in infinite upgrader spawning (36+ creeps).
+- Scope: Global CPU crash (Bucket exhausted), complete energy starvation, total defense failure resulting in destroyed Spawns and Towers in `E57S56` and `E58S55`.
+- Immediate Response: Mass recycled defective upgraders via console to restore CPU and energy.
+- Resolution: Added missing `spawnMemory.targetRoom = rooms.MINING` mapping in `main.js`.
+- Follow-up: Validate memory mapping for all new room-specific role quotas to prevent quota leaks.
+
+- Date-Time (UTC): `2026-02-16T04:30:00Z`
+- Severity: `SEV-1`
+- Trigger: High-level PvP attack by player 'jlk' requesting passthrough. Ignored chat and solid wall ramparts led to the destruction of all Spawns and Towers by dismantling units.
+- Scope: Global infrastructure wipe in active rooms. Code/GCL survived.
+- Immediate Response: Activated Safe Mode. Placed new Spawn site. Forcibly reassigned all surviving logistics/mining creeps to `builder` role via console to bootstrap the new spawn using residual storage energy.
+- Resolution: Implemented diplomacy whitelist (`ALLIES = ['jlk']`) in `main.js` and `structure.tower.js`. Reconfigured ramparts to bunker-style (only covering structures, leaving roads open). 
+- Follow-up: Fixed `role.builder.js` to prioritize Spawns absolutely (`0) ABSOLUTE EMERGENCY`) over the new 50k rampart floor to prevent deadlock during future cold-boots.
+
+- Date-Time (UTC): `2026-02-16T06:30:00Z`
+- Severity: `SEV-1`
+- Trigger: Colony deadlock at RCL 1 during respawn bootstrap. `HOME_UPGRADER_QUOTA` was missing from the rigid spawn priority ladder, causing the spawner to prioritize remote/expansion roles (which it couldn't afford or utilize properly).
+- Scope: `HOME` progression completely stalled.
+- Immediate Response: Mass-recycled wandering creeps via console to recover energy. 
+- Resolution: Hardcoded `HOME_UPGRADER_QUOTA: 2` into the `main.js` priority ladder directly below Harvesters and Builders.
+- Follow-up: Bootstrapping a new room requires strict localized prioritization (Harvester -> Builder -> Upgrader) before any remote quotas are evaluated.

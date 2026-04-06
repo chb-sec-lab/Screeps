@@ -28,7 +28,7 @@ module.exports = {
         const CONTAINER_EMERGENCY_HITS = 20000;
         const CONTAINER_REPAIR_THRESHOLD = 0.95;
 
-        const RAMPART_FLOOR = 10000;
+        const RAMPART_FLOOR = 50000;
 
         // Roads are expensive to maintain. Build them LAST.
         const BUILD_ROADS_LAST = true;
@@ -59,6 +59,7 @@ module.exports = {
             const sites = r.find(FIND_CONSTRUCTION_SITES);
             return sites.some(s =>
                 s.structureType === STRUCTURE_SPAWN ||
+                s.structureType === STRUCTURE_EXTENSION ||
                 s.structureType === STRUCTURE_CONTAINER ||
                 s.structureType === STRUCTURE_TOWER
             );
@@ -77,9 +78,10 @@ module.exports = {
                 const spawnSites = sites.filter(s => s.structureType === STRUCTURE_SPAWN).length;
                 const containerSites = sites.filter(s => s.structureType === STRUCTURE_CONTAINER).length;
                 const towerSites = sites.filter(s => s.structureType === STRUCTURE_TOWER).length;
+                const extSites = sites.filter(s => s.structureType === STRUCTURE_EXTENSION).length;
 
                 // Strongly prefer rooms where important infra is pending
-                let score = spawnSites * 10000 + containerSites * 3000 + towerSites * 2000;
+                let score = spawnSites * 10000 + extSites * 4000 + containerSites * 3000 + towerSites * 2000;
 
                 // Emergency container repairs / rampart floor also count
                 const dyingContainer = r.find(FIND_STRUCTURES, {
@@ -123,8 +125,8 @@ module.exports = {
         function moveToWorkRoomIfNeeded() {
             const wr = creep.memory.workRoom;
             if (!wr || creep.room.name === wr) return false;
-            const exit = creep.pos.findClosestByRange(creep.room.findExitTo(wr));
-            creep.moveTo(exit, { visualizePathStyle: { stroke: '#ffffff' } });
+            // Use RoomPosition to let global PathFinder respect the E57S55 blacklist
+            creep.moveTo(new RoomPosition(25, 25, wr), { range: 22, visualizePathStyle: { stroke: '#ffffff' } });
             return true;
         }
 
@@ -153,7 +155,16 @@ module.exports = {
         // -------------------------
         if (creep.memory.working) {
 
-            // 0) Emergency: save containers
+            // 0) ABSOLUTE EMERGENCY: Build Spawns (Colony Recovery)
+            const emergencySpawnSite = creep.pos.findClosestByPath(FIND_CONSTRUCTION_SITES, {
+                filter: s => s.structureType === STRUCTURE_SPAWN
+            });
+            if (emergencySpawnSite) {
+                if (creep.build(emergencySpawnSite) === ERR_NOT_IN_RANGE) creep.moveTo(emergencySpawnSite, { visualizePathStyle: { stroke: '#ffffff' } });
+                return;
+            }
+
+            // 1) Emergency: save containers
             const dyingContainer = creep.pos.findClosestByPath(FIND_STRUCTURES, {
                 filter: s => s.structureType === STRUCTURE_CONTAINER && s.hits < CONTAINER_EMERGENCY_HITS
             });
@@ -162,7 +173,7 @@ module.exports = {
                 return;
             }
 
-            // 1) Rampart floor (only if you already built ramparts)
+            // 2) Rampart floor (only if you already built ramparts)
             const weakRamp = creep.pos.findClosestByPath(FIND_STRUCTURES, {
                 filter: s => s.structureType === STRUCTURE_RAMPART && s.hits < RAMPART_FLOOR
             });
@@ -171,16 +182,18 @@ module.exports = {
                 return;
             }
 
-            // 2) BUILD PRIORITIES (spawn -> containers -> towers -> others -> roads last)
+            // 3) BUILD PRIORITIES (extensions -> containers -> towers -> others -> roads last)
             const sites = creep.room.find(FIND_CONSTRUCTION_SITES);
 
             const pickSite = (arr) => creep.pos.findClosestByRange(arr);
 
             let targetSite = null;
 
-            // Spawn first
-            const spawnSites = sites.filter(s => s.structureType === STRUCTURE_SPAWN);
-            targetSite = pickSite(spawnSites);
+            // Extensions first (critical for room energy capacity)
+            if (!targetSite) {
+                const extSites = sites.filter(s => s.structureType === STRUCTURE_EXTENSION);
+                targetSite = pickSite(extSites);
+            }
 
             // Containers second
             if (!targetSite) {

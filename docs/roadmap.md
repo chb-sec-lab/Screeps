@@ -49,6 +49,6 @@ Goal: Leverage RCL 6/7 technology (Links, Spawns, Labs) and market integration.
 
 [x] Mineral Extraction: Dynamic `mineralMiner` generation for rooms with RCL >= 6 and active Extractors.
 
-[ ] Automated Construction: Code that automatically places construction sites.
+[x] Automated Construction: Phase 1 (Auto-Roads) implemented via `utils.planner.js`. Phase 2 (Extensions) paused for stability observation.
 
 [ ] Market: Auto-sell excess resources.

@@ -8,10 +8,10 @@ Quick live checks and recovery commands for operation.
 
 ## Room Constants
 
-- HOME: `E58S56`
-- TARGET: `E57S56`
-- EXPANSION: `E57S55`
-- MINING: `E58S55`
+- HOME: `W7N8`
+- TARGET: `W7N7`
+- EXPANSION: `W6N8`
+- MINING: `W8N8`
 
 ## Expected Mission Quotas
 
