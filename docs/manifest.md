@@ -8,10 +8,11 @@ System-level policy for architecture boundaries, mission priorities, and operati
 
 ## Topology
 
-- Home room: `W7N8`
-- Target room: `W7N7` (2 Sources)
-- Expansion room: `W6N8` (1 Source)
-- Mining room: `W8N8` (1 Source)
+Driven by the `registry` in `config.rooms.js`:
+- CORE: `W7N8` (Primary Base)
+- CORE: `W7N7` (Future Secondary Base, 2 Sources)
+- REMOTE: `W6N8` (Expansion Mine, tied to W7N8)
+- REMOTE: `W8N8` (Sector Mine, tied to W7N8)
 
 ## Operational Priorities
 
@@ -32,22 +33,13 @@ System-level policy for architecture boundaries, mission priorities, and operati
 
 ## Enforced Quotas
 
-- `builder@E58S56` (home): `1`
-- `repairer@E58S56` (home): `1`
-- `builder@E57S56`: `1`
-- `repairer@E57S56`: `2`
-- `upgrader@E57S56`: `1`
-- `hauler@E57S56`: `1`
-- `remoteMiner@E57S56` (local extraction): `4`
-- `builder@E58S55` (bootstrap): `2`
-- `upgrader@E58S55`: `1`
-- `hauler@E58S55`: `1`
-- `claimer@E58S55` (claim): `1`
-- `remoteMiner@E57S55`: `0`
-- `remoteMiner@E58S55`: `2` (Room only has 1 source)
-- `hauler@E57S55`: `0`
-- `scavenger` (global): `2`
-- `upgrader` (global fallback): `4`
+The system utilizes the **Evolution Protocol** (dynamic RCL-based evaluation per room) instead of rigid global constants:
+- **Phase 1 (RCL 1-2 "Bootstrap"):** 3 Builders, 2 Upgraders, 0 Haulers/Scavs. Maximizes raw capacity scaling.
+- **Phase 2 (RCL 3 "Basic Infra"):** 2 Builders, 2 Upgraders, 1 Repairer, 1 Hauler, 1 Scav. Introduces container logistics and tower upkeep.
+- **Phase 3 (RCL 4+ "Empire"):** 1 Builder, 2 Upgraders, 1 Repairer, 2 Haulers, 2 Scavs. Fully enables multi-room remote assignments.
+
+Remote Mining:
+- Handled via explicit mapping in `main.js` (Target: 2 RMs per source).
 - `mineralMiner`: Dynamic (1 per active Extractor in RCL 6+ rooms).
 - `defender`: `0` baseline, escalates on live threat with cooldown.
 

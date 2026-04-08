@@ -45,10 +45,12 @@ Hauler: Fast creep (CARRY/MOVE) that only moves energy to Storage.
 
 Goal: Leverage RCL 6/7 technology (Links, Spawns, Labs) and market integration.
 
+[x] Autonomous Colony Architecture: Implemented Control Room Registry (`CORE`/`REMOTE`) and dynamic RCL Evolution Protocol.
+
 [x] Remote Mining: Harvest energy from neighboring rooms.
 
 [x] Mineral Extraction: Dynamic `mineralMiner` generation for rooms with RCL >= 6 and active Extractors.
 
-[x] Automated Construction: Phase 1 (Auto-Roads) implemented via `utils.planner.js`. Phase 2 (Extensions) paused for stability observation.
+[x] Automated Construction: Phase 1 (Auto-Roads) and Phase 2 (Extensions & Storage) implemented via `utils.planner.js`.
 
 [ ] Market: Auto-sell excess resources.

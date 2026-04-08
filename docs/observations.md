@@ -289,3 +289,10 @@ Capture non-urgent observations that improve system design, role policy, and ope
 - Impact: Slower progression to higher energy capacities.
 - Action: Disabled `hauler` and `scavenger` quotas in `config.roles.js` temporarily. Updated `role.builder.js` to prioritize `STRUCTURE_EXTENSION` immediately below Spawns.
 - Evidence: Creep distribution stabilizes; builders focus entirely on energy capacity.
+
+- Date-Time (UTC): `2026-02-16T12:00:00Z`
+- Context: Transitioning from rigid multi-room constants to autonomous Colony Architecture.
+- Observation: Hardcoded HOME/TARGET variables scaled poorly and required manual intervention during the cold reboot (Phase 1). Advanced quotas starved the new Level 1 spawn.
+- Impact: Unpredictable spawn locks when claiming new rooms or recovering from wipes.
+- Action: Introduced the "Control Room" registry (`config.rooms.js`) and the "Evolution Protocol" (`main.js`). Rooms now dynamically self-evaluate their required worker quotas based on their individual Room Control Level (RCL). Added `STRUCTURE_STORAGE` to the automated base planner for RCL 4 integration.
+- Evidence: `main.js` now uses `getPhaseQuotas(level)` for local and target rooms dynamically. Version bumped to `7.1.0`.

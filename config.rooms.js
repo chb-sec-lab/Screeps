@@ -15,7 +15,13 @@ module.exports = {
     // Toggle this to true to spawn the army and attack.
     WAR_MODE: false,
 
+    // --- THE CONTROL ROOM (Topology Registry) ---
+    // Die zentrale Architektur für volle Automatisierung.
+    // Künftige Kernels lesen dieses Objekt aus, um Basen (CORE) und Außenposten (REMOTE) zu steuern.
     registry: {
-        'W7N8': { role: 'HOME' }
+        'W7N8': { type: 'CORE' },                         // Heimatbasis
+        'W7N7': { type: 'CORE' },                         // Zukünftige Zweitbasis (momentan TARGET)
+        'W6N8': { type: 'REMOTE', base: 'W7N8' },         // Expansion (Mine)
+        'W8N8': { type: 'REMOTE', base: 'W7N8' }          // Mining (Mine)
     }
 };

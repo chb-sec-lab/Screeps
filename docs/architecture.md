@@ -16,10 +16,10 @@ SCOS is a multi-room Screeps operating system focused on reliable expansion, exp
 
 ## Operational Topology
 
-- Home room: `E58S56`
-- Target room: `E57S56`
-- Expansion room: `E57S55`
-- Mining room: `E58S55`
+The system has migrated to a dynamic **Colony Registry** defined in `config.rooms.js`.
+Instead of rigid `HOME` and `TARGET` constants, rooms are classified by type:
+- `CORE`: Fully autonomous colonies with a Spawn and Controller. They calculate their own quotas dynamically based on their Room Control Level (RCL) via the Evolution Protocol.
+- `REMOTE`: Outpost rooms dedicated to mining or claim/reserve operations, assigned to a specific `base` CORE room.
 
 ## Control Model
 

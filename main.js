@@ -12,18 +12,6 @@ const TACTICAL_AUDIT_INTERVAL = 200;
 const STRATEGIC_AUDIT_INTERVAL = 3600;
 const AUDIT_RETENTION_TACTICAL = 120;
 const AUDIT_RETENTION_STRATEGIC = 100;
-const TARGET_UPGRADER_QUOTA = 1;
-const TARGET_BUILDER_QUOTA = 1;
-const TARGET_REPAIRER_QUOTA = 2;
-const TARGET_HAULER_QUOTA = 1;
-const HOME_BUILDER_QUOTA = 1;
-const HOME_UPGRADER_QUOTA = 2;
-const HOME_REPAIRER_QUOTA = 1;
-const MINING_BUILDER_QUOTA = 2; // Bootstrap new claimed room
-const MINING_UPGRADER_QUOTA = 1;
-const MINING_HAULER_QUOTA = 1;
-const EXPANSION_MINER_QUOTA = 0; // Blocked by Invader Core
-const EXPANSION_HAULER_QUOTA = 0; // Blocked by Invader Core
 
 // --- GLOBAL PATHFINDER OVERRIDE ---
 // Automatisches Blockieren von Räumen für alle Creeps
@@ -65,6 +53,48 @@ module.exports.loop = function () {
     const allSpawns = Object.values(Game.spawns);
     const targetRoomView = Game.rooms[rooms.TARGET];
     const expansionRoomView = Game.rooms[rooms.EXPANSION];
+
+    // --- EVOLUTION PROTOCOL (RCL-Based Dynamic Quotas) ---
+    // Evaluiert JEDEN geclaimten Raum einzeln basierend auf seinem eigenen Controller-Level
+    function getPhaseQuotas(level) {
+        if (level <= 2) return { builder: 3, upgrader: 2, repairer: 0, hauler: 0, scav: 0 }; // Phase 1: Bootstrap
+        if (level === 3) return { builder: 2, upgrader: 2, repairer: 1, hauler: 1, scav: 1 }; // Phase 2: Basic Infra
+        return { builder: 1, upgrader: 2, repairer: 1, hauler: 2, scav: 2 }; // Phase 3: Empire
+    }
+
+    const homeRCL = homeRoom && homeRoom.controller ? homeRoom.controller.level : 1;
+    const homePhase = getPhaseQuotas(homeRCL);
+    let HOME_BUILDER_QUOTA = homePhase.builder;
+    let HOME_UPGRADER_QUOTA = homePhase.upgrader;
+    let HOME_REPAIRER_QUOTA = homePhase.repairer;
+    roles.COUNTS.hauler = homePhase.hauler; // Global fallback basis
+    roles.COUNTS.scavenger = homePhase.scav;
+
+    // Wenn der Target-Raum uns gehört, berechnet er ab sofort seine eigenen autonomen Phasen!
+    let targetPhase = { builder: 1, upgrader: 1, repairer: 2, hauler: 1 }; // SCOS Target Fallback
+    if (targetRoomView && targetRoomView.controller && targetRoomView.controller.my) {
+        targetPhase = getPhaseQuotas(targetRoomView.controller.level);
+    }
+    let TARGET_BUILDER_QUOTA = targetPhase.builder;
+    let TARGET_UPGRADER_QUOTA = targetPhase.upgrader;
+    let TARGET_REPAIRER_QUOTA = targetPhase.repairer;
+    let TARGET_HAULER_QUOTA = targetPhase.hauler || 1;
+
+    let MINING_BUILDER_QUOTA = 0;
+    let MINING_UPGRADER_QUOTA = 0;
+    let MINING_HAULER_QUOTA = 0;
+    let MINING_REMOTE_MINER_QUOTA = 0;
+    let MINING_CLAIMER_QUOTA = 0;
+    let EXPANSION_MINER_QUOTA = 0;
+    let EXPANSION_HAULER_QUOTA = 0;
+
+    if (homeRCL >= 4) {
+        MINING_BUILDER_QUOTA = 2;
+        MINING_UPGRADER_QUOTA = 1;
+        MINING_HAULER_QUOTA = 1;
+        MINING_REMOTE_MINER_QUOTA = 2;
+        MINING_CLAIMER_QUOTA = 1;
+    }
 
     // --- DEFENSE STATUS (Home + Target) ---
     if (!Memory.defense) Memory.defense = {};
@@ -413,11 +443,11 @@ module.exports.loop = function () {
     addQueueEntry(countRole('scavenger') >= roles.COUNTS.scavenger, 'scavenger', countRole('scavenger'), roles.COUNTS.scavenger);
     addQueueEntry(baseNeeds.homeRepairers >= HOME_REPAIRER_QUOTA, `repairer@${rooms.HOME}`, baseNeeds.homeRepairers, HOME_REPAIRER_QUOTA);
     addQueueEntry(baseNeeds.targetRepairers >= TARGET_REPAIRER_QUOTA, `repairer@${targetRoom}`, baseNeeds.targetRepairers, TARGET_REPAIRER_QUOTA);
-    if (baseNeeds.shouldReserveMining) {
-        addQueueEntry(baseNeeds.miningClaimers >= 1, `claimer@${rooms.MINING}`, baseNeeds.miningClaimers, 1);
+    if (baseNeeds.shouldReserveMining && MINING_CLAIMER_QUOTA > 0) {
+        addQueueEntry(baseNeeds.miningClaimers >= MINING_CLAIMER_QUOTA, `claimer@${rooms.MINING}`, baseNeeds.miningClaimers, MINING_CLAIMER_QUOTA);
     }
     addQueueEntry(baseNeeds.expansionRemoteMiners >= EXPANSION_MINER_QUOTA, `remoteMiner@${expansionRoom}`, baseNeeds.expansionRemoteMiners, EXPANSION_MINER_QUOTA);
-    addQueueEntry(baseNeeds.miningRemoteMiners >= 2, `remoteMiner@${rooms.MINING}`, baseNeeds.miningRemoteMiners, 2);
+    addQueueEntry(baseNeeds.miningRemoteMiners >= MINING_REMOTE_MINER_QUOTA, `remoteMiner@${rooms.MINING}`, baseNeeds.miningRemoteMiners, MINING_REMOTE_MINER_QUOTA);
     dynamicMineralQueue.forEach(q => {
         addQueueEntry(q.current >= q.required, `min.miner@${q.room}`, q.current, q.required);
     });
@@ -467,9 +497,9 @@ module.exports.loop = function () {
     else if (countRole('scavenger') < roles.COUNTS.scavenger) sRole = 'scavenger';
     else if (baseNeeds.homeRepairers < HOME_REPAIRER_QUOTA) sRole = 'repairer';
     else if (baseNeeds.targetRepairers < TARGET_REPAIRER_QUOTA) sRole = 'repairer';
-    else if (baseNeeds.shouldReserveMining && baseNeeds.miningClaimers < 1) sRole = 'claimer';
+    else if (baseNeeds.shouldReserveMining && baseNeeds.miningClaimers < MINING_CLAIMER_QUOTA) sRole = 'claimer';
     else if (baseNeeds.expansionRemoteMiners < EXPANSION_MINER_QUOTA) sRole = 'remoteMiner';
-    else if (baseNeeds.miningRemoteMiners < 2) sRole = 'remoteMiner';
+    else if (baseNeeds.miningRemoteMiners < MINING_REMOTE_MINER_QUOTA) sRole = 'remoteMiner';
     else if (mineralDeficit) sRole = 'mineralMiner';
     else if (armyOn && countRole('vanguard') < roles.COUNTS.vanguard) sRole = 'vanguard';
     else if (armyOn && countRole('medic') < roles.COUNTS.medic) sRole = 'medic';
@@ -540,7 +570,7 @@ module.exports.loop = function () {
             spawnMemory.targetRoom = rooms.MINING;
         }
 
-        if (sRole === 'claimer' && baseNeeds.shouldReserveMining && baseNeeds.miningClaimers < 1) {
+        if (sRole === 'claimer' && baseNeeds.shouldReserveMining && baseNeeds.miningClaimers < MINING_CLAIMER_QUOTA) {
             spawnMemory.targetRoom = rooms.MINING;
             spawnMemory.claimMode = 'claim';
         }
@@ -549,7 +579,7 @@ module.exports.loop = function () {
                 if (baseNeeds.expansionRemoteMiners < EXPANSION_MINER_QUOTA) {
                 spawnMemory.targetRoom = expansionRoom;
                 spawnMemory.homeRoom = rooms.HOME;
-            } else if (baseNeeds.miningRemoteMiners < 2) {
+            } else if (baseNeeds.miningRemoteMiners < MINING_REMOTE_MINER_QUOTA) {
                 spawnMemory.targetRoom = rooms.MINING;
                 spawnMemory.homeRoom = rooms.HOME;
             }

@@ -55,17 +55,21 @@ module.exports = {
         const rcl = room.controller ? room.controller.level : 0;
         const allowedExt = CONTROLLER_STRUCTURES[STRUCTURE_EXTENSION][rcl] || 0;
         const allowedTowers = CONTROLLER_STRUCTURES[STRUCTURE_TOWER][rcl] || 0;
+        const allowedStorage = CONTROLLER_STRUCTURES[STRUCTURE_STORAGE][rcl] || 0;
 
         const currentExt = room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType === STRUCTURE_EXTENSION}).length +
                            room.find(FIND_CONSTRUCTION_SITES, {filter: s => s.structureType === STRUCTURE_EXTENSION}).length;
         const currentTowers = room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType === STRUCTURE_TOWER}).length +
                               room.find(FIND_CONSTRUCTION_SITES, {filter: s => s.structureType === STRUCTURE_TOWER}).length;
+        const currentStorage = room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType === STRUCTURE_STORAGE}).length +
+                               room.find(FIND_CONSTRUCTION_SITES, {filter: s => s.structureType === STRUCTURE_STORAGE}).length;
 
         // Abort if we already have everything allowed at this RCL
-        if (currentExt >= allowedExt && currentTowers >= allowedTowers) return;
+        if (currentExt >= allowedExt && currentTowers >= allowedTowers && currentStorage >= allowedStorage) return;
 
         let placedExt = currentExt;
         let placedTowers = currentTowers;
+        let placedStorage = currentStorage;
 
         // Expanding square around the spawn (radius 2 to 12)
         for (let radius = 2; radius <= 12; radius++) {
@@ -90,9 +94,11 @@ module.exports = {
                         if (room.createConstructionSite(pos, STRUCTURE_EXTENSION) === OK) placedExt++;
                     } else if (placedTowers < allowedTowers) {
                         if (room.createConstructionSite(pos, STRUCTURE_TOWER) === OK) placedTowers++;
+                    } else if (placedStorage < allowedStorage) {
+                        if (room.createConstructionSite(pos, STRUCTURE_STORAGE) === OK) placedStorage++;
                     }
 
-                    if (placedExt >= allowedExt && placedTowers >= allowedTowers) return;
+                    if (placedExt >= allowedExt && placedTowers >= allowedTowers && placedStorage >= allowedStorage) return;
                 }
             }
         }
