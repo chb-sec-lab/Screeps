@@ -19,6 +19,11 @@ const rooms = require('config.rooms');
 module.exports = {
     run: function (creep) {
 
+        // Auto-Recycle Reset Logic: Wenn der Creep arbeitet, wird der Idle-Zähler auf 0 gesetzt
+        if (creep.memory.lastIdleTick !== Game.time - 1) {
+            creep.memory.idleCount = 0;
+        }
+
         // -------------------------
         // Tunables
         // -------------------------
@@ -73,6 +78,12 @@ module.exports = {
             for (const rn of candidates) {
                 const r = Game.rooms[rn];
                 if (!r) continue;
+
+                // Anti-Swarm: Verhindere, dass arbeitslose Builder aus anderen Räumen die Kolonien fluten
+                const buildersAssigned = _.filter(Game.creeps, c => c.memory.role === 'builder' && c.memory.workRoom === rn).length;
+                if (buildersAssigned >= 2 && rn !== rooms.HOME && rn !== creep.memory.workRoom) {
+                    continue; // Raum ist bereits gesättigt, such dir woanders Arbeit!
+                }
 
                 const sites = r.find(FIND_CONSTRUCTION_SITES);
                 const spawnSites = sites.filter(s => s.structureType === STRUCTURE_SPAWN).length;
@@ -135,6 +146,12 @@ module.exports = {
         // -------------------------
         ensureWorkRoom();
         if (moveToWorkRoomIfNeeded()) return;
+
+        // --- BORDER BOUNCE FIX ---
+        if (creep.pos.x === 0 || creep.pos.x === 49 || creep.pos.y === 0 || creep.pos.y === 49) {
+            creep.moveTo(new RoomPosition(25, 25, creep.room.name));
+            return;
+        }
 
         // -------------------------
         // State toggle
@@ -246,7 +263,17 @@ module.exports = {
 
             // 4) Upgrade fallback
             if (creep.room.controller) {
-                if (creep.upgradeController(creep.room.controller) === ERR_NOT_IN_RANGE) creep.moveTo(creep.room.controller);
+                if (creep.room.controller.my) {
+                    creep.say('Upgrade');
+                    if (creep.upgradeController(creep.room.controller) === ERR_NOT_IN_RANGE) {
+                        creep.moveTo(creep.room.controller, { visualizePathStyle: { stroke: '#ffff00' } });
+                    }
+                } else {
+                    creep.say('Wait Claim');
+                    if (!creep.pos.inRangeTo(creep.room.controller, 3)) {
+                        creep.moveTo(creep.room.controller, { visualizePathStyle: { stroke: '#555555' } });
+                    }
+                }
                 return;
             }
 
@@ -254,6 +281,9 @@ module.exports = {
             if (creep.pos.x === 0 || creep.pos.x === 49 || creep.pos.y === 0 || creep.pos.y === 49) {
                 creep.moveTo(new RoomPosition(25, 25, creep.room.name), { range: 22 });
             }
+            creep.memory.lastIdleTick = Game.time;
+            creep.memory.idleCount = (creep.memory.idleCount || 0) + 1;
+            if (creep.memory.idleCount > 100) creep.memory.recycle = true;
             return;
         }
 
@@ -297,5 +327,8 @@ module.exports = {
         if (creep.pos.x === 0 || creep.pos.x === 49 || creep.pos.y === 0 || creep.pos.y === 49) {
             creep.moveTo(new RoomPosition(25, 25, creep.room.name), { range: 22 });
         }
+        creep.memory.lastIdleTick = Game.time;
+        creep.memory.idleCount = (creep.memory.idleCount || 0) + 1;
+        if (creep.memory.idleCount > 100) creep.memory.recycle = true;
     }
 };

@@ -310,3 +310,17 @@ Capture non-urgent observations that improve system design, role policy, and ope
 - Impact: Wasted CPU, energy loss on creep death, and inaccurate spawn timing.
 - Action: Implemented dynamic `getPreSpawnTime()` in `main.js` combining body size and `Game.map.getRoomLinearDistance()`. Added auto-recycle for obsolete defenders. Added an inventory dump routine before a creep jumps into the spawn for recycling.
 - Evidence: Heartbeat tracks defender `ttl`. Creeps reliably deposit payload before recycling. Spawns calculate perfect replacement timing.
+
+- Date-Time (UTC): `2026-02-16T15:00:00Z`
+- Context: Idle civilian creeps holding CPU/memory indefinitely when economy is saturated.
+- Observation: Worker creeps would idle forever at `(25,25)` when no work was available, wasting initial spawn cost and risking quota deadlocks.
+- Impact: Stagnant population limits adaptability.
+- Action: Implemented a universal 100-tick idle auto-recycle feature ("Inaktivitäts-Schredder"). Creeps log `idleCount` and jump into the recycler if they haven't performed a productive action in 100 ticks.
+- Evidence: Code updated to reset `idleCount` on productive ticks and trigger `memory.recycle` at >100.
+
+- Date-Time (UTC): `2026-02-16T15:45:00Z`
+- Context: Bootstrapping new colonies.
+- Observation: The automated base planner (`utils.planner.js`) required a manually placed Spawn to act as the anchor point, delaying autonomous expansion.
+- Impact: Human intervention required to start a new colony.
+- Action: Implemented `Auto-Bootstrap` in the planner to dynamically calculate the midpoint between the controller and the first source and automatically place the first `STRUCTURE_SPAWN` construction site. Reduced planner interval from 1000 to 100 ticks.
+- Evidence: System can now autonomously claim and initiate construction in a completely blank room.

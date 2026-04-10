@@ -57,7 +57,7 @@ module.exports.loop = function () {
     // --- EVOLUTION PROTOCOL (RCL-Based Dynamic Quotas) ---
     // Evaluiert JEDEN geclaimten Raum einzeln basierend auf seinem eigenen Controller-Level
     function getPhaseQuotas(level) {
-        if (level <= 2) return { builder: 3, upgrader: 2, repairer: 0, hauler: 0, scav: 0 }; // Phase 1: Bootstrap
+        if (level <= 2) return { builder: 2, upgrader: 0, repairer: 0, hauler: 0, scav: 0 }; // Phase 1: Bootstrap (2 Pioneers)
         if (level === 3) return { builder: 2, upgrader: 2, repairer: 1, hauler: 1, scav: 1 }; // Phase 2: Basic Infra
         return { builder: 1, upgrader: 2, repairer: 1, hauler: 2, scav: 2 }; // Phase 3: Empire
     }
@@ -71,14 +71,18 @@ module.exports.loop = function () {
     roles.COUNTS.scavenger = homePhase.scav;
 
     // Wenn der Target-Raum uns gehört, berechnet er ab sofort seine eigenen autonomen Phasen!
-    let targetPhase = { builder: 1, upgrader: 1, repairer: 2, hauler: 1 }; // SCOS Target Fallback
+    let targetPhase = { builder: 0, upgrader: 0, repairer: 0, hauler: 0 }; // Default to nothing if unclaimed
+    let TARGET_CLAIMER_QUOTA = 0;
     if (targetRoomView && targetRoomView.controller && targetRoomView.controller.my) {
         targetPhase = getPhaseQuotas(targetRoomView.controller.level);
+    } else if (homeRCL >= 3) {
+        TARGET_CLAIMER_QUOTA = 1; // Claim target room if not owned
+        targetPhase = { builder: 2, upgrader: 0, repairer: 0, hauler: 0 }; // Send exactly 2 Pioneers ahead!
     }
     let TARGET_BUILDER_QUOTA = targetPhase.builder;
     let TARGET_UPGRADER_QUOTA = targetPhase.upgrader;
     let TARGET_REPAIRER_QUOTA = targetPhase.repairer;
-    let TARGET_HAULER_QUOTA = targetPhase.hauler || 1;
+    let TARGET_HAULER_QUOTA = targetPhase.hauler;
 
     let MINING_BUILDER_QUOTA = 0;
     let MINING_UPGRADER_QUOTA = 0;
@@ -87,6 +91,17 @@ module.exports.loop = function () {
     let MINING_CLAIMER_QUOTA = 0;
     let EXPANSION_MINER_QUOTA = 0;
     let EXPANSION_HAULER_QUOTA = 0;
+
+    // --- EXPANSION AS BASE (W8N8) ---
+    // Falls in EXPANSION ein Spawn gebaut wurde, berechnet er ab sofort autonom seine eigenen Quoten!
+    let expansionPhase = { builder: 0, upgrader: 0, repairer: 0, hauler: 0 };
+    if (expansionRoomView && expansionRoomView.controller && expansionRoomView.controller.my && expansionRoomView.find(FIND_MY_SPAWNS).length > 0) {
+        expansionPhase = getPhaseQuotas(expansionRoomView.controller.level);
+    }
+    let EXPANSION_BUILDER_QUOTA = expansionPhase.builder;
+    let EXPANSION_UPGRADER_QUOTA = expansionPhase.upgrader;
+    let EXPANSION_REPAIRER_QUOTA = expansionPhase.repairer;
+    if (expansionPhase.hauler > 0) EXPANSION_HAULER_QUOTA = expansionPhase.hauler;
 
     if (homeRCL >= 4) {
         MINING_BUILDER_QUOTA = 2;
@@ -213,10 +228,11 @@ module.exports.loop = function () {
             continue; // Skip normal role logic
         }
 
-        // --- UNIVERSAL MEMORY PURGE: Scrub E57S55 completely ---
+        // --- UNIVERSAL MEMORY PURGE & ORPHAN MIGRATION ---
         let memoryPatched = false;
         for (let key in creep.memory) {
-            if (creep.memory[key] === 'E57S55') {
+            // 1. Alte Sektoren endgültig löschen
+            if (['E57S55', 'E57S56', 'E58S55', 'E58S56'].includes(creep.memory[key])) {
                 if (key === 'salvageRoom' || key === 'salvageId') {
                     creep.memory.salvageRoom = null;
                     creep.memory.salvageId = null;
@@ -228,6 +244,13 @@ module.exports.loop = function () {
                     creep.memory[key] = null;
                 }
                 memoryPatched = true;
+            }
+            // 2. RAUMÜBERGREIFENDER AUSGLEICH: W8N8 Orphans nach W6N8 schicken
+            if (creep.memory[key] === 'W8N8' && key !== 'homeRoom') {
+                if (EXPANSION_BUILDER_QUOTA === 0 && EXPANSION_UPGRADER_QUOTA === 0 && EXPANSION_MINER_QUOTA === 0) {
+                    creep.memory[key] = rooms.TARGET; // Schickt arbeitslose Creeps an die neue Front
+                    memoryPatched = true;
+                }
             }
         }
         if (memoryPatched) delete creep.memory._move; // Clear cached bad paths!
@@ -338,10 +361,14 @@ module.exports.loop = function () {
         const targetRepairers = countAssigned('repairer', targetRoom, 'workRoom');
         const targetUpgraders = countAssigned('upgrader', targetRoom, 'targetRoom');
         const targetHaulers = countAssigned('hauler', targetRoom, 'workRoom');
+        const targetClaimers = countAssigned('claimer', targetRoom, 'targetRoom');
         const miningBuilders = countAssigned('builder', rooms.MINING, 'workRoom');
         const miningUpgraders = countAssigned('upgrader', rooms.MINING, 'targetRoom');
         const miningHaulers = countAssigned('hauler', rooms.MINING, 'workRoom');
         const miningClaimers = countAssigned('claimer', rooms.MINING, 'targetRoom');
+        const expansionBuilders = countAssigned('builder', rooms.EXPANSION, 'workRoom');
+        const expansionUpgraders = countAssigned('upgrader', rooms.EXPANSION, 'targetRoom');
+        const expansionRepairers = countAssigned('repairer', rooms.EXPANSION, 'workRoom');
         const expansionRemoteMiners = countAssigned('remoteMiner', expansionRoom, 'targetRoom');
         const expansionHaulers = countAssigned('hauler', expansionRoom, 'targetRoom');
         const miningRemoteMiners = countAssigned('remoteMiner', rooms.MINING, 'targetRoom');
@@ -357,10 +384,14 @@ module.exports.loop = function () {
             targetRepairers,
             targetUpgraders,
             targetHaulers,
+            targetClaimers,
             miningBuilders,
             miningUpgraders,
             miningHaulers,
             miningClaimers,
+            expansionBuilders,
+            expansionUpgraders,
+            expansionRepairers,
             expansionRemoteMiners,
             expansionHaulers,
             miningRemoteMiners,
@@ -436,14 +467,24 @@ module.exports.loop = function () {
         homeRepairers: baseNeeds.homeRepairers,
         homeRepairerNeed: HOME_REPAIRER_QUOTA,
         targetBuilders: baseNeeds.targetBuilders,
+        targetBuilderNeed: TARGET_BUILDER_QUOTA,
         targetRepairers: baseNeeds.targetRepairers,
+        targetRepairerNeed: TARGET_REPAIRER_QUOTA,
         targetUpgraders: baseNeeds.targetUpgraders,
         targetUpgraderNeed: TARGET_UPGRADER_QUOTA, // This was just a typo fix, it's correct now.
         targetHaulers: baseNeeds.targetHaulers,
+        targetClaimers: baseNeeds.targetClaimers,
+        targetClaimerNeed: TARGET_CLAIMER_QUOTA,
         miningBuilders: baseNeeds.miningBuilders,
         miningUpgraders: baseNeeds.miningUpgraders,
         miningHaulers: baseNeeds.miningHaulers,
         miningClaimers: baseNeeds.miningClaimers,
+        expansionBuilders: baseNeeds.expansionBuilders,
+        expansionBuilderNeed: EXPANSION_BUILDER_QUOTA,
+        expansionUpgraders: baseNeeds.expansionUpgraders,
+        expansionUpgraderNeed: EXPANSION_UPGRADER_QUOTA,
+        expansionRepairers: baseNeeds.expansionRepairers,
+        expansionRepairerNeed: EXPANSION_REPAIRER_QUOTA,
         expansionRemoteMiners: baseNeeds.expansionRemoteMiners,
         expansionHaulers: baseNeeds.expansionHaulers,
         miningRemoteMiners: baseNeeds.miningRemoteMiners,
@@ -475,9 +516,15 @@ module.exports.loop = function () {
     addQueueEntry(baseNeeds.targetBuilders >= TARGET_BUILDER_QUOTA, `builder@${targetRoom}`, baseNeeds.targetBuilders, TARGET_BUILDER_QUOTA);
     addQueueEntry(baseNeeds.miningBuilders >= MINING_BUILDER_QUOTA, `builder@${rooms.MINING}`, baseNeeds.miningBuilders, MINING_BUILDER_QUOTA);
     addQueueEntry(baseNeeds.targetUpgraders >= TARGET_UPGRADER_QUOTA, `upgrader@${targetRoom}`, baseNeeds.targetUpgraders, TARGET_UPGRADER_QUOTA);
+    if (TARGET_CLAIMER_QUOTA > 0) {
+        addQueueEntry(baseNeeds.targetClaimers >= TARGET_CLAIMER_QUOTA, `claimer@${targetRoom}`, baseNeeds.targetClaimers, TARGET_CLAIMER_QUOTA);
+    }
     addQueueEntry(baseNeeds.miningUpgraders >= MINING_UPGRADER_QUOTA, `upgrader@${rooms.MINING}`, baseNeeds.miningUpgraders, MINING_UPGRADER_QUOTA);
     addQueueEntry(countRole('hauler') >= roles.COUNTS.hauler, 'hauler', countRole('hauler'), roles.COUNTS.hauler);
     addQueueEntry(baseNeeds.targetHaulers >= TARGET_HAULER_QUOTA, `hauler@${targetRoom}`, baseNeeds.targetHaulers, TARGET_HAULER_QUOTA);
+    addQueueEntry(baseNeeds.expansionBuilders >= EXPANSION_BUILDER_QUOTA, `builder@${expansionRoom}`, baseNeeds.expansionBuilders, EXPANSION_BUILDER_QUOTA);
+    addQueueEntry(baseNeeds.expansionUpgraders >= EXPANSION_UPGRADER_QUOTA, `upgrader@${expansionRoom}`, baseNeeds.expansionUpgraders, EXPANSION_UPGRADER_QUOTA);
+    addQueueEntry(baseNeeds.expansionRepairers >= EXPANSION_REPAIRER_QUOTA, `repairer@${expansionRoom}`, baseNeeds.expansionRepairers, EXPANSION_REPAIRER_QUOTA);
     addQueueEntry(baseNeeds.miningHaulers >= MINING_HAULER_QUOTA, `hauler@${rooms.MINING}`, baseNeeds.miningHaulers, MINING_HAULER_QUOTA);
     addQueueEntry(baseNeeds.expansionHaulers >= EXPANSION_HAULER_QUOTA, `hauler@${expansionRoom}`, baseNeeds.expansionHaulers, EXPANSION_HAULER_QUOTA);
     addQueueEntry(countRole('scavenger') >= roles.COUNTS.scavenger, 'scavenger', countRole('scavenger'), roles.COUNTS.scavenger);
@@ -526,10 +573,13 @@ module.exports.loop = function () {
     else if (fullHarvesterDeficit) sRole = 'harvester';
     else if (baseNeeds.homeBuilders < HOME_BUILDER_QUOTA) sRole = 'builder';
     else if (baseNeeds.homeUpgraders < HOME_UPGRADER_QUOTA) sRole = 'upgrader';
+    else if (TARGET_CLAIMER_QUOTA > 0 && baseNeeds.targetClaimers < TARGET_CLAIMER_QUOTA) sRole = 'claimer';
     else if (baseNeeds.targetBuilders < TARGET_BUILDER_QUOTA) sRole = 'builder';
     else if (baseNeeds.miningBuilders < MINING_BUILDER_QUOTA) sRole = 'builder';
+    else if (EXPANSION_BUILDER_QUOTA > 0 && baseNeeds.expansionBuilders < EXPANSION_BUILDER_QUOTA) sRole = 'builder';
     else if (baseNeeds.targetUpgraders < TARGET_UPGRADER_QUOTA) sRole = 'upgrader';
     else if (baseNeeds.miningUpgraders < MINING_UPGRADER_QUOTA) sRole = 'upgrader';
+    else if (EXPANSION_UPGRADER_QUOTA > 0 && baseNeeds.expansionUpgraders < EXPANSION_UPGRADER_QUOTA) sRole = 'upgrader';
     else if (countRole('hauler') < roles.COUNTS.hauler) sRole = 'hauler';
     else if (baseNeeds.targetHaulers < TARGET_HAULER_QUOTA) sRole = 'hauler';
     else if (baseNeeds.miningHaulers < MINING_HAULER_QUOTA) sRole = 'hauler';
@@ -537,6 +587,7 @@ module.exports.loop = function () {
     else if (countRole('scavenger') < roles.COUNTS.scavenger) sRole = 'scavenger';
     else if (baseNeeds.homeRepairers < HOME_REPAIRER_QUOTA) sRole = 'repairer';
     else if (baseNeeds.targetRepairers < TARGET_REPAIRER_QUOTA) sRole = 'repairer';
+    else if (EXPANSION_REPAIRER_QUOTA > 0 && baseNeeds.expansionRepairers < EXPANSION_REPAIRER_QUOTA) sRole = 'repairer';
     else if (baseNeeds.shouldReserveMining && baseNeeds.miningClaimers < MINING_CLAIMER_QUOTA) sRole = 'claimer';
     else if (baseNeeds.expansionRemoteMiners < EXPANSION_MINER_QUOTA) sRole = 'remoteMiner';
     else if (baseNeeds.miningRemoteMiners < MINING_REMOTE_MINER_QUOTA) sRole = 'remoteMiner';
@@ -567,12 +618,16 @@ module.exports.loop = function () {
             spawnMemory.workRoom = targetRoom;
         } else if (sRole === 'builder' && baseNeeds.miningBuilders < MINING_BUILDER_QUOTA) {
             spawnMemory.workRoom = rooms.MINING;
+    } else if (sRole === 'builder' && EXPANSION_BUILDER_QUOTA > 0 && baseNeeds.expansionBuilders < EXPANSION_BUILDER_QUOTA) {
+        spawnMemory.workRoom = expansionRoom;
         }
 
         if (sRole === 'repairer' && baseNeeds.homeRepairers < HOME_REPAIRER_QUOTA) {
             spawnMemory.workRoom = rooms.HOME;
         } else if (sRole === 'repairer' && baseNeeds.targetRepairers < TARGET_REPAIRER_QUOTA) {
             spawnMemory.workRoom = targetRoom;
+    } else if (sRole === 'repairer' && EXPANSION_REPAIRER_QUOTA > 0 && baseNeeds.expansionRepairers < EXPANSION_REPAIRER_QUOTA) {
+        spawnMemory.workRoom = expansionRoom;
         }
 
         if (sRole === 'hauler') {
@@ -608,11 +663,18 @@ module.exports.loop = function () {
             spawnMemory.targetRoom = targetRoom;
         } else if (sRole === 'upgrader' && baseNeeds.miningUpgraders < MINING_UPGRADER_QUOTA) {
             spawnMemory.targetRoom = rooms.MINING;
+    } else if (sRole === 'upgrader' && EXPANSION_UPGRADER_QUOTA > 0 && baseNeeds.expansionUpgraders < EXPANSION_UPGRADER_QUOTA) {
+        spawnMemory.targetRoom = expansionRoom;
         }
 
-        if (sRole === 'claimer' && baseNeeds.shouldReserveMining && baseNeeds.miningClaimers < MINING_CLAIMER_QUOTA) {
-            spawnMemory.targetRoom = rooms.MINING;
-            spawnMemory.claimMode = 'claim';
+        if (sRole === 'claimer') {
+            if (TARGET_CLAIMER_QUOTA > 0 && baseNeeds.targetClaimers < TARGET_CLAIMER_QUOTA) {
+                spawnMemory.targetRoom = targetRoom;
+                spawnMemory.claimMode = 'claim';
+            } else if (baseNeeds.shouldReserveMining && baseNeeds.miningClaimers < MINING_CLAIMER_QUOTA) {
+                spawnMemory.targetRoom = rooms.MINING;
+                spawnMemory.claimMode = 'reserve';
+            }
         }
 
         if (sRole === 'remoteMiner') {
@@ -754,8 +816,8 @@ module.exports.loop = function () {
     }
 
     // --- PASS 7: AUTOMATED BASE PLANNING ---
-    // Run very infrequently to save CPU, e.g., every 1000 ticks.
-    if (Game.time % 1000 === 0) {
+    // Alle 100 Ticks prüfen. Extrem ressourcenschonend, sorgt aber für schnelles Bootstrapping.
+    if (Game.time % 100 === 0) {
         Object.values(Game.rooms)
             .filter(r => r.controller && r.controller.my)
             .forEach(r => planner.run(r));

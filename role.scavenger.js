@@ -9,6 +9,11 @@ const rooms = require('config.rooms');
 
 module.exports = {
     run: function (creep) {
+        // Auto-Recycle Reset Logic
+        if (creep.memory.lastIdleTick !== Game.time - 1) {
+            creep.memory.idleCount = 0;
+        }
+
         const roomOrder = [rooms.TARGET, rooms.EXPANSION, rooms.HOME];
         const minPickup = 20;
 
@@ -72,6 +77,10 @@ module.exports = {
 
             // PREFER STORAGE OVER CONTAINERS!
             target = room.storage;
+            if (target && target.store.getFreeCapacity(RESOURCE_ENERGY) > 0) return target;
+
+            // ADD TERMINAL AS OVERFLOW
+            target = room.terminal;
             if (target && target.store.getFreeCapacity(RESOURCE_ENERGY) > 0) return target;
 
             target = creep.pos.findClosestByPath(FIND_STRUCTURES, {
@@ -226,6 +235,9 @@ module.exports = {
             if (creep.pos.x === 0 || creep.pos.x === 49 || creep.pos.y === 0 || creep.pos.y === 49) {
                 creep.moveTo(new RoomPosition(25, 25, creep.room.name), { range: 22 });
             }
+            creep.memory.lastIdleTick = Game.time;
+            creep.memory.idleCount = (creep.memory.idleCount || 0) + 1;
+            if (creep.memory.idleCount > 100) creep.memory.recycle = true;
             return; 
         } else if (creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
             if (doDeliver()) return;
@@ -242,6 +254,9 @@ module.exports = {
             if (creep.pos.x === 0 || creep.pos.x === 49 || creep.pos.y === 0 || creep.pos.y === 49) {
                 creep.moveTo(new RoomPosition(25, 25, creep.room.name), { range: 22 });
             }
+            creep.memory.lastIdleTick = Game.time;
+            creep.memory.idleCount = (creep.memory.idleCount || 0) + 1;
+            if (creep.memory.idleCount > 100) creep.memory.recycle = true;
             return;
         }
 
@@ -259,5 +274,8 @@ module.exports = {
         if (creep.pos.x === 0 || creep.pos.x === 49 || creep.pos.y === 0 || creep.pos.y === 49) {
             creep.moveTo(new RoomPosition(25, 25, creep.room.name), { range: 22 });
         }
+        creep.memory.lastIdleTick = Game.time;
+        creep.memory.idleCount = (creep.memory.idleCount || 0) + 1;
+        if (creep.memory.idleCount > 100) creep.memory.recycle = true;
     }
 };

@@ -38,11 +38,12 @@ module.exports = {
 
         // Rampart floor: elevated to 50k to provide substantial buffer against invaders
         const RAMPART_FLOOR = 50000;
+        const WALL_RAMPART_MAX = 250000; // Cap for general maintenance so it doesn't drain everything
 
         // Energy gates
         const MIN_ENERGY_FOR_EMERGENCY = 100;   // allow emergency even when low
         const MIN_ENERGY_FOR_RAMPARTS = 200;    // allow rampart upkeep at medium energy
-        const ENERGY_FOR_NORMAL_REPAIR = 0.75;  // only do roads/etc when high
+        const ENERGY_FOR_NORMAL_REPAIR = 0.50;  // lowered to 50% so it helps out more often
 
         // 3) EMERGENCY container saving (prevents losing infrastructure)
         if (tower.store[RESOURCE_ENERGY] >= MIN_ENERGY_FOR_EMERGENCY) {
@@ -71,10 +72,13 @@ module.exports = {
         if (tower.store[RESOURCE_ENERGY] < cap * ENERGY_FOR_NORMAL_REPAIR) return;
 
         const damaged = tower.pos.findClosestByRange(FIND_STRUCTURES, {
-            filter: s =>
-                s.hits < s.hitsMax &&
-                s.structureType !== STRUCTURE_WALL &&
-                s.structureType !== STRUCTURE_RAMPART
+            filter: s => {
+                if (s.hits >= s.hitsMax) return false;
+                if (s.structureType === STRUCTURE_WALL || s.structureType === STRUCTURE_RAMPART) {
+                    return s.hits < WALL_RAMPART_MAX;
+                }
+                return true;
+            }
         });
 
         if (damaged) {

@@ -14,6 +14,11 @@ const rooms = require('config.rooms');
 
 module.exports = {
     run: function (creep) {
+        // Auto-Recycle Reset Logic
+        if (creep.memory.lastIdleTick !== Game.time - 1) {
+            creep.memory.idleCount = 0;
+        }
+
         const remoteTargetRoom = creep.memory.targetRoom || null;
         const deliveryRoom = creep.memory.homeRoom || rooms.HOME;
         const localWorkRoom = creep.memory.workRoom || rooms.HOME;
@@ -43,6 +48,9 @@ module.exports = {
                 if (creep.pos.x === 0 || creep.pos.x === 49 || creep.pos.y === 0 || creep.pos.y === 49) {
                     creep.moveTo(new RoomPosition(25, 25, creep.room.name), { range: 22 });
                 }
+                creep.memory.lastIdleTick = Game.time;
+                creep.memory.idleCount = (creep.memory.idleCount || 0) + 1;
+                if (creep.memory.idleCount > 100) creep.memory.recycle = true;
             }
             return; // Brich alle anderen Aktionen ab!
         }
@@ -98,6 +106,9 @@ module.exports = {
                 if (creep.pos.x === 0 || creep.pos.x === 49 || creep.pos.y === 0 || creep.pos.y === 49) {
                     creep.moveTo(new RoomPosition(25, 25, creep.room.name), { range: 22 });
                 }
+                creep.memory.lastIdleTick = Game.time;
+                creep.memory.idleCount = (creep.memory.idleCount || 0) + 1;
+                if (creep.memory.idleCount > 100) creep.memory.recycle = true;
                 return;
             }
 
@@ -157,6 +168,9 @@ module.exports = {
                 if (creep.pos.x === 0 || creep.pos.x === 49 || creep.pos.y === 0 || creep.pos.y === 49) {
                     creep.moveTo(new RoomPosition(25, 25, creep.room.name), { range: 22 });
                 }
+                creep.memory.lastIdleTick = Game.time;
+                creep.memory.idleCount = (creep.memory.idleCount || 0) + 1;
+                if (creep.memory.idleCount > 100) creep.memory.recycle = true;
             }
             return;
         }
@@ -199,5 +213,8 @@ module.exports = {
         if (creep.pos.x === 0 || creep.pos.x === 49 || creep.pos.y === 0 || creep.pos.y === 49) {
             creep.moveTo(new RoomPosition(25, 25, creep.room.name), { range: 22 });
         }
+        creep.memory.lastIdleTick = Game.time;
+        creep.memory.idleCount = (creep.memory.idleCount || 0) + 1;
+        if (creep.memory.idleCount > 100) creep.memory.recycle = true;
     }
 };

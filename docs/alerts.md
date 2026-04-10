@@ -127,3 +127,19 @@ Track urgent production incidents and response quality. Keep entries brief and f
 - Immediate Response: Identified that early `return` in idle states left creeps on exit tiles (`x=0,49` or `y=0,49`), causing the engine to bounce them back.
 - Resolution: Implemented a universal Anti-Ping-Pong fallback (`moveTo(25,25, {range: 22})`) for all idle states. Fixed Scavenger deadlock by replacing broken distribution with `doConsolidate`. Enabled Haulers to scavenge drops/ruins when containers are missing.
 - Follow-up: Ensure all future idle states actively steer creeps away from room borders.
+
+- Date-Time (UTC): `2026-02-16T15:30:00Z`
+- Severity: `SEV-1`
+- Trigger: Claimers and pioneers routing to `W8N8` instead of `W6N8` (Quota Leak & Amnesia).
+- Scope: `main.js` spawn logic, `role.claimer.js` fallbacks.
+- Immediate Response: Analyzed target room amnesia and fallback variables causing creeps to migrate to the wrong room.
+- Resolution: Fixed missing `targetRoom` memory assignment for claimers in `main.js`. Removed `EXPANSION` fallback from `role.claimer.js`. Added an orphan migration script to redirect stranded creeps from `W8N8` to `W6N8`.
+- Follow-up: Avoid hardcoded room fallbacks in roles; rely entirely on `main.js` orchestrator memory.
+
+- Date-Time (UTC): `2026-02-16T16:00:00Z`
+- Severity: `SEV-2`
+- Trigger: Creeps (claimers, builders) bouncing infinitely at room borders ("Swamp Hugging").
+- Scope: Global PathFinder and room transition mechanics.
+- Immediate Response: Identified that creeps stepping onto an exit tile to bypass swamps trigger an engine teleport back to the previous room.
+- Resolution: Replaced `findExitTo` with `moveTo(25, 25)` for cross-room travel. Implemented a universal "Border Bounce Fix" (force one step inward) across `claimer`, `builder`, `upgrader`, and `remoteMiner`.
+- Follow-up: All cross-room movement must actively pull creeps into the room, not just target the exit boundary.

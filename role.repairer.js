@@ -10,6 +10,11 @@ const RAMPART_SOFT_CAP = 100000;
 
 module.exports = {
     run: function (creep) {
+        // Auto-Recycle Reset Logic
+        if (creep.memory.lastIdleTick !== Game.time - 1) {
+            creep.memory.idleCount = 0;
+        }
+
         const workRoom = creep.memory.workRoom || rooms.TARGET;
 
         if (creep.room.name !== workRoom) {
@@ -105,5 +110,8 @@ module.exports = {
         }
 
         creep.say('No E');
+        creep.memory.lastIdleTick = Game.time;
+        creep.memory.idleCount = (creep.memory.idleCount || 0) + 1;
+        if (creep.memory.idleCount > 100) creep.memory.recycle = true;
     }
 };

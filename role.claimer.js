@@ -10,14 +10,19 @@ const rooms = require('config.rooms');
 module.exports = {
     run: function (creep) {
 
-        const targetRoom = creep.memory.targetRoom || rooms.EXPANSION || rooms.TARGET;
+        const targetRoom = creep.memory.targetRoom || rooms.TARGET;
         const mode = creep.memory.claimMode || "reserve"; // safer default
 
         // Travel to target room
         if (creep.room.name !== targetRoom) {
-            const exit = creep.pos.findClosestByRange(creep.room.findExitTo(targetRoom));
-            creep.moveTo(exit, { visualizePathStyle: { stroke: '#ffffff' } });
+            creep.moveTo(new RoomPosition(25, 25, targetRoom), { visualizePathStyle: { stroke: '#ffffff' }, reusePath: 50 });
             creep.say('-> ' + targetRoom);
+            return;
+        }
+
+        // --- BORDER BOUNCE FIX ---
+        if (creep.pos.x === 0 || creep.pos.x === 49 || creep.pos.y === 0 || creep.pos.y === 49) {
+            creep.moveTo(new RoomPosition(25, 25, creep.room.name));
             return;
         }
 

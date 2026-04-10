@@ -49,7 +49,24 @@ module.exports = {
 
     planCore: function(room) {
         const spawns = room.find(FIND_MY_SPAWNS);
-        if (spawns.length === 0) return;
+        if (spawns.length === 0) {
+            // --- AUTO-BOOTSTRAP FIRST SPAWN ---
+            const spawnSites = room.find(FIND_CONSTRUCTION_SITES, { filter: s => s.structureType === STRUCTURE_SPAWN });
+            if (spawnSites.length > 0) return; // Bereits in Planung
+            
+            const sources = room.find(FIND_SOURCES);
+            if (sources.length > 0 && room.controller) {
+                // Sucht den Weg zwischen Controller und Quelle und platziert den Spawn in die Mitte
+                const path = room.findPath(room.controller.pos, sources[0].pos, { ignoreCreeps: true, swampCost: 2 });
+                if (path.length > 4) {
+                    const midIndex = Math.floor(path.length / 2);
+                    const pos = new RoomPosition(path[midIndex].x, path[midIndex].y, room.name);
+                    room.createConstructionSite(pos, STRUCTURE_SPAWN);
+                    console.log(`[Planner] Auto-placing first Spawn in ${room.name} at ${pos.x},${pos.y}`);
+                }
+            }
+            return; // Beenden, da der Anchor (Spawn) erst fertig gebaut werden muss
+        }
         const anchor = spawns[0].pos;
 
         const rcl = room.controller ? room.controller.level : 0;

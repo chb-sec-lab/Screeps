@@ -5,8 +5,8 @@
  */
 module.exports = {
     HOME: 'W7N8',
-    TARGET: 'W8N8', // 2 Sources (Planned secondary base)
-    EXPANSION: 'W6N8', // 1 Source (Right)
+    TARGET: 'W6N8', // 1 Source, H Mineral (New Colony)
+    EXPANSION: 'W8N8', // 2 Sources (Old Target swapped to Expansion)
     MINING: 'W7N7', // 1 Source (Left)
 
     // Global PathFinder Blacklist: Creeps will never route through these rooms
@@ -20,8 +20,8 @@ module.exports = {
     // Künftige Kernels lesen dieses Objekt aus, um Basen (CORE) und Außenposten (REMOTE) zu steuern.
     registry: {
         'W7N8': { type: 'CORE' },                         // Heimatbasis
-        'W8N8': { type: 'CORE' },                         // Zukünftige Zweitbasis (momentan TARGET)
-        'W6N8': { type: 'REMOTE', base: 'W7N8' },         // Expansion (Mine)
+        'W6N8': { type: 'CORE' },                         // Neue Kolonie
+        'W8N8': { type: 'REMOTE', base: 'W7N8' },         // Expansion (Mine)
         'W7N7': { type: 'REMOTE', base: 'W7N8' }          // Mining (Mine)
     }
 };
