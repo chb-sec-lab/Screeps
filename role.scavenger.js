@@ -70,15 +70,15 @@ module.exports = {
             });
             if (target) return target;
 
+            // PREFER STORAGE OVER CONTAINERS!
+            target = room.storage;
+            if (target && target.store.getFreeCapacity(RESOURCE_ENERGY) > 0) return target;
+
             target = creep.pos.findClosestByPath(FIND_STRUCTURES, {
                 filter: s =>
+                    s.structureType === STRUCTURE_CONTAINER &&
                     s.store &&
-                    s.store.getFreeCapacity &&
-                    s.store.getFreeCapacity(RESOURCE_ENERGY) > 0 &&
-                    (
-                        s.structureType === STRUCTURE_STORAGE ||
-                        s.structureType === STRUCTURE_CONTAINER
-                    )
+                    s.store.getFreeCapacity(RESOURCE_ENERGY) > 0
             });
             return target;
         }
@@ -188,29 +188,29 @@ module.exports = {
         }
 
         function doHaulAssist() {
-            if (creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
-                return doDeliver();
-            }
-
             if (!hasUrgentSink(creep.room)) return false;
 
             const withdrawTarget = findWithdrawTarget(creep.room);
             if (!withdrawTarget) return false;
+            
             if (creep.withdraw(withdrawTarget, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
                 creep.moveTo(withdrawTarget, { visualizePathStyle: { stroke: '#ffffff' } });
             }
             return true;
         }
 
-        function doDistribute() {
-            if (doDeliver()) return true;
-
-            if (!hasUrgentSink(creep.room)) return false;
-
-            const source = findWithdrawTarget(creep.room);
-            if (!source) return false;
-            if (creep.withdraw(source, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
-                creep.moveTo(source, { visualizePathStyle: { stroke: '#ffffff' } });
+        function doConsolidate() {
+            // Only act as a warehouse worker if there is a Storage to put things into
+            if (!creep.room.storage || creep.room.storage.store.getFreeCapacity(RESOURCE_ENERGY) === 0) return false;
+            
+            // Empty containers that are starting to fill up
+            const container = creep.pos.findClosestByPath(FIND_STRUCTURES, {
+                filter: s => s.structureType === STRUCTURE_CONTAINER && s.store && s.store[RESOURCE_ENERGY] >= 400
+            });
+            if (!container) return false;
+            
+            if (creep.withdraw(container, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
+                creep.moveTo(container, { visualizePathStyle: { stroke: '#ffffff' } });
             }
             return true;
         }
@@ -222,8 +222,10 @@ module.exports = {
                 if (exit) creep.moveTo(exit, { visualizePathStyle: { stroke: '#00ffcc' } });
                 return;
             }
-            if (doDistribute()) return;
-            creep.say('💤 Full');
+            creep.say('Full');
+            if (creep.pos.x === 0 || creep.pos.x === 49 || creep.pos.y === 0 || creep.pos.y === 49) {
+                creep.moveTo(new RoomPosition(25, 25, creep.room.name), { range: 22 });
+            }
             return; 
         } else if (creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
             if (doDeliver()) return;
@@ -236,13 +238,16 @@ module.exports = {
                 return;
             }
             
-            creep.say('💤 Wait');
+            creep.say('Wait');
+            if (creep.pos.x === 0 || creep.pos.x === 49 || creep.pos.y === 0 || creep.pos.y === 49) {
+                creep.moveTo(new RoomPosition(25, 25, creep.room.name), { range: 22 });
+            }
             return;
         }
 
         if (doScavenge(false)) return;
         if (doHaulAssist()) return;
-        if (doDistribute()) return;
+        if (doConsolidate()) return;
 
         if (creep.room.name !== rooms.HOME) {
             const exit = creep.pos.findClosestByRange(creep.room.findExitTo(rooms.HOME));
@@ -250,6 +255,9 @@ module.exports = {
             return;
         }
 
-        creep.say('💤');
+        creep.say('Zzz');
+        if (creep.pos.x === 0 || creep.pos.x === 49 || creep.pos.y === 0 || creep.pos.y === 49) {
+            creep.moveTo(new RoomPosition(25, 25, creep.room.name), { range: 22 });
+        }
     }
 };

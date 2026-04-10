@@ -296,3 +296,17 @@ Capture non-urgent observations that improve system design, role policy, and ope
 - Impact: Unpredictable spawn locks when claiming new rooms or recovering from wipes.
 - Action: Introduced the "Control Room" registry (`config.rooms.js`) and the "Evolution Protocol" (`main.js`). Rooms now dynamically self-evaluate their required worker quotas based on their individual Room Control Level (RCL). Added `STRUCTURE_STORAGE` to the automated base planner for RCL 4 integration.
 - Evidence: `main.js` now uses `getPhaseQuotas(level)` for local and target rooms dynamically. Version bumped to `7.1.0`.
+
+- Date-Time (UTC): `2026-02-16T14:15:00Z`
+- Context: Screeps UI and Heartbeat readability.
+- Observation: Unicode Emoji characters in `creep.say()` caused rendering overlaps, text clipping, and visual clutter in the game client.
+- Impact: Poor visual observability on the map.
+- Action: Converted all `creep.say()` outputs across all 14 roles to pure ASCII text (e.g., 'Zzz', 'PitStop', 'No E'). Fixed obsolete defender guard coordinates from `(31,3)` to `(25,25)`.
+- Evidence: Visual map clarity restored, bubbles no longer overlap wildly.
+
+- Date-Time (UTC): `2026-02-16T14:30:00Z`
+- Context: Creep lifecycle, auto-recycling, and pre-spawning logic.
+- Observation: A static 75-tick pre-spawn window caused either spawn-overlaps or gaps depending on creep size and destination distance. Obsolete defenders drained energy without recycling, and recycled creeps dropped their carried payload on the floor.
+- Impact: Wasted CPU, energy loss on creep death, and inaccurate spawn timing.
+- Action: Implemented dynamic `getPreSpawnTime()` in `main.js` combining body size and `Game.map.getRoomLinearDistance()`. Added auto-recycle for obsolete defenders. Added an inventory dump routine before a creep jumps into the spawn for recycling.
+- Evidence: Heartbeat tracks defender `ttl`. Creeps reliably deposit payload before recycling. Spawns calculate perfect replacement timing.

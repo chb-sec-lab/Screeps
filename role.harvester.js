@@ -48,7 +48,7 @@ module.exports = {
                 }
             } else {
                 // Idle at a safe spot locally if nowhere to put energy
-                creep.say('💤 Full');
+                creep.say('Full');
                 let source = Game.getObjectById(creep.memory.targetSourceId);
                 if (source) {
                     if (!creep.pos.inRangeTo(source, 3)) creep.moveTo(source, { range: 3, visualizePathStyle: { stroke: '#555555' } });

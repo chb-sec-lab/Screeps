@@ -66,8 +66,9 @@ module.exports = {
         const targetThreat = stats.defense ? (stats.defense.targetThreat || 0) : 0;
         const expansionThreat = stats.defense ? (stats.defense.expansionThreat || 0) : 0;
         const threatTriplet = `${homeThreat}/${targetThreat}/${expansionThreat}`;
+        const defTTL = (stats.defense && stats.defense.ttls) ? ` ttl:[${stats.defense.ttls}]` : '';
         const defenseInfo = (stats.defense && stats.defense.active)
-            ? `DEF ALERT room:${stats.defense.room} def:${stats.defense.current}/${stats.defense.need} heal:${stats.defense.currentHealers}/${stats.defense.healerNeed} threat(H/T/E):${threatTriplet}`
+            ? `DEF ALERT room:${stats.defense.room} def:${stats.defense.current}/${stats.defense.need}${defTTL} heal:${stats.defense.currentHealers}/${stats.defense.healerNeed} threat(H/T/E):${threatTriplet}`
             : `DEF clear threat(H/T/E):${threatTriplet}`;
 
         console.log(`--- HEARTBEAT ${Game.time} ---`);

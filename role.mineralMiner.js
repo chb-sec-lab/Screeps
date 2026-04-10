@@ -22,7 +22,7 @@ module.exports = {
             const mineral = creep.room.find(FIND_MINERALS)[0];
             if (mineral) {
                 if (mineral.amount === 0) {
-                    creep.say('💤 Empty');
+                    creep.say('Empty');
                     return; // Mineral depleted, wait for regeneration
                 }
                 
@@ -42,7 +42,7 @@ module.exports = {
                     creep.moveTo(target, {visualizePathStyle: {stroke: '#ffffff'}});
                 }
             } else {
-                creep.say('🚫 No Sink');
+                creep.say('No Sink');
             }
         }
     }

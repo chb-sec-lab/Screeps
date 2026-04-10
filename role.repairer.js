@@ -104,6 +104,6 @@ module.exports = {
             return;
         }
 
-        creep.say('🚫E');
+        creep.say('No E');
     }
 };

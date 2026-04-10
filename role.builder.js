@@ -142,12 +142,12 @@ module.exports = {
         if (creep.memory.working && creep.store[RESOURCE_ENERGY] <= LOW_ENERGY_REFILL) {
             creep.memory.working = false;
             clearWorkLock();
-            creep.say('🔄 Fill');
+            creep.say('Fill');
         }
         if (!creep.memory.working && creep.store.getFreeCapacity() === 0) {
             creep.memory.working = true;
             clearEnergyLock();
-            creep.say('🛠️ Work');
+            creep.say('Work');
         }
 
         // -------------------------
@@ -250,7 +250,10 @@ module.exports = {
                 return;
             }
 
-            creep.say('💤');
+            creep.say('Zzz');
+            if (creep.pos.x === 0 || creep.pos.x === 49 || creep.pos.y === 0 || creep.pos.y === 49) {
+                creep.moveTo(new RoomPosition(25, 25, creep.room.name), { range: 22 });
+            }
             return;
         }
 
@@ -290,6 +293,9 @@ module.exports = {
             return;
         }
 
-        creep.say('🚫E');
+        creep.say('No E');
+        if (creep.pos.x === 0 || creep.pos.x === 49 || creep.pos.y === 0 || creep.pos.y === 49) {
+            creep.moveTo(new RoomPosition(25, 25, creep.room.name), { range: 22 });
+        }
     }
 };

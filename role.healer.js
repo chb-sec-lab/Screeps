@@ -17,7 +17,7 @@ module.exports = {
             const patient = _.sortBy(wounded, c => c.hits)[0];
             if (creep.pos.isNearTo(patient)) creep.heal(patient);
             else creep.rangedHeal(patient);
-            creep.say('🩹 Healing');
+            creep.say('Healing');
         } else if (creep.hits < creep.hitsMax) {
             creep.heal(creep);
         }
@@ -37,7 +37,7 @@ module.exports = {
                 const exit = creep.pos.findClosestByRange(creep.room.findExitTo(targetRoom));
                 creep.moveTo(exit);
             } else {
-                const guardPos = new RoomPosition(31, 3, targetRoom);
+                const guardPos = new RoomPosition(25, 25, targetRoom);
                 creep.moveTo(guardPos, {range: 3});
             }
         }

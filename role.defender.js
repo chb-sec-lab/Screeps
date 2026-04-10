@@ -11,14 +11,14 @@ module.exports = {
         // --- 0. PRE-FLIGHT & TACTICAL RETREAT ---
         // Pit Stop: Wenn wir im sicheren Raum sind und nicht volle HP haben -> Warten auf Tower
         if (creep.room.name === homeRoom && creep.hits < creep.hitsMax) {
-            creep.say('🩹 Pit Stop');
+            creep.say('PitStop');
             if (creep.getActiveBodyparts(HEAL) > 0) creep.heal(creep);
             return;
         }
 
         // Tactical Retreat: Wenn Lebenspunkte kritisch (< 40%) -> Flucht nach Hause
         if (creep.hits < creep.hitsMax * 0.4 && creep.room.name !== homeRoom) {
-            creep.say('🚑 Retreat!');
+            creep.say('Retreat');
             if (creep.getActiveBodyparts(HEAL) > 0) creep.heal(creep);
             const exit = creep.pos.findClosestByRange(creep.room.findExitTo(homeRoom));
             if (exit) creep.moveTo(exit, {visualizePathStyle: {stroke: '#ffaa00'}});
@@ -43,7 +43,7 @@ module.exports = {
             creep.rangedAttack(target);
             if (creep.pos.isNearTo(target)) creep.attack(target);
             creep.moveTo(target, {visualizePathStyle: {stroke: '#ff0000'}});
-            creep.say('⚔️ Attack');
+            creep.say('Attack');
         } else {
             // Self-Heal if wounded and no enemy
             if (creep.hits < creep.hitsMax) creep.heal(creep);
@@ -53,15 +53,15 @@ module.exports = {
                 // Reise zum Zielraum
                 const exit = creep.pos.findClosestByRange(creep.room.findExitTo(targetRoom));
                 creep.moveTo(exit, {visualizePathStyle: {stroke: '#ff0000'}});
-                creep.say('🚀 EnRoute');
+                creep.say('Move');
             } else {
-                // Im Zielraum: Halte Position bei (31, 3)
-                const guardPos = new RoomPosition(31, 3, targetRoom);
+                // Im Zielraum: Halte Position in der Raummitte
+                const guardPos = new RoomPosition(25, 25, targetRoom);
                 if (!creep.pos.inRangeTo(guardPos, 2)) {
                     creep.moveTo(guardPos, {visualizePathStyle: {stroke: '#555555'}});
-                    creep.say('🛡️ Guarding');
+                    creep.say('Guard');
                 } else {
-                    creep.say('💤 Alert');
+                    creep.say('Alert');
                 }
             }
         }

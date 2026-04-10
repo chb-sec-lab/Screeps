@@ -30,14 +30,14 @@ module.exports = {
         // --- 2. HOME ROOM STAGING ---
         if (creep.room.name === homeRoom) {
             if (!squadReady) {
-                if (totalVanguards < VANGUARD_RALLY_MIN) creep.say(`🤝 V:${totalVanguards}/${VANGUARD_RALLY_MIN}`);
-                else creep.say(`💉 M:${totalMedics}/${MEDIC_RALLY_MIN}`);
+                if (totalVanguards < VANGUARD_RALLY_MIN) creep.say(`V:${totalVanguards}/${VANGUARD_RALLY_MIN}`);
+                else creep.say(`M:${totalMedics}/${MEDIC_RALLY_MIN}`);
                 
                 creep.moveTo(ASSEMBLY_POINT, { visualizePathStyle: { stroke: '#ffff00' } });
                 if (creep.hits < creep.hitsMax) creep.heal(creep);
                 return;
             } else {
-                creep.say('⚔️ BREACH!');
+                creep.say('BREACH!');
             }
         }
 
@@ -55,7 +55,7 @@ module.exports = {
             
             // FULL RETREAT: If hostiles present but squad is broken, go all the way to ASSEMBLY_POINT
             if (hostiles.length > 0 && (vanguardsInTarget < 2 || medicsInTarget < 1)) {
-                creep.say(medicsInTarget < 1 ? '🚑 No Medic!' : '🏃 Broken!');
+                creep.say(medicsInTarget < 1 ? 'No Medic!' : 'Broken!');
                 creep.moveTo(ASSEMBLY_POINT, { visualizePathStyle: { stroke: '#ffaa00' }, reusePath: 10 });
                 if (creep.hits < creep.hitsMax) creep.heal(creep);
                 return;
@@ -81,7 +81,7 @@ module.exports = {
                     creep.moveByPath(path);
                 }
             } else {
-                const internalRally = new RoomPosition(31, 3, targetRoom);
+                const internalRally = new RoomPosition(25, 25, targetRoom);
                 creep.moveTo(internalRally);
             }
 

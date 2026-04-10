@@ -22,7 +22,7 @@ module.exports = {
                 creep.rangedHeal(patient);
             }
             creep.moveTo(patient, {range: 1, visualizePathStyle: {stroke: '#00ff00'}});
-            creep.say('🚑 Help!');
+            creep.say('Help!');
             return;
         }
 
@@ -42,7 +42,7 @@ module.exports = {
             if (leader.room.name !== creep.room.name) {
                 const exit = creep.pos.findClosestByRange(creep.room.findExitTo(leader.room.name));
                 creep.moveTo(exit, {visualizePathStyle: {stroke: '#00ffff'}});
-                creep.say('🏃 Catchup');
+                creep.say('Catchup');
             } else {
                 // Tactical Shadow: Stay behind the leader
                 let targetY = leader.pos.y + 1;
@@ -53,7 +53,7 @@ module.exports = {
                 if (!creep.pos.isEqualTo(tacticalPos)) {
                     creep.moveTo(tacticalPos, {range: 0});
                 }
-                creep.say('🛰️ Shadow');
+                creep.say('Shadow');
             }
         } else {
             // --- 3. PRIORITY: RALLY ---
@@ -61,13 +61,13 @@ module.exports = {
             const assemblyPoint = new RoomPosition(25, 2, homeRoom);
             if (creep.room.name !== homeRoom) {
                 creep.moveTo(assemblyPoint);
-                creep.say('🏠 Retreat');
+                creep.say('Retreat');
             } else {
                 if (!creep.pos.inRangeTo(assemblyPoint, 3)) {
                     creep.moveTo(assemblyPoint);
-                    creep.say('🅿️ Rally');
+                    creep.say('Rally');
                 } else {
-                    creep.say('🛡️ Idle');
+                    creep.say('Idle');
                 }
             }
         }

@@ -119,3 +119,11 @@ Track urgent production incidents and response quality. Keep entries brief and f
 - Immediate Response: Mass-recycled wandering creeps via console to recover energy. 
 - Resolution: Hardcoded `HOME_UPGRADER_QUOTA: 2` into the `main.js` priority ladder directly below Harvesters and Builders.
 - Follow-up: Bootstrapping a new room requires strict localized prioritization (Harvester -> Builder -> Upgrader) before any remote quotas are evaluated.
+
+- Date-Time (UTC): `2026-02-16T14:00:00Z`
+- Severity: `SEV-3`
+- Trigger: Widespread "Border Ping-Pong" and idle deadlocks among logistics and worker creeps (haulers, scavengers, remoteMiners).
+- Scope: Multi-room logistics and early-game bootstrapping.
+- Immediate Response: Identified that early `return` in idle states left creeps on exit tiles (`x=0,49` or `y=0,49`), causing the engine to bounce them back.
+- Resolution: Implemented a universal Anti-Ping-Pong fallback (`moveTo(25,25, {range: 22})`) for all idle states. Fixed Scavenger deadlock by replacing broken distribution with `doConsolidate`. Enabled Haulers to scavenge drops/ruins when containers are missing.
+- Follow-up: Ensure all future idle states actively steer creeps away from room borders.

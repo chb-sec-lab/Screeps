@@ -173,9 +173,37 @@ module.exports.loop = function () {
         creep.memory.home = rooms.HOME;
         creep.memory.target = rooms.TARGET;
 
+        // --- AUTO-RECYCLE OBSOLETE DEFENSE ---
+        if (creep.memory.role === 'defender' || creep.memory.role === 'healer') {
+            if (!defenseActive) {
+                creep.memory.recycle = true;
+            } else if (creep.memory.recycle) {
+                creep.memory.recycle = false; // Alarm ist zurück! Abmarsch abbrechen.
+            }
+        }
+
         // --- UNIVERSAL RECYCLE COMMAND ---
         if (creep.memory.recycle) {
-            creep.say('♻️ Recycle');
+            creep.say('Recycle');
+
+            // --- DUMP RESOURCES BEFORE RECYCLING ---
+            if (creep.store.getUsedCapacity() > 0) {
+                const resType = Object.keys(creep.store)[0]; // Energie oder Mineralien
+                let sink = creep.room.storage;
+                if (!sink || sink.store.getFreeCapacity(resType) === 0) {
+                    sink = creep.pos.findClosestByPath(FIND_STRUCTURES, {
+                        filter: s => (s.structureType === STRUCTURE_SPAWN || s.structureType === STRUCTURE_EXTENSION || s.structureType === STRUCTURE_CONTAINER) &&
+                                     s.store && s.store.getFreeCapacity(resType) > 0
+                    });
+                }
+                if (sink) {
+                    if (creep.transfer(sink, resType) === ERR_NOT_IN_RANGE) {
+                        creep.moveTo(sink, { visualizePathStyle: { stroke: '#00ffcc' } });
+                    }
+                    continue; // Skip moving to spawn until completely empty
+                }
+            }
+
             const spawn = creep.pos.findClosestByPath(FIND_MY_SPAWNS) || creep.pos.findClosestByRange(FIND_MY_SPAWNS);
             if (spawn) {
                 if (spawn.recycleCreep(creep) === ERR_NOT_IN_RANGE) {
@@ -216,7 +244,7 @@ module.exports.loop = function () {
         // QUARANTINE ZONE & SAFE CORRIDOR LOGIC
         // The pathfinder naturally tries to shortcut through E57S55. We must actively forbid it.
         if (creep.room.name === 'E57S55') {
-            creep.say('🚨 EVAC');
+            creep.say('EVAC');
             const evacExit = creep.pos.findClosestByRange(creep.room.findExitTo(rooms.MINING));
             if (evacExit) creep.moveTo(evacExit, { visualizePathStyle: { stroke: '#ff0000' } });
             continue; // Skip role execution to prevent Flee loops from breaking movement!
@@ -246,7 +274,7 @@ module.exports.loop = function () {
         // --- CPU CIRCUIT BREAKER ---
         // Prevent hard CPU timeout crashes (Script execution timed out).
         if (Game.cpu.getUsed() > Game.cpu.tickLimit * 0.8) {
-            creep.say('⏸️ CPU');
+            creep.say('CPU');
             continue; // Skip expensive role logic this tick, but keep the loop alive
         }
 
@@ -275,9 +303,20 @@ module.exports.loop = function () {
     const expansionRoom = rooms.EXPANSION;
     const plannedSpawns = [];
 
+    // --- DYNAMISCHE PRE-SPAWNING BERECHNUNG ---
+    function getPreSpawnTime(creep) {
+        const spawnTime = creep.body.length * 3;
+        const targetR = creep.memory.targetRoom || creep.memory.workRoom || creep.room.name;
+        const homeR = creep.memory.homeRoom || creep.memory.home || creep.room.name;
+        const roomDist = Game.map.getRoomLinearDistance(homeR, targetR);
+        const travelTime = (roomDist === 0) ? 20 : (roomDist * 50); // 20 Ticks im eigenen Raum, 50 pro Raumwechsel
+        return spawnTime + travelTime + 10; // +10 Ticks Sicherheitspuffer
+    }
+
     function countAssigned(role, roomName, memoryKey) {
         const live = _.filter(Game.creeps, c =>
             c.memory.role === role &&
+            (c.spawning || c.ticksToLive > getPreSpawnTime(c)) && // PRE-SPAWNING: Dynamische Berechnung
             (c.memory[memoryKey] === roomName || (!c.memory[memoryKey] && c.room.name === roomName))
         ).length;
         const planned = _.filter(plannedSpawns, m =>
@@ -287,7 +326,8 @@ module.exports.loop = function () {
     }
 
     function countRole(role) {
-        return (census[role] || 0) + _.filter(plannedSpawns, m => m.role === role).length;
+        const live = _.filter(Game.creeps, c => c.memory.role === role && (c.spawning || c.ticksToLive > getPreSpawnTime(c))).length;
+        return live + _.filter(plannedSpawns, m => m.role === role).length;
     }
 
     function readNeeds() {
@@ -624,6 +664,7 @@ module.exports.loop = function () {
             room: defenseTargetRoom,
             need: defenseNeed,
             current: defenseTargetRoom ? _.filter(Game.creeps, c => c.memory.role === 'defender' && c.memory.targetRoom === defenseTargetRoom).length : 0,
+            ttls: defenseTargetRoom ? _.filter(Game.creeps, c => c.memory.role === 'defender' && c.memory.targetRoom === defenseTargetRoom).map(c => c.ticksToLive || 'spwn').join(',') : '',
             healerNeed: defenseHealerNeed,
             currentHealers: defenseTargetRoom ? _.filter(Game.creeps, c => c.memory.role === 'healer' && c.memory.targetRoom === defenseTargetRoom).length : 0,
             homeThreat: homeThreat,

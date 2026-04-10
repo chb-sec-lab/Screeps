@@ -35,11 +35,14 @@ module.exports = {
 
         if (danger || (creep.memory.fleeCooldown && Game.time < creep.memory.fleeCooldown)) {
             if (creep.room.name !== deliveryRoom && creep.room.name !== localWorkRoom) {
-                creep.say('📢 Flee!');
+                creep.say('Flee!');
                 const exit = creep.pos.findClosestByRange(creep.room.findExitTo(deliveryRoom));
                 if (exit) creep.moveTo(exit, { visualizePathStyle: { stroke: '#ff0000' } });
             } else {
-                creep.say('💤 Safe');
+                creep.say('Safe');
+                if (creep.pos.x === 0 || creep.pos.x === 49 || creep.pos.y === 0 || creep.pos.y === 49) {
+                    creep.moveTo(new RoomPosition(25, 25, creep.room.name), { range: 22 });
+                }
             }
             return; // Brich alle anderen Aktionen ab!
         }
@@ -47,7 +50,7 @@ module.exports = {
         if (remoteTargetRoom) {
             // --- PRE-FLIGHT CHECK: Wait for healing if damaged before leaving safe room ---
             if (creep.hits < creep.hitsMax && creep.room.name === deliveryRoom) {
-                creep.say('🩹 Pit Stop');
+                creep.say('PitStop');
                 return; // Warte im sicheren Raum, bis der Tower dich vollgeheilt hat
             }
 
@@ -91,7 +94,10 @@ module.exports = {
                     return;
                 }
 
-                creep.say('🧭 Loot?');
+                creep.say('Loot?');
+                if (creep.pos.x === 0 || creep.pos.x === 49 || creep.pos.y === 0 || creep.pos.y === 49) {
+                    creep.moveTo(new RoomPosition(25, 25, creep.room.name), { range: 22 });
+                }
                 return;
             }
 
@@ -108,8 +114,30 @@ module.exports = {
 
         const storage = creep.room.storage;
 
-        // --- If empty: withdraw (containers first, then storage) ---
+        // --- If empty: withdraw (drops first, then containers, then storage) ---
         if (creep.store.getUsedCapacity(RESOURCE_ENERGY) === 0) {
+            // 1. Pick up dropped energy (crucial before containers are built)
+            const dropped = creep.pos.findClosestByPath(FIND_DROPPED_RESOURCES, {
+                filter: r => r.resourceType === RESOURCE_ENERGY && r.amount >= 50
+            });
+            if (dropped) {
+                if (creep.pickup(dropped) === ERR_NOT_IN_RANGE) creep.moveTo(dropped, { visualizePathStyle: { stroke: '#ffaa00' } });
+                return;
+            }
+
+            // 2. Tombstones & Ruins
+            const tomb = creep.pos.findClosestByPath(FIND_TOMBSTONES, { filter: t => t.store && t.store[RESOURCE_ENERGY] > 0 });
+            if (tomb) {
+                if (creep.withdraw(tomb, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) creep.moveTo(tomb, { visualizePathStyle: { stroke: '#ffaa00' } });
+                return;
+            }
+            const ruin = creep.pos.findClosestByPath(FIND_RUINS, { filter: r => r.store && r.store[RESOURCE_ENERGY] > 0 });
+            if (ruin) {
+                if (creep.withdraw(ruin, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) creep.moveTo(ruin, { visualizePathStyle: { stroke: '#ffaa00' } });
+                return;
+            }
+
+            // 3. Containers
             let src = creep.pos.findClosestByPath(FIND_STRUCTURES, {
                 filter: s =>
                     s.structureType === STRUCTURE_CONTAINER &&
@@ -121,10 +149,14 @@ module.exports = {
 
             if (src) {
                 if (creep.withdraw(src, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
-                    creep.moveTo(src);
+                    creep.moveTo(src, { visualizePathStyle: { stroke: '#ffaa00' } });
                 }
             } else {
-                creep.say('🚫E');
+                creep.say('No E');
+                // Anti-Ping-Pong im Idle
+                if (creep.pos.x === 0 || creep.pos.x === 49 || creep.pos.y === 0 || creep.pos.y === 49) {
+                    creep.moveTo(new RoomPosition(25, 25, creep.room.name), { range: 22 });
+                }
             }
             return;
         }
@@ -163,6 +195,9 @@ module.exports = {
             return;
         }
 
-        creep.say('💤');
+        creep.say('Zzz');
+        if (creep.pos.x === 0 || creep.pos.x === 49 || creep.pos.y === 0 || creep.pos.y === 49) {
+            creep.moveTo(new RoomPosition(25, 25, creep.room.name), { range: 22 });
+        }
     }
 };

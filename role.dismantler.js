@@ -18,7 +18,7 @@ module.exports = {
 
         if (target) {
             if (creep.dismantle(target) === ERR_NOT_IN_RANGE) creep.moveTo(target, {visualizePathStyle: {stroke: '#ff0000'}});
-            creep.say('🧨 Breach');
+            creep.say('Breach');
         }
     }
 };

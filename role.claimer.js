@@ -17,7 +17,7 @@ module.exports = {
         if (creep.room.name !== targetRoom) {
             const exit = creep.pos.findClosestByRange(creep.room.findExitTo(targetRoom));
             creep.moveTo(exit, { visualizePathStyle: { stroke: '#ffffff' } });
-            creep.say('➡️ ' + targetRoom);
+            creep.say('-> ' + targetRoom);
             return;
         }
 
@@ -29,13 +29,13 @@ module.exports = {
             const res = creep.claimController(ctrl);
             if (res === ERR_NOT_IN_RANGE) creep.moveTo(ctrl, { visualizePathStyle: { stroke: '#ffffff' } });
             else if (res === ERR_GCL_NOT_ENOUGH) creep.say('GCL?');
-            else if (res === OK) creep.say('🏳️ Claim');
+            else if (res === OK) creep.say('Claim');
             return;
         }
 
         // Default: reserve
         const res = creep.reserveController(ctrl);
         if (res === ERR_NOT_IN_RANGE) creep.moveTo(ctrl, { visualizePathStyle: { stroke: '#ffffff' } });
-        else if (res === OK) creep.say('📌 Reserve');
+        else if (res === OK) creep.say('Reserve');
     }
 };
