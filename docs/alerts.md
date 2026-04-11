@@ -143,3 +143,11 @@ Track urgent production incidents and response quality. Keep entries brief and f
 - Immediate Response: Identified that creeps stepping onto an exit tile to bypass swamps trigger an engine teleport back to the previous room.
 - Resolution: Replaced `findExitTo` with `moveTo(25, 25)` for cross-room travel. Implemented a universal "Border Bounce Fix" (force one step inward) across `claimer`, `builder`, `upgrader`, and `remoteMiner`.
 - Follow-up: All cross-room movement must actively pull creeps into the room, not just target the exit boundary.
+
+- Date-Time (UTC): `2026-02-16T17:00:00Z`
+- Severity: `SEV-3`
+- Trigger: Creeps ordered to recycle froze indefinitely in remote mining rooms (e.g., `W7N7`) without a local spawn.
+- Scope: Universal Recycle Command in `main.js`.
+- Immediate Response: Identified that `FIND_MY_SPAWNS` is strictly local to the creep's current room.
+- Resolution: Added global fallback `Object.values(Game.spawns)[0]` and cross-room `moveTo` routing for recycling creeps.
+- Follow-up: Ensure all "return to base" fallbacks account for remote/unowned rooms.

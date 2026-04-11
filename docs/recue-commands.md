@@ -38,10 +38,12 @@ Quick live checks and recovery commands for operation.
 
 ## Heartbeat Interpretation
 
-- `ASSIGN B@H:h/1 RP@H:r/1 B@T:x/2 RP@T:y/2 U@T:z/2 H@T:d/1 C@E:a/1 RM@E:b/4 H@E:c/1`
-- `Spawn:BUSY n/m`: spawn capacity currently occupied.
-- `QUEUE ...`: current deficit chain by priority.
-- `DEF clear/alert threat(H/T/E):x/y/z`: hostile combat counts by home/target/expansion.
+The Heartbeat is now a multi-line HUD:
+- `GLOBAL | Pop: 24/60 | CPU: 12.5 (Bucket: 10k) | ♻️ 2 recycling`
+- `QUEUE | builder@W7N7:0/2 ➔ hauler@W7N7:0/1` shows spawn queue sequence.
+- `[ROOM_NAME] (RCL X) | NRG: x/y | Spawns: IDLE | TTL: min X, avg Y`
+- `└─ ROLE:HAVE/NEED`: Color coded (Green = OK, Yellow = Deficit, Red = Surplus).
+- `🚨 DEFENSE| ALERT in [ROOM]`: Overrides default lines when hostiles are detected.
 
 ## Audit Signals
 

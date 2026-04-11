@@ -324,3 +324,17 @@ Capture non-urgent observations that improve system design, role policy, and ope
 - Impact: Human intervention required to start a new colony.
 - Action: Implemented `Auto-Bootstrap` in the planner to dynamically calculate the midpoint between the controller and the first source and automatically place the first `STRUCTURE_SPAWN` construction site. Reduced planner interval from 1000 to 100 ticks.
 - Evidence: System can now autonomously claim and initiate construction in a completely blank room.
+
+- Date-Time (UTC): `2026-02-16T17:30:00Z`
+- Context: Spawn-recycle loops due to static quotas in fully developed rooms.
+- Observation: The system continuously spawned builders and scavengers even when no construction sites or dropped energy existed, leading to immediate 100-tick idle timeouts and recycling.
+- Impact: Wasted spawn time, energy, and CPU.
+- Action: Upgraded `getPhaseQuotas()` in `main.js` to Just-In-Time (JIT) logic. Builder quotas drop to 0 if no sites exist, shifting capacity to upgraders. Scavenger quotas drop to 0 if the floor is clean.
+- Evidence: Spawns now push upgraders during peace-time and instantly switch to builders when `utils.planner.js` drops new sites.
+
+- Date-Time (UTC): `2026-02-16T18:00:00Z`
+- Context: Multi-room observability in the console.
+- Observation: The single-line Heartbeat log became unreadable as the colony expanded to 4 rooms.
+- Impact: High cognitive load to deduce which room was missing which role or if spawns were active.
+- Action: Rewrote `utils.logger.js` and the heartbeat compiler in `main.js` to output a multi-line, color-coded dashboard grouped by room, including average TTL, RCL, and current spawn actions.
+- Evidence: Console now displays a clean grid `[HOME] W7N8 (RCL 7) ... └─ HV:2/2 BLD:1/1 ...`

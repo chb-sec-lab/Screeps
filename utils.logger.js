@@ -12,71 +12,37 @@ module.exports = {
     
     report: function(stats) {
         if (Game.time % 20 !== 0) return;
-        const roleShort = {
-            harvester: 'HARV',
-            hauler: 'HAUL',
-            scavenger: 'SCAV',
-            repairer: 'REP',
-            defender: 'DEF',
-            remoteMiner: 'RMIN',
-            builder: 'BLD',
-            healer: 'HEAL',
-            upgrader: 'UPG',
-            claimer: 'CLM',
-            vanguard: 'VAN',
-            medic: 'MED',
-            breacher: 'BRC',
-            mineralMiner: 'MINM'
-        };
 
-        const pop = Object.entries(stats.census)
-            .filter(([r, c]) => c > 0)
-            .map(([r, c]) => `${roleShort[r] || r.toUpperCase()}:${c}`)
-            .join(' | ');
+        console.log(`\n<span style="color:#53d2b7; font-weight:bold;">--- SCOS HEARTBEAT ${Game.time} ---</span>`);
+        
+        // GLOBAL LINE
+        const cpu = stats.cpu ? stats.cpu.toFixed(1) : '0.0';
+        const bucketStr = stats.bucket === 10000 ? `<span style="color:#00ffcc">10k</span>` : stats.bucket;
+        const recycleStr = stats.recycling > 0 ? ` | <span style="color:#ffb766">♻️ ${stats.recycling} recycling</span>` : '';
+        
+        console.log(`🌍 GLOBAL | Pop: ${stats.pop}/${stats.cap} | CPU: ${cpu} (Bucket: ${bucketStr})${recycleStr}`);
 
-        const roomInfo = stats.rooms
-            ? `HOME:${stats.rooms.home} TARGET:${stats.rooms.target} EXP:${stats.rooms.expansion}`
-            : 'HOME:? TARGET:? EXP:?';
+        // QUEUE LINE
+        const queueInfo = (stats.queue && stats.queue.length) ? stats.queue.slice(0, 5).join(' ➔ ') : '<span style="color:#9db0c6">clear</span>';
+        console.log(`📋 QUEUE  | ${queueInfo}`);
 
-        const mineralInfo = stats.assignments && stats.assignments.dynamicMineralMiners ? stats.assignments.dynamicMineralMiners.map(q => `MM@${q.room}:${q.current}/${q.required}`).join(' ') + ' ' : '';
-        const assignmentInfo = stats.assignments
-            ? `${mineralInfo}${stats.assignments.dynamicMiners ? stats.assignments.dynamicMiners.map(q => `HV@${q.room}:${q.current}/${q.required}`).join(' ') + ' ' : ''}B@H:${stats.assignments.homeBuilders || 0}/${stats.assignments.homeBuilderNeed || 1} B@T:${stats.assignments.targetBuilders || 0}/${stats.assignments.targetBuilderNeed || 1} C@T:${stats.assignments.targetClaimers || 0}/${stats.assignments.targetClaimerNeed || 0} RP@T:${stats.assignments.targetRepairers || 0}/${stats.assignments.targetRepairerNeed || 2} U@T:${stats.assignments.targetUpgraders || 0}/${stats.assignments.targetUpgraderNeed || 1} H@T:${stats.assignments.targetHaulers || 0}/1 B@M:${stats.assignments.miningBuilders || 0}/2 U@M:${stats.assignments.miningUpgraders || 0}/1 H@M:${stats.assignments.miningHaulers || 0}/1 RM@M:${stats.assignments.miningRemoteMiners || 0}/2 C@M:${stats.assignments.miningClaimers || 0}/1`
-            : 'B@H:0/1 B@T:0/1 C@T:0/0 RP@T:0/2 U@T:0/1 H@T:0/1 B@M:0/2 U@M:0/1 H@M:0/1 RM@M:0/2 C@M:0/1';
-
-        let spawnInfo = 'Spawn:none';
-        if (stats.spawn) {
-            if (stats.spawn.busy > 0) {
-                spawnInfo = `Spawn:BUSY ${stats.spawn.busy}/${stats.spawn.total}`;
-            } else {
-                spawnInfo = `Spawn:IDLE ${stats.spawn.total}/${stats.spawn.total}`;
-            }
-
-            if (stats.spawn.actions && stats.spawn.actions.length) {
-                spawnInfo += ` NEXT ${stats.spawn.actions.slice(0, 2).join(' | ')}`;
-            } else if (stats.spawn.action) {
-                spawnInfo = `Spawn:NEXT ${stats.spawn.action}`;
-            }
+        // DEFENSE LINE
+        const def = stats.defense;
+        if (def && def.active) {
+            console.log(`🚨 DEFENSE| ALERT in ${def.room}! Def: ${def.current}/${def.need} Heal: ${def.currentHealers}/${def.healerNeed} | Threat (H/T/E): ${def.homeThreat}/${def.targetThreat}/${def.expansionThreat}`);
         }
 
-        const queueInfo = (stats.queue && stats.queue.length)
-            ? stats.queue.slice(0, 5).join(' > ')
-            : 'clear';
-
-        const homeThreat = stats.defense ? (stats.defense.homeThreat || 0) : 0;
-        const targetThreat = stats.defense ? (stats.defense.targetThreat || 0) : 0;
-        const expansionThreat = stats.defense ? (stats.defense.expansionThreat || 0) : 0;
-        const threatTriplet = `${homeThreat}/${targetThreat}/${expansionThreat}`;
-        const defTTL = (stats.defense && stats.defense.ttls) ? ` ttl:[${stats.defense.ttls}]` : '';
-        const defenseInfo = (stats.defense && stats.defense.active)
-            ? `DEF ALERT room:${stats.defense.room} def:${stats.defense.current}/${stats.defense.need}${defTTL} heal:${stats.defense.currentHealers}/${stats.defense.healerNeed} threat(H/T/E):${threatTriplet}`
-            : `DEF clear threat(H/T/E):${threatTriplet}`;
-
-        console.log(`--- HEARTBEAT ${Game.time} ---`);
-        console.log(`NRG ${stats.energy}/${stats.cap} | POP ${pop}`);
-        console.log(`ROOMS ${roomInfo}`);
-        console.log(`ASSIGN ${assignmentInfo}`);
-        console.log(defenseInfo);
-        console.log(`${spawnInfo} | QUEUE ${queueInfo}`);
+        // ROOMS
+        if (stats.rooms && stats.rooms.length) {
+            stats.rooms.forEach(r => {
+                const rclStr = r.rcl > 0 ? `RCL ${r.rcl}` : 'Unclaimed';
+                const spawnStr = r.spawns.length > 0 ? r.spawns.join(', ') : '<span style="color:#9db0c6">No Spawns</span>';
+                
+                console.log(`<span style="color:#53d2b7; font-weight:bold;">[${r.label}] ${r.name}</span> <span style="color:#9db0c6">(${rclStr}) | NRG: ${r.nrg}/${r.cap} | Spawns: ${spawnStr} | TTL: ${r.ttl}</span>`);
+                console.log(`  └─ ${r.roles}`);
+            });
+        }
+        console.log('');
     },
 
     auditTactical: function(snapshot) {
