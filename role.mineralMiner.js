@@ -23,7 +23,10 @@ module.exports = {
             if (mineral) {
                 if (mineral.amount === 0) {
                     creep.say('Empty');
-                    return; // Mineral depleted, wait for regeneration
+                    // Ein Creep lebt 1500 Ticks, Regeneration dauert 50.000 Ticks. Schlafen ist mathematisch sinnlos!
+                    // Zwinge ihn sofort in den Schredder. Das Universal Recycle Command (main.js) entleert seinen Rucksack automatisch auf dem Weg.
+                    creep.memory.recycle = true;
+                    return;
                 }
                 
                 const res = creep.harvest(mineral);

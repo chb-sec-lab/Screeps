@@ -273,6 +273,9 @@ module.exports = {
                     if (!creep.pos.inRangeTo(creep.room.controller, 3)) {
                         creep.moveTo(creep.room.controller, { visualizePathStyle: { stroke: '#555555' } });
                     }
+                    creep.memory.lastIdleTick = Game.time;
+                    creep.memory.idleCount = (creep.memory.idleCount || 0) + 1;
+                    if (creep.memory.idleCount > 100) creep.memory.recycle = true;
                 }
                 return;
             }

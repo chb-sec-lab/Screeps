@@ -151,3 +151,19 @@ Track urgent production incidents and response quality. Keep entries brief and f
 - Immediate Response: Identified that `FIND_MY_SPAWNS` is strictly local to the creep's current room.
 - Resolution: Added global fallback `Object.values(Game.spawns)[0]` and cross-room `moveTo` routing for recycling creeps.
 - Follow-up: Ensure all "return to base" fallbacks account for remote/unowned rooms.
+
+- Date-Time (UTC): `2026-02-16T19:00:00Z`
+- Severity: `SEV-2`
+- Trigger: Kernel loop crash (`ReferenceError: activeRegistry is not defined`).
+- Scope: Full colony orchestration halted.
+- Immediate Response: Identified scope leak caused by block-level `const` declaration desynchronized during refactoring.
+- Resolution: Replaced `const` with `var` to force variable hoisting to the top of the scope, preventing reference errors.
+- Follow-up: Use `var` for core orchestration registries that are accessed across deeply nested fallback chains.
+
+- Date-Time (UTC): `2026-02-16T19:30:00Z`
+- Severity: `SEV-3`
+- Trigger: `mineralMiner` creeps permanently freezing on empty mineral deposits.
+- Scope: Mineral extraction logic.
+- Immediate Response: Identified that sleeping while waiting for mineral regeneration (50,000 ticks) exceeds creep lifespan (1,500 ticks), causing silent quota leaks.
+- Resolution: Forced immediate `memory.recycle = true` when minerals are depleted. The universal recycle command automatically dumps inventory before recycling.
+- Follow-up: Avoid sleep states for any timer exceeding creep maximum lifespan.

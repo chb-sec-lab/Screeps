@@ -7,6 +7,9 @@ const roles = require('config.roles');
 const logger = require('utils.logger');
 const towerLogic = require('structure.tower');
 const planner = require('utils.planner');
+const inventory = require('utils.inventory');
+const market = require('utils.market');
+const expander = require('utils.expansion');
 const DEFENSE_COOLDOWN_TICKS = 200;
 const TACTICAL_AUDIT_INTERVAL = 200;
 const STRATEGIC_AUDIT_INTERVAL = 3600;
@@ -24,10 +27,22 @@ Creep.prototype.moveTo = function(target, opts) {
     // If it hits maxOps (default 2000), it returns an incomplete path, causing creeps to freeze at room borders.
     if (!opts.maxOps) opts.maxOps = 8000;
 
+    const creep = this;
+
     opts.roomCallback = function(roomName) {
         if (rooms.BLACKLIST && rooms.BLACKLIST.includes(roomName)) {
             return false; // ⛔ Weist den PathFinder an, diesen Raum komplett zu ignorieren
         }
+
+        // Scout-spezifische Feind-Vermeidung (Routing um Feindbasen herum)
+        if (creep.memory && creep.memory.role === 'scout' && roomName !== creep.room.name) {
+            const rData = Memory.inventory && Memory.inventory.rooms ? Memory.inventory.rooms[roomName] : null;
+            if (rData) {
+                if (rData.dangerUntil && Game.time < rData.dangerUntil) return false; // Raum ist temporär gesperrt
+                if (rData.hostileTowers > 0 && !rData.my) return false; // Feindliche Base! Umweg berechnen.
+            }
+        }
+
         if (userCallback) {
             return userCallback(roomName);
         }
@@ -38,33 +53,76 @@ Creep.prototype.moveTo = function(target, opts) {
 };
 
 let modules = {};
-const roleNames = ['harvester', 'hauler', 'scavenger', 'repairer', 'defender', 'vanguard', 'medic', 'breacher', 'remoteMiner', 'builder', 'claimer', 'upgrader', 'healer', 'mineralMiner'];
+const roleNames = ['harvester', 'hauler', 'scavenger', 'repairer', 'defender', 'vanguard', 'medic', 'breacher', 'remoteMiner', 'builder', 'claimer', 'upgrader', 'healer', 'mineralMiner', 'scout'];
 
 roleNames.forEach(name => {
     try { modules[name] = require('role.' + name); } catch (e) { /* Safe Load */ }
 });
 
+// --- GLOBAL CONSOLE COMMANDS ---
+global.intel = function() {
+    if (!Memory.inventory || !Memory.inventory.rooms) return "Keine Inventar-Daten gefunden.";
+    let intel = Memory.inventory.rooms;
+    let out = ["\n<span style='color:#53d2b7; font-weight:bold;'>--- SCOS SCOUT INTEL ---</span>"];
+    Object.keys(intel).forEach(r => {
+        let d = intel[r];
+        let owner = d.my ? 'ME' : (d.reservation || 'None');
+        let danger = '';
+        if (d.dangerUntil && Game.time < d.dangerUntil) {
+            danger = ` | <span style='color:#ff4d4d; font-weight:bold;'>⚠️ DANGER (${d.dangerUntil - Game.time}t)</span>`;
+        } else if (d.hostileTowers > 0 && !d.my) {
+            danger = ` | <span style='color:#ffaa00; font-weight:bold;'>🏰 ENEMY BASE</span>`;
+        }
+        out.push(`<span style='color:#9db0c6'>🌍 [${r}]</span> | 👑 Owner: <span style='color:#ffb766'>${owner}</span> | ⚡ Src: ${d.sources} | 💎 Min: ${d.mineralAmount} | ⏱️ Scan: ${Game.time - d.lastUpdated}t ago${danger}`);
+    });
+    console.log(out.join('\n'));
+    return "Intel report generated.";
+};
+
 module.exports.loop = function () {
+    // --- AUTO-EXPANSION TARGET OVERRIDE ---
+    if (Memory.empire && Memory.empire.targetRoom) {
+        rooms.TARGET = Memory.empire.targetRoom;
+    }
+
     for (let name in Memory.creeps) if (!Game.creeps[name]) delete Memory.creeps[name];
+
+    // --- INVENTORY SCAN ---
+    inventory.run();
 
     const census = {};
     roleNames.forEach(r => census[r] = 0);
     const homeRoom = Game.rooms[rooms.HOME];
     const allSpawns = Object.values(Game.spawns);
-    const targetRoomView = Game.rooms[rooms.TARGET];
-    const expansionRoomView = Game.rooms[rooms.EXPANSION];
+
+    // --- ACTIVE REGISTRY (Topology) ---
+    // FIX: 'var' erzwingt das Hoisting der Variable. Verhindert ReferenceErrors, falls Codeblöcke de-synchronisiert wurden.
+    var activeRegistry = {}; 
+    if (rooms.registry) {
+        for (let rn in rooms.registry) activeRegistry[rn] = rooms.registry[rn];
+    }
+    if (Memory.inventory && Memory.inventory.rooms) {
+        Object.keys(Memory.inventory.rooms).forEach(rn => {
+            if (Memory.inventory.rooms[rn].my && !activeRegistry[rn]) activeRegistry[rn] = { type: 'CORE' };
+        });
+    }
+    if (Memory.empire && Memory.empire.targetRoom && !activeRegistry[Memory.empire.targetRoom]) {
+        activeRegistry[Memory.empire.targetRoom] = { type: 'CORE' };
+    }
 
     // --- EVOLUTION PROTOCOL (RCL-Based Dynamic Quotas) ---
     // JIT (Just-In-Time) Bedarfssteuerung: Evaluiert JEDEN geclaimten Raum einzeln basierend auf RCL UND tatsächlichem Bedarf
-    function getPhaseQuotas(level, room) {
-        const sites = room ? room.find(FIND_CONSTRUCTION_SITES).length : 0;
-        const drops = room ? room.find(FIND_DROPPED_RESOURCES, { filter: r => r.amount >= 50 }).length : 0;
+    function getPhaseQuotas(level, invData) {
+        if (!invData) return { builder: 0, upgrader: 0, repairer: 0, hauler: 0, scav: 0 };
+        const sites = invData.constructionSites;
+        const drops = invData.droppedEnergy;
         
         let b = 0, u = 0, r = 0, h = 0, s = 0;
         
         if (level <= 2) {
-            b = sites > 0 ? (sites > 5 ? 3 : 2) : 1; // Immer mind. 1 Pionier zum Starten
-            u = sites > 0 ? 0 : 2; // Ohne Baustellen pushen wir den Controller
+            const noSpawn = invData.spawns === 0;
+            b = sites > 0 ? (sites > 5 ? 3 : 2) : (noSpawn ? 1 : 0); // AUTO-VISION: 1 Pionier geht vor um den Raum aufzudecken, falls der Planner noch nicht lief!
+            u = sites > 0 ? 0 : (!noSpawn ? 2 : 0); // JIT: Upgrader erst, wenn der Spawn steht.
         } else if (level === 3) {
             b = sites > 0 ? (sites > 5 ? 3 : 2) : 0; // JIT: 0 Builder wenn nichts zu bauen ist!
             u = sites > 0 ? 1 : 3; // JIT: Arbeiter werden zu Upgradern umgeschichtet
@@ -87,14 +145,27 @@ module.exports.loop = function () {
     roles.COUNTS.hauler = homePhase.hauler; // Global fallback basis
     roles.COUNTS.scavenger = homePhase.scav;
 
+    // --- GCL AWARENESS ---
+    const ownedRooms = Object.values(Game.rooms).filter(r => r.controller && r.controller.my).length;
+    const canClaimMore = ownedRooms < Game.gcl.level;
+
     // Wenn der Target-Raum uns gehört, berechnet er ab sofort seine eigenen autonomen Phasen!
-    let targetPhase = { builder: 0, upgrader: 0, repairer: 0, hauler: 0 }; // Default to nothing if unclaimed
+    const targetInv = Memory.inventory && Memory.inventory.rooms ? Memory.inventory.rooms[rooms.TARGET] : null;
+    let targetPhase = { builder: 0, upgrader: 0, repairer: 0, hauler: 0 };
     let TARGET_CLAIMER_QUOTA = 0;
-    if (targetRoomView && targetRoomView.controller && targetRoomView.controller.my) {
-        targetPhase = getPhaseQuotas(targetRoomView.controller.level, targetRoomView);
+    let TARGET_REMOTE_MINER_QUOTA = 0;
+    let TARGET_REMOTE_HAULER_QUOTA = 0;
+
+    if (targetInv && targetInv.my) {
+        targetPhase = getPhaseQuotas(targetInv.rcl, targetInv);
     } else if (homeRCL >= 3) {
-        TARGET_CLAIMER_QUOTA = 1; // Claim target room if not owned
-        targetPhase = { builder: 2, upgrader: 0, repairer: 0, hauler: 0 }; // Send exactly 2 Pioneers ahead!
+        TARGET_CLAIMER_QUOTA = 1; // Claim oder Reserve
+        if (canClaimMore) {
+            targetPhase = targetInv ? getPhaseQuotas(0, targetInv) : { builder: 1, upgrader: 0, repairer: 0, hauler: 0 }; 
+        } else {
+            TARGET_REMOTE_MINER_QUOTA = targetInv ? targetInv.sources * 2 : 2; // GCL-MAX FALLBACK: Nutze Target temporär als Remote Mine!
+            TARGET_REMOTE_HAULER_QUOTA = targetInv ? targetInv.sources : 1;
+        }
     }
     let TARGET_BUILDER_QUOTA = targetPhase.builder;
     let TARGET_UPGRADER_QUOTA = targetPhase.upgrader;
@@ -110,10 +181,11 @@ module.exports.loop = function () {
     let EXPANSION_HAULER_QUOTA = 0;
 
     // --- EXPANSION AS BASE (W8N8) ---
-    // Falls in EXPANSION ein Spawn gebaut wurde, berechnet er ab sofort autonom seine eigenen Quoten!
+    // FIX: Wenn W8N8 geclaimt ist, wird es IMMER als Basis versorgt, auch wenn der Spawn noch fehlt!
+    const expansionInv = Memory.inventory && Memory.inventory.rooms ? Memory.inventory.rooms[rooms.EXPANSION] : null;
     let expansionPhase = { builder: 0, upgrader: 0, repairer: 0, hauler: 0 };
-    if (expansionRoomView && expansionRoomView.controller && expansionRoomView.controller.my && expansionRoomView.find(FIND_MY_SPAWNS).length > 0) {
-        expansionPhase = getPhaseQuotas(expansionRoomView.controller.level, expansionRoomView);
+    if (expansionInv && expansionInv.my) {
+        expansionPhase = getPhaseQuotas(expansionInv.rcl, expansionInv);
     }
     let EXPANSION_BUILDER_QUOTA = expansionPhase.builder;
     let EXPANSION_UPGRADER_QUOTA = expansionPhase.upgrader;
@@ -150,8 +222,8 @@ module.exports.loop = function () {
 
     const roomThreats = {
         [rooms.HOME]: getHostileCount(homeRoom),
-        [rooms.TARGET]: getHostileCount(targetRoomView),
-        [rooms.EXPANSION]: getHostileCount(expansionRoomView),
+        [rooms.TARGET]: getHostileCount(Game.rooms[rooms.TARGET]),
+        [rooms.EXPANSION]: getHostileCount(Game.rooms[rooms.EXPANSION]),
         [rooms.MINING]: getHostileCount(Game.rooms[rooms.MINING])
     };
     const homeThreat = roomThreats[rooms.HOME];
@@ -184,7 +256,7 @@ module.exports.loop = function () {
 
     // --- PASS 1: CENSUS & SOURCE TRACKING ---
     const sourceAssignments = {};
-    [homeRoom, targetRoomView, expansionRoomView].forEach(room => {
+    [homeRoom, Game.rooms[rooms.TARGET], Game.rooms[rooms.EXPANSION]].forEach(room => {
         if (room) room.find(FIND_SOURCES).forEach(s => sourceAssignments[s.id] = 0);
     });
 
@@ -195,15 +267,8 @@ module.exports.loop = function () {
             sourceAssignments[creep.memory.targetSourceId] = (sourceAssignments[creep.memory.targetSourceId] || 0) + 1;
         }
         
-        // Attack Detection
-        if (creep.hits < (creep.memory.lastHits || creep.hitsMax)) {
-            logger.log(`⚠️ ATTACK: ${creep.name} in ${creep.room.name}!`, 'error');
-        }
+        if (creep.hits < (creep.memory.lastHits || creep.hitsMax)) logger.log(`⚠️ ATTACK: ${creep.name} in ${creep.room.name}!`, 'error');
         creep.memory.lastHits = creep.hits;
-
-        // --- EXECUTION (Merged Pass) ---
-        creep.memory.home = rooms.HOME;
-        creep.memory.target = rooms.TARGET;
 
         // --- AUTO-RECYCLE OBSOLETE DEFENSE ---
         if (creep.memory.role === 'defender' || creep.memory.role === 'healer') {
@@ -232,14 +297,11 @@ module.exports.loop = function () {
                     if (creep.transfer(sink, resType) === ERR_NOT_IN_RANGE) {
                         creep.moveTo(sink, { visualizePathStyle: { stroke: '#00ffcc' } });
                     }
-                    continue; // Skip moving to spawn until completely empty
+                    continue; 
                 }
             }
 
-            let spawn = creep.pos.findClosestByPath(FIND_MY_SPAWNS) || creep.pos.findClosestByRange(FIND_MY_SPAWNS);
-            if (!spawn) {
-                spawn = Object.values(Game.spawns)[0]; // Fallback: Finde irgendeinen Spawn im Imperium
-            }
+            let spawn = creep.pos.findClosestByPath(FIND_MY_SPAWNS) || creep.pos.findClosestByRange(FIND_MY_SPAWNS) || Object.values(Game.spawns)[0];
             if (spawn) {
                 if (creep.room.name !== spawn.room.name) {
                     creep.moveTo(new RoomPosition(25, 25, spawn.room.name), { visualizePathStyle: { stroke: '#ff00ff' }, reusePath: 50 });
@@ -247,44 +309,20 @@ module.exports.loop = function () {
                     creep.moveTo(spawn, { visualizePathStyle: { stroke: '#ff00ff' } });
                 }
             }
-            continue; // Skip normal role logic
+            continue; 
         }
 
         // --- UNIVERSAL MEMORY PURGE & ORPHAN MIGRATION ---
         let memoryPatched = false;
         for (let key in creep.memory) {
-            // 1. Alte Sektoren endgültig löschen
-            if (['E57S55', 'E57S56', 'E58S55', 'E58S56'].includes(creep.memory[key])) {
-                if (key === 'salvageRoom' || key === 'salvageId') {
-                    creep.memory.salvageRoom = null;
-                    creep.memory.salvageId = null;
-                } else if (key === 'workRoom' || key === 'targetRoom') {
-                    creep.memory[key] = rooms.MINING;
-                } else if (key === 'homeRoom') {
-                    creep.memory[key] = rooms.HOME;
-                } else {
-                    creep.memory[key] = null;
-                }
-                memoryPatched = true;
-            }
-            // 2. RAUMÜBERGREIFENDER AUSGLEICH: W8N8 Orphans nach W6N8 schicken
-            if (creep.memory[key] === 'W8N8' && key !== 'homeRoom') {
-                if (EXPANSION_BUILDER_QUOTA === 0 && EXPANSION_UPGRADER_QUOTA === 0 && EXPANSION_MINER_QUOTA === 0) {
-                    creep.memory[key] = rooms.TARGET; // Schickt arbeitslose Creeps an die neue Front
+            if (['E57S55', 'E57S56', 'E58S55', 'E58S56', 'W8N8'].includes(creep.memory[key])) { // Clean up old hardcodes
+                if (!activeRegistry[creep.memory[key]]) {
+                    creep.memory[key] = Memory.empire && Memory.empire.targetRoom ? Memory.empire.targetRoom : rooms.HOME;
                     memoryPatched = true;
                 }
             }
         }
-        if (memoryPatched) delete creep.memory._move; // Clear cached bad paths!
-
-        // Migration guard: remote expansion haulers must always deliver to HOME.
-        if (
-            creep.memory.role === 'hauler' &&
-            creep.memory.targetRoom === rooms.EXPANSION &&
-            creep.memory.homeRoom !== rooms.HOME
-        ) {
-            creep.memory.homeRoom = rooms.HOME;
-        }
+        if (memoryPatched) delete creep.memory._move;
 
         // QUARANTINE ZONE & SAFE CORRIDOR LOGIC
         // The pathfinder naturally tries to shortcut through E57S55. We must actively forbid it.
@@ -292,7 +330,7 @@ module.exports.loop = function () {
             creep.say('EVAC');
             const evacExit = creep.pos.findClosestByRange(creep.room.findExitTo(rooms.MINING));
             if (evacExit) creep.moveTo(evacExit, { visualizePathStyle: { stroke: '#ff0000' } });
-            continue; // Skip role execution to prevent Flee loops from breaking movement!
+            continue; 
         }
         
         // Auto-fix Harvesters without source
@@ -300,7 +338,7 @@ module.exports.loop = function () {
             if (creep.memory.targetSourceId && creep.memory.targetRoom) {
                 const s = Game.getObjectById(creep.memory.targetSourceId);
                 if (s && s.room.name !== creep.memory.targetRoom) {
-                    creep.memory.targetSourceId = null; // Clear wrong-room source
+                    creep.memory.targetSourceId = null; 
                 }
             }
             
@@ -316,11 +354,9 @@ module.exports.loop = function () {
             }
         }
 
-        // --- CPU CIRCUIT BREAKER ---
-        // Prevent hard CPU timeout crashes (Script execution timed out).
         if (Game.cpu.getUsed() > Game.cpu.tickLimit * 0.8) {
             creep.say('CPU');
-            continue; // Skip expensive role logic this tick, but keep the loop alive
+            continue; 
         }
 
         if (modules[creep.memory.role]) {
@@ -329,7 +365,7 @@ module.exports.loop = function () {
     }
 
     // --- PASS 3: INFRASTRUCTURE (TOWERS) ---
-    [rooms.HOME, rooms.TARGET, rooms.EXPANSION, rooms.MINING].forEach(roomName => {
+    Object.keys(activeRegistry).forEach(roomName => {
         const room = Game.rooms[roomName];
         if (room) {
             const towers = room.find(FIND_MY_STRUCTURES, {filter: {structureType: STRUCTURE_TOWER}});
@@ -339,16 +375,11 @@ module.exports.loop = function () {
         }
     });
 
-    // --- PASS 4: SPAWNING (MULTI-SPAWN) ---
+    // --- PASS 4: SPAWNING (MULTI-SPAWN INFINITE BASES) ---
     let queuePreview = [];
-    let roomAssignments = {};
     const spawnActions = [];
-    const armyOn = (rooms.WAR_MODE === true);
-    const targetRoom = rooms.TARGET;
-    const expansionRoom = rooms.EXPANSION;
     const plannedSpawns = [];
 
-    // --- DYNAMISCHE PRE-SPAWNING BERECHNUNG ---
     function getPreSpawnTime(creep) {
         const spawnTime = creep.body.length * 3;
         const targetR = creep.memory.targetRoom || creep.memory.workRoom || creep.room.name;
@@ -361,7 +392,7 @@ module.exports.loop = function () {
     function countAssigned(role, roomName, memoryKey) {
         const live = _.filter(Game.creeps, c =>
             c.memory.role === role &&
-            (c.spawning || c.ticksToLive > getPreSpawnTime(c)) && // PRE-SPAWNING: Dynamische Berechnung
+            (c.spawning || c.ticksToLive > getPreSpawnTime(c)) && 
             (c.memory[memoryKey] === roomName || (!c.memory[memoryKey] && c.room.name === roomName))
         ).length;
         const planned = _.filter(plannedSpawns, m =>
@@ -384,6 +415,8 @@ module.exports.loop = function () {
         const targetUpgraders = countAssigned('upgrader', targetRoom, 'targetRoom');
         const targetHaulers = countAssigned('hauler', targetRoom, 'workRoom');
         const targetClaimers = countAssigned('claimer', targetRoom, 'targetRoom');
+        const targetRemoteMiners = countAssigned('remoteMiner', targetRoom, 'targetRoom');
+        const targetRemoteHaulers = countAssigned('hauler', targetRoom, 'targetRoom');
         const miningBuilders = countAssigned('builder', rooms.MINING, 'workRoom');
         const miningUpgraders = countAssigned('upgrader', rooms.MINING, 'targetRoom');
         const miningHaulers = countAssigned('hauler', rooms.MINING, 'workRoom');
@@ -407,6 +440,8 @@ module.exports.loop = function () {
             targetUpgraders,
             targetHaulers,
             targetClaimers,
+            targetRemoteMiners,
+            targetRemoteHaulers,
             miningBuilders,
             miningUpgraders,
             miningHaulers,
@@ -438,7 +473,8 @@ module.exports.loop = function () {
         harvester: [WORK, CARRY, MOVE],
         claimer: [CLAIM, MOVE],
         healer: [MOVE, HEAL],
-        mineralMiner: [WORK, CARRY, MOVE]
+        mineralMiner: [WORK, CARRY, MOVE],
+        scout: [MOVE]
     };
 
     function resolveSpawnBody(spawn, role) {
@@ -454,30 +490,25 @@ module.exports.loop = function () {
 
     const baseNeeds = readNeeds();
 
-    const baseRooms = Object.values(Game.rooms).filter(room => room.find(FIND_MY_SPAWNS).length > 0);
+    // DYNAMISCHE LISTEN AUS DEM INVENTAR LESEN (Spart CPU!)
+    const ownedRoomNames = Memory.inventory && Memory.inventory.rooms ? Object.keys(Memory.inventory.rooms).filter(rn => Memory.inventory.rooms[rn].my) : [];
     const dynamicMinerQueue = [];
-    baseRooms.forEach(room => {
-        const sourcesCount = room.find(FIND_SOURCES).length;
-        const requiredMiners = sourcesCount * 2;
-        const currentMiners = countAssigned('harvester', room.name, 'targetRoom');
+    ownedRoomNames.forEach(rn => {
+        const requiredMiners = Memory.inventory.rooms[rn].sources * 2;
+        const currentMiners = countAssigned('harvester', rn, 'targetRoom');
         dynamicMinerQueue.push({
-            room: room.name,
+            room: rn,
             current: currentMiners,
             required: requiredMiners
         });
     });
 
     const dynamicMineralQueue = [];
-    baseRooms.forEach(room => {
-        if (room.controller && room.controller.level >= 6) {
-            const mineral = room.find(FIND_MINERALS)[0];
-            if (mineral && mineral.amount > 0) {
-                const hasExtractor = room.find(FIND_STRUCTURES, { filter: s => s.structureType === STRUCTURE_EXTRACTOR }).length > 0;
-                if (hasExtractor) {
-                    const currentMiners = countAssigned('mineralMiner', room.name, 'workRoom');
-                    dynamicMineralQueue.push({ room: room.name, current: currentMiners, required: 1 });
-                }
-            }
+    ownedRoomNames.forEach(rn => {
+        const inv = Memory.inventory.rooms[rn];
+        if (inv.rcl >= 6 && inv.extractors > 0 && inv.mineralAmount > 0) {
+            const currentMiners = countAssigned('mineralMiner', rn, 'workRoom');
+            dynamicMineralQueue.push({ room: rn, current: currentMiners, required: 1 });
         }
     });
 
@@ -497,6 +528,8 @@ module.exports.loop = function () {
         targetHaulers: baseNeeds.targetHaulers,
         targetClaimers: baseNeeds.targetClaimers,
         targetClaimerNeed: TARGET_CLAIMER_QUOTA,
+        targetRemoteMiners: baseNeeds.targetRemoteMiners,
+        targetRemoteHaulers: baseNeeds.targetRemoteHaulers,
         miningBuilders: baseNeeds.miningBuilders,
         miningUpgraders: baseNeeds.miningUpgraders,
         miningHaulers: baseNeeds.miningHaulers,
@@ -541,6 +574,8 @@ module.exports.loop = function () {
     if (TARGET_CLAIMER_QUOTA > 0) {
         addQueueEntry(baseNeeds.targetClaimers >= TARGET_CLAIMER_QUOTA, `claimer@${targetRoom}`, baseNeeds.targetClaimers, TARGET_CLAIMER_QUOTA);
     }
+    addQueueEntry(baseNeeds.targetRemoteMiners >= TARGET_REMOTE_MINER_QUOTA, `remoteMiner@${targetRoom}`, baseNeeds.targetRemoteMiners, TARGET_REMOTE_MINER_QUOTA);
+    addQueueEntry(baseNeeds.targetRemoteHaulers >= TARGET_REMOTE_HAULER_QUOTA, `hauler@${targetRoom}`, baseNeeds.targetRemoteHaulers, TARGET_REMOTE_HAULER_QUOTA);
     addQueueEntry(baseNeeds.miningUpgraders >= MINING_UPGRADER_QUOTA, `upgrader@${rooms.MINING}`, baseNeeds.miningUpgraders, MINING_UPGRADER_QUOTA);
     addQueueEntry(countRole('hauler') >= roles.COUNTS.hauler, 'hauler', countRole('hauler'), roles.COUNTS.hauler);
     addQueueEntry(baseNeeds.targetHaulers >= TARGET_HAULER_QUOTA, `hauler@${targetRoom}`, baseNeeds.targetHaulers, TARGET_HAULER_QUOTA);
@@ -597,6 +632,8 @@ module.exports.loop = function () {
     else if (baseNeeds.homeUpgraders < HOME_UPGRADER_QUOTA) sRole = 'upgrader';
     else if (TARGET_CLAIMER_QUOTA > 0 && baseNeeds.targetClaimers < TARGET_CLAIMER_QUOTA) sRole = 'claimer';
     else if (baseNeeds.targetBuilders < TARGET_BUILDER_QUOTA) sRole = 'builder';
+    else if (TARGET_REMOTE_MINER_QUOTA > 0 && baseNeeds.targetRemoteMiners < TARGET_REMOTE_MINER_QUOTA) sRole = 'remoteMiner';
+    else if (TARGET_REMOTE_HAULER_QUOTA > 0 && baseNeeds.targetRemoteHaulers < TARGET_REMOTE_HAULER_QUOTA) sRole = 'hauler';
     else if (baseNeeds.miningBuilders < MINING_BUILDER_QUOTA) sRole = 'builder';
     else if (EXPANSION_BUILDER_QUOTA > 0 && baseNeeds.expansionBuilders < EXPANSION_BUILDER_QUOTA) sRole = 'builder';
     else if (baseNeeds.targetUpgraders < TARGET_UPGRADER_QUOTA) sRole = 'upgrader';
@@ -620,6 +657,7 @@ module.exports.loop = function () {
     else if (countRole('builder') < roles.COUNTS.builder) sRole = 'builder';
     else if (countRole('claimer') < roles.COUNTS.claimer) sRole = 'claimer';
     else if (countRole('upgrader') < roles.COUNTS.upgrader) sRole = 'upgrader';
+    else if (countRole('scout') < roles.COUNTS.scout) sRole = 'scout';
 
         if (!sRole) continue;
 
@@ -659,6 +697,9 @@ module.exports.loop = function () {
                 spawnMemory.workRoom = targetRoom;
         } else if (baseNeeds.miningHaulers < MINING_HAULER_QUOTA) {
             spawnMemory.workRoom = rooms.MINING;
+        } else if (TARGET_REMOTE_HAULER_QUOTA > 0 && baseNeeds.targetRemoteHaulers < TARGET_REMOTE_HAULER_QUOTA) {
+            spawnMemory.targetRoom = targetRoom;
+            spawnMemory.homeRoom = rooms.HOME;
             } else if (baseNeeds.expansionHaulers < EXPANSION_HAULER_QUOTA) {
                 spawnMemory.targetRoom = expansionRoom;
                 spawnMemory.homeRoom = rooms.HOME;
@@ -692,7 +733,7 @@ module.exports.loop = function () {
         if (sRole === 'claimer') {
             if (TARGET_CLAIMER_QUOTA > 0 && baseNeeds.targetClaimers < TARGET_CLAIMER_QUOTA) {
                 spawnMemory.targetRoom = targetRoom;
-                spawnMemory.claimMode = 'claim';
+                spawnMemory.claimMode = canClaimMore ? 'claim' : 'reserve'; // GCL AWARENESS
             } else if (baseNeeds.shouldReserveMining && baseNeeds.miningClaimers < MINING_CLAIMER_QUOTA) {
                 spawnMemory.targetRoom = rooms.MINING;
                 spawnMemory.claimMode = 'reserve';
@@ -700,7 +741,10 @@ module.exports.loop = function () {
         }
 
         if (sRole === 'remoteMiner') {
-                if (baseNeeds.expansionRemoteMiners < EXPANSION_MINER_QUOTA) {
+            if (TARGET_REMOTE_MINER_QUOTA > 0 && baseNeeds.targetRemoteMiners < TARGET_REMOTE_MINER_QUOTA) {
+                spawnMemory.targetRoom = targetRoom;
+                spawnMemory.homeRoom = rooms.HOME;
+            } else if (baseNeeds.expansionRemoteMiners < EXPANSION_MINER_QUOTA) {
                 spawnMemory.targetRoom = expansionRoom;
                 spawnMemory.homeRoom = rooms.HOME;
             } else if (baseNeeds.miningRemoteMiners < MINING_REMOTE_MINER_QUOTA) {
@@ -796,7 +840,9 @@ module.exports.loop = function () {
                 fQ('BLD', baseNeeds.targetBuilders, TARGET_BUILDER_QUOTA),
                 fQ('UPG', baseNeeds.targetUpgraders, TARGET_UPGRADER_QUOTA),
                 fQ('REP', baseNeeds.targetRepairers, TARGET_REPAIRER_QUOTA),
-                fQ('HAUL', baseNeeds.targetHaulers, TARGET_HAULER_QUOTA)
+                fQ('HAUL', baseNeeds.targetHaulers, TARGET_HAULER_QUOTA),
+                fQ('RMIN', baseNeeds.targetRemoteMiners, TARGET_REMOTE_MINER_QUOTA),
+                fQ('RHAUL', baseNeeds.targetRemoteHaulers, TARGET_REMOTE_HAULER_QUOTA)
             ].filter(s => s).join(' ') || '<span style="color:#9db0c6">None</span>'
         });
     }
@@ -841,6 +887,8 @@ module.exports.loop = function () {
         recycling: recyclingCount,
         cpu: Game.cpu.getUsed(),
         bucket: Game.cpu.bucket,
+        credits: Game.market ? Game.market.credits : 0,
+        earned: Memory.market ? Memory.market.earned : 0,
         pop: Object.keys(Game.creeps).length,
         cap: HARD_POP_CAP,
         queue: queuePreview,
@@ -849,15 +897,14 @@ module.exports.loop = function () {
             active: !!defenseActive,
             room: defenseTargetRoom,
             need: defenseNeed,
-            current: defenseTargetRoom ? _.filter(Game.creeps, c => c.memory.role === 'defender' && c.memory.targetRoom === defenseTargetRoom).length : 0,
-            ttls: defenseTargetRoom ? _.filter(Game.creeps, c => c.memory.role === 'defender' && c.memory.targetRoom === defenseTargetRoom).map(c => c.ticksToLive || 'spwn').join(',') : '',
+            current: countAssigned('defender', defenseTargetRoom, 'targetRoom'),
+            ttls: _.filter(Game.creeps, c => c.memory.role === 'defender' && c.memory.targetRoom === defenseTargetRoom).map(c => c.ticksToLive || 'spwn').join(','),
             healerNeed: defenseHealerNeed,
-            currentHealers: defenseTargetRoom ? _.filter(Game.creeps, c => c.memory.role === 'healer' && c.memory.targetRoom === defenseTargetRoom).length : 0,
-            homeThreat: homeThreat,
-            targetThreat: targetThreat,
-            expansionThreat: expansionThreat
+            currentHealers: countAssigned('healer', defenseTargetRoom, 'targetRoom'),
+            homeThreat: roomThreats[rooms.HOME] || 0,
+            targetThreat: roomThreats[rooms.TARGET] || 0,
+            expansionThreat: roomThreats[rooms.EXPANSION] || 0
         },
-        queue: queuePreview
     });
 
     // --- PASS 5: AUDIT SNAPSHOTS (Tactical + Strategic) ---
@@ -939,7 +986,13 @@ module.exports.loop = function () {
         logger.log('💎 Pixel generated! (10,000 Bucket converted)', 'success');
     }
 
-    // --- PASS 7: AUTOMATED BASE PLANNING ---
+    // --- PASS 7: MARKET (Auto-Sell) ---
+    market.run();
+
+    // --- PASS 8: AUTO-EXPANSION ---
+    expander.run();
+
+    // --- PASS 9: AUTOMATED BASE PLANNING ---
     // Alle 100 Ticks prüfen. Extrem ressourcenschonend, sorgt aber für schnelles Bootstrapping.
     if (Game.time % 100 === 0) {
         Object.values(Game.rooms)

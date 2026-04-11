@@ -9,6 +9,9 @@ module.exports = {
 
         this.planCore(room);
         this.planRoads(room);
+        this.planExtractors(room);
+        this.planContainers(room);
+        this.planRamparts(room);
     },
 
     planRoads: function(room) {
@@ -47,6 +50,71 @@ module.exports = {
         });
     },
 
+    planRamparts: function(room) {
+        // Ramparts kosten viel Energie im Unterhalt. Wir bauen sie erst ab RCL 4 (wenn Storage & Wirtschaft stabil sind).
+        if (!room.controller || !room.controller.my || room.controller.level < 4) return;
+
+        // SCOS Smart-Bunker: Wir schützen NUR das Herzstück der Basis vor Sniper-Angriffen!
+        const criticalStructures = room.find(FIND_MY_STRUCTURES, {
+            filter: s => s.structureType === STRUCTURE_SPAWN ||
+                         s.structureType === STRUCTURE_TOWER ||
+                         s.structureType === STRUCTURE_STORAGE ||
+                         s.structureType === STRUCTURE_TERMINAL
+        });
+
+        criticalStructures.forEach(struct => {
+            const hasRampart = struct.pos.lookFor(LOOK_STRUCTURES).some(s => s.structureType === STRUCTURE_RAMPART);
+            const hasSite = struct.pos.lookFor(LOOK_CONSTRUCTION_SITES).some(s => s.structureType === STRUCTURE_RAMPART);
+
+            if (!hasRampart && !hasSite) room.createConstructionSite(struct.pos, STRUCTURE_RAMPART);
+        });
+    },
+
+    planExtractors: function(room) {
+        // Extractors können erst ab RCL 6 gebaut werden
+        if (!room.controller || !room.controller.my || room.controller.level < 6) return;
+
+        const minerals = room.find(FIND_MINERALS);
+        if (minerals.length > 0) {
+            const mineral = minerals[0];
+            const hasExtractor = mineral.pos.lookFor(LOOK_STRUCTURES).some(s => s.structureType === STRUCTURE_EXTRACTOR);
+            const hasSite = mineral.pos.lookFor(LOOK_CONSTRUCTION_SITES).some(s => s.structureType === STRUCTURE_EXTRACTOR);
+            
+            if (!hasExtractor && !hasSite) {
+                if (room.createConstructionSite(mineral.pos, STRUCTURE_EXTRACTOR) === OK) {
+                    console.log(`[Planner] Auto-placing Extractor on mineral in ${room.name}`);
+                }
+            }
+        }
+    },
+
+    planContainers: function(room) {
+        // Container machen ab RCL 2 Sinn
+        if (!room.controller || !room.controller.my || room.controller.level < 2) return;
+
+        // Wir wollen Container an: Quellen, Controller und Mineralien
+        const targets = [...room.find(FIND_SOURCES), room.controller, ...room.find(FIND_MINERALS)];
+        
+        targets.forEach(target => {
+            const nearby = target.pos.findInRange(FIND_STRUCTURES, 2, { filter: s => s.structureType === STRUCTURE_CONTAINER });
+            const nearbySites = target.pos.findInRange(FIND_CONSTRUCTION_SITES, 2, { filter: s => s.structureType === STRUCTURE_CONTAINER });
+            
+            if (nearby.length === 0 && nearbySites.length === 0) {
+                for (let dx = -1; dx <= 1; dx++) {
+                    for (let dy = -1; dy <= 1; dy++) {
+                        if (dx === 0 && dy === 0) continue;
+                        const pos = new RoomPosition(target.pos.x + dx, target.pos.y + dy, room.name);
+                        const terrain = Game.map.getRoomTerrain(room.name).get(pos.x, pos.y);
+                        if (terrain !== TERRAIN_MASK_WALL) {
+                            const hasStuff = pos.lookFor(LOOK_STRUCTURES).length > 0 || pos.lookFor(LOOK_CONSTRUCTION_SITES).length > 0;
+                            if (!hasStuff && room.createConstructionSite(pos, STRUCTURE_CONTAINER) === OK) return; // Nur 1 Container pro Target
+                        }
+                    }
+                }
+            }
+        });
+    },
+
     planCore: function(room) {
         const spawns = room.find(FIND_MY_SPAWNS);
         if (spawns.length === 0) {
@@ -70,23 +138,29 @@ module.exports = {
         const anchor = spawns[0].pos;
 
         const rcl = room.controller ? room.controller.level : 0;
-        const allowedExt = CONTROLLER_STRUCTURES[STRUCTURE_EXTENSION][rcl] || 0;
-        const allowedTowers = CONTROLLER_STRUCTURES[STRUCTURE_TOWER][rcl] || 0;
-        const allowedStorage = CONTROLLER_STRUCTURES[STRUCTURE_STORAGE][rcl] || 0;
+        
+        // Dynamische Liste aller Kern-Strukturen, die in der Basis stehen sollen
+        const coreStructures = [
+            STRUCTURE_SPAWN, STRUCTURE_EXTENSION, STRUCTURE_TOWER, STRUCTURE_STORAGE,
+            STRUCTURE_TERMINAL, STRUCTURE_LINK, STRUCTURE_LAB, STRUCTURE_OBSERVER,
+            STRUCTURE_NUKER, STRUCTURE_POWER_SPAWN, STRUCTURE_FACTORY
+        ];
 
-        const currentExt = room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType === STRUCTURE_EXTENSION}).length +
-                           room.find(FIND_CONSTRUCTION_SITES, {filter: s => s.structureType === STRUCTURE_EXTENSION}).length;
-        const currentTowers = room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType === STRUCTURE_TOWER}).length +
-                              room.find(FIND_CONSTRUCTION_SITES, {filter: s => s.structureType === STRUCTURE_TOWER}).length;
-        const currentStorage = room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType === STRUCTURE_STORAGE}).length +
-                               room.find(FIND_CONSTRUCTION_SITES, {filter: s => s.structureType === STRUCTURE_STORAGE}).length;
+        const state = {};
+        let everythingBuilt = true;
 
-        // Abort if we already have everything allowed at this RCL
-        if (currentExt >= allowedExt && currentTowers >= allowedTowers && currentStorage >= allowedStorage) return;
+        // Ermittle für jede Struktur, was wir auf diesem Level dürfen und was wir schon haben
+        for (const type of coreStructures) {
+            const allowed = CONTROLLER_STRUCTURES[type][rcl] || 0;
+            const built = room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType === type}).length +
+                          room.find(FIND_CONSTRUCTION_SITES, {filter: s => s.structureType === type}).length;
+            
+            state[type] = { allowed, built };
+            if (built < allowed) everythingBuilt = false;
+        }
 
-        let placedExt = currentExt;
-        let placedTowers = currentTowers;
-        let placedStorage = currentStorage;
+        // Abbruch, wenn das aktuelle RCL-Maximum bereits komplett ausgereizt ist
+        if (everythingBuilt) return;
 
         // Expanding square around the spawn (radius 2 to 12)
         for (let radius = 2; radius <= 12; radius++) {
@@ -107,15 +181,22 @@ module.exports = {
                     const hasStuff = pos.lookFor(LOOK_STRUCTURES).length > 0 || pos.lookFor(LOOK_CONSTRUCTION_SITES).length > 0;
                     if (hasStuff) continue;
 
-                    if (placedExt < allowedExt) {
-                        if (room.createConstructionSite(pos, STRUCTURE_EXTENSION) === OK) placedExt++;
-                    } else if (placedTowers < allowedTowers) {
-                        if (room.createConstructionSite(pos, STRUCTURE_TOWER) === OK) placedTowers++;
-                    } else if (placedStorage < allowedStorage) {
-                        if (room.createConstructionSite(pos, STRUCTURE_STORAGE) === OK) placedStorage++;
+                    // Platziere die erste fehlende Struktur aus unserer Prioritätenliste
+                    for (const type of coreStructures) {
+                        if (state[type].built < state[type].allowed) {
+                            if (room.createConstructionSite(pos, type) === OK) {
+                                state[type].built++;
+                                
+                                // Prüfen, ob nach diesem Bauauftrag nun ALLES erfüllt ist
+                                everythingBuilt = true;
+                                for (const t of coreStructures) {
+                                    if (state[t].built < state[t].allowed) everythingBuilt = false;
+                                }
+                                if (everythingBuilt) return;
+                            }
+                            break; // Wenn ein Gebäude auf das Feld gesetzt wurde, iteriere nicht weiter für DIESES Feld
+                        }
                     }
-
-                    if (placedExt >= allowedExt && placedTowers >= allowedTowers && placedStorage >= allowedStorage) return;
                 }
             }
         }

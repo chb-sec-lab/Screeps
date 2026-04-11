@@ -19,8 +19,9 @@ module.exports = {
         const cpu = stats.cpu ? stats.cpu.toFixed(1) : '0.0';
         const bucketStr = stats.bucket === 10000 ? `<span style="color:#00ffcc">10k</span>` : stats.bucket;
         const recycleStr = stats.recycling > 0 ? ` | <span style="color:#ffb766">♻️ ${stats.recycling} recycling</span>` : '';
-        
-        console.log(`🌍 GLOBAL | Pop: ${stats.pop}/${stats.cap} | CPU: ${cpu} (Bucket: ${bucketStr})${recycleStr}`);
+        const creditsStr = stats.credits !== undefined ? ` | 💰 <span style="color:#ffaa00">${Math.floor(stats.credits).toLocaleString()}c</span> <span style="color:#00ffcc">(+${Math.floor(stats.earned || 0)})</span>` : '';
+
+        console.log(`🌍 GLOBAL | Pop: ${stats.pop}/${stats.cap} | CPU: ${cpu} (Bucket: ${bucketStr})${creditsStr}${recycleStr}`);
 
         // QUEUE LINE
         const queueInfo = (stats.queue && stats.queue.length) ? stats.queue.slice(0, 5).join(' ➔ ') : '<span style="color:#9db0c6">clear</span>';

@@ -338,3 +338,31 @@ Capture non-urgent observations that improve system design, role policy, and ope
 - Impact: High cognitive load to deduce which room was missing which role or if spawns were active.
 - Action: Rewrote `utils.logger.js` and the heartbeat compiler in `main.js` to output a multi-line, color-coded dashboard grouped by room, including average TTL, RCL, and current spawn actions.
 - Evidence: Console now displays a clean grid `[HOME] W7N8 (RCL 7) ... └─ HV:2/2 BLD:1/1 ...`
+
+- Date-Time (UTC): `2026-02-16T18:30:00Z`
+- Context: CPU bloat and orchestration deadlocks from redundant `room.find()` calls.
+- Observation: The kernel repeatedly scanned rooms for structures and creeps across different modules, wasting CPU and causing edge-case deadlocks for unowned rooms.
+- Impact: High CPU usage and rigid code coupling.
+- Action: Extracted room scanning into a dedicated `utils.inventory.js` module. The kernel now relies exclusively on the cached `Memory.inventory` state.
+- Evidence: CPU usage significantly stabilized; orchestration logic simplified.
+
+- Date-Time (UTC): `2026-02-16T20:00:00Z`
+- Context: Transitioning from rigid 4-room constants to an infinite-base architecture.
+- Observation: Hardcoded `HOME/TARGET/EXPANSION/MINING` constants prevented the colony from scaling beyond GCL 4.
+- Impact: Artificial limit on empire growth.
+- Action: Refactored `main.js` to iterate over a dynamic `activeRegistry`. Spawning logic now generates a prioritized request queue for any number of `CORE` and `REMOTE` colonies. Added GCL-awareness to pause expansions when the limit is reached.
+- Evidence: Spawner correctly manages `W8N8` as a remote outpost and prepares to claim `W6N8` dynamically.
+
+- Date-Time (UTC): `2026-02-16T20:30:00Z`
+- Context: Autonomous expansion and threat avoidance (Phase 5).
+- Observation: Need for dynamic target selection and intelligence gathering to safely utilize the new infinite-base architecture.
+- Impact: Allows the colony to spread autonomously.
+- Action: Created `role.scout.js` and `utils.expansion.js`. Scouts map the universe, register minerals, and flag `dangerUntil` for hostile rooms. The global `PathFinder` routes around danger zones. The expander automatically selects the highest-scoring room when GCL is available.
+- Evidence: Global console command `intel()` successfully outputs colored radar maps of surrounding sectors.
+
+- Date-Time (UTC): `2026-02-16T21:00:00Z`
+- Context: Advanced economy integration (Phase 4).
+- Observation: High-level rooms accumulate excess minerals, while energy reserves can fluctuate during sieges.
+- Impact: Stagnant wealth and vulnerability to energy starvation.
+- Action: Implemented `utils.market.js`. The module automatically sells minerals above 10k buffer to the highest bidder and auto-buys energy if colony reserves fall below 50k. Added credit tracking to the Heartbeat HUD.
+- Evidence: Heartbeat logs display `💰 150,000c (+2,400)`.

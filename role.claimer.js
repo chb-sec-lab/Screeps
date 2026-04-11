@@ -31,10 +31,21 @@ module.exports = {
         if (!ctrl) return;
 
         if (mode === "claim") {
+            if (ctrl.my) {
+                creep.say('Done');
+                creep.memory.recycle = true;
+                return;
+            }
             const res = creep.claimController(ctrl);
-            if (res === ERR_NOT_IN_RANGE) creep.moveTo(ctrl, { visualizePathStyle: { stroke: '#ffffff' } });
-            else if (res === ERR_GCL_NOT_ENOUGH) creep.say('GCL?');
-            else if (res === OK) creep.say('Claim');
+            if (res === ERR_NOT_IN_RANGE) {
+                creep.moveTo(ctrl, { visualizePathStyle: { stroke: '#ffffff' } });
+            } else if (res === ERR_GCL_NOT_ENOUGH) {
+                creep.say('GCL Max');
+                creep.memory.claimMode = 'reserve'; // Auto-downgrade auf Reserve für zukünftige Ticks
+                if (creep.reserveController(ctrl) === ERR_NOT_IN_RANGE) creep.moveTo(ctrl);
+            } else if (res === OK) {
+                creep.say('Claim');
+            }
             return;
         }
 

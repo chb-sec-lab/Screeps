@@ -14,7 +14,8 @@ module.exports = {
             creep.memory.idleCount = 0;
         }
 
-        const roomOrder = [rooms.TARGET, rooms.EXPANSION, rooms.HOME];
+        const workRoom = creep.memory.workRoom || rooms.HOME;
+        const roomOrder = [creep.room.name, workRoom].filter((v, i, a) => a.indexOf(v) === i); // Deduplicate
         const minPickup = 20;
 
         function getSalvageJobInRoom(roomName) {
@@ -226,8 +227,8 @@ module.exports = {
 
         if (creep.store.getFreeCapacity() === 0) {
             if (doDeliver()) return;
-            if (creep.room.name !== rooms.HOME) {
-                const exit = creep.pos.findClosestByRange(creep.room.findExitTo(rooms.HOME));
+            if (creep.room.name !== workRoom) {
+                const exit = creep.pos.findClosestByRange(creep.room.findExitTo(workRoom));
                 if (exit) creep.moveTo(exit, { visualizePathStyle: { stroke: '#00ffcc' } });
                 return;
             }
@@ -244,8 +245,8 @@ module.exports = {
             
             if (doScavenge(true)) return; // Only scavenge in current room if already holding energy
             
-            if (creep.room.name !== rooms.HOME) {
-                const exit = creep.pos.findClosestByRange(creep.room.findExitTo(rooms.HOME));
+            if (creep.room.name !== workRoom) {
+                const exit = creep.pos.findClosestByRange(creep.room.findExitTo(workRoom));
                 if (exit) creep.moveTo(exit, { visualizePathStyle: { stroke: '#00ffcc' } });
                 return;
             }
@@ -264,8 +265,8 @@ module.exports = {
         if (doHaulAssist()) return;
         if (doConsolidate()) return;
 
-        if (creep.room.name !== rooms.HOME) {
-            const exit = creep.pos.findClosestByRange(creep.room.findExitTo(rooms.HOME));
+        if (creep.room.name !== workRoom) {
+            const exit = creep.pos.findClosestByRange(creep.room.findExitTo(workRoom));
             if (exit) creep.moveTo(exit, { visualizePathStyle: { stroke: '#555555' } });
             return;
         }

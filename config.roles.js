@@ -22,7 +22,8 @@ module.exports = {
         medic:       0, // NO WAR MODE
         breacher:    0,
         healer:      0,
-        mineralMiner:0 // Managed dynamically by main.js (1 per active Extractor)
+        mineralMiner:0, // Managed dynamically by main.js (1 per active Extractor)
+        scout:       1  // 1 global scout wandering the map
     },
 
     BODIES: {
@@ -39,6 +40,7 @@ module.exports = {
         medic:       [MOVE, HEAL, HEAL],
         breacher:    [WORK, WORK, MOVE, MOVE],
         healer:      [MOVE, MOVE, MOVE, HEAL, HEAL, HEAL],
-        mineralMiner:[WORK, WORK, WORK, WORK, CARRY, CARRY, MOVE, MOVE, MOVE]
+        mineralMiner:[WORK, WORK, WORK, WORK, CARRY, CARRY, MOVE, MOVE, MOVE],
+        scout:       [MOVE]
     }
 };
