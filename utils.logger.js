@@ -5,26 +5,24 @@
  */
 module.exports = {
     log: function(msg, type = 'info') {
-        const colors = { info: '#ffffff', warn: '#ffaa00', error: '#ff4d4d', success: '#00ffcc' };
-        const timeStr = new Date().toLocaleTimeString('nl-NL'); // Amsterdam Format
-        console.log(`<span style="color:${colors[type]}">[${timeStr}] ${msg}</span>`);
+        console.log(msg);
     },
     
     report: function(stats) {
         if (Game.time % 20 !== 0) return;
-
-        console.log(`\n<span style="color:#53d2b7; font-weight:bold;">--- SCOS HEARTBEAT ${Game.time} ---</span>`);
+        
+        console.log(`--- SCOS HEARTBEAT ${Game.time} ---`);
         
         // GLOBAL LINE
         const cpu = stats.cpu ? stats.cpu.toFixed(1) : '0.0';
-        const bucketStr = stats.bucket === 10000 ? `<span style="color:#00ffcc">10k</span>` : stats.bucket;
-        const recycleStr = stats.recycling > 0 ? ` | <span style="color:#ffb766">♻️ ${stats.recycling} recycling</span>` : '';
-        const creditsStr = stats.credits !== undefined ? ` | 💰 <span style="color:#ffaa00">${Math.floor(stats.credits).toLocaleString()}c</span> <span style="color:#00ffcc">(+${Math.floor(stats.earned || 0)})</span>` : '';
+        const bucketStr = stats.bucket === 10000 ? `10k` : stats.bucket;
+        const recycleStr = stats.recycling > 0 ? ` | ♻️ ${stats.recycling} recycling` : '';
+        const creditsStr = stats.credits !== undefined ? ` | 💰 ${Math.floor(stats.credits).toLocaleString()}c (+${Math.floor(stats.earned || 0)})` : '';
 
         console.log(`🌍 GLOBAL | Pop: ${stats.pop}/${stats.cap} | CPU: ${cpu} (Bucket: ${bucketStr})${creditsStr}${recycleStr}`);
 
         // QUEUE LINE
-        const queueInfo = (stats.queue && stats.queue.length) ? stats.queue.slice(0, 5).join(' ➔ ') : '<span style="color:#9db0c6">clear</span>';
+        const queueInfo = (stats.queue && stats.queue.length) ? stats.queue.slice(0, 5).join(' ➔ ') : 'clear';
         console.log(`📋 QUEUE  | ${queueInfo}`);
 
         // DEFENSE LINE
@@ -36,14 +34,16 @@ module.exports = {
         // ROOMS
         if (stats.rooms && stats.rooms.length) {
             stats.rooms.forEach(r => {
-                const rclStr = r.rcl > 0 ? `RCL ${r.rcl}` : 'Unclaimed';
-                const spawnStr = r.spawns.length > 0 ? r.spawns.join(', ') : '<span style="color:#9db0c6">No Spawns</span>';
+                let rclStr = 'Unclaimed';
+                if (r.my) rclStr = `RCL ${r.rcl}`;
+                else if (r.reservation) rclStr = `Res: ${r.reservation}`;
+
+                const spawnStr = r.spawns.length > 0 ? r.spawns.join(', ') : 'No Spawns';
                 
-                console.log(`<span style="color:#53d2b7; font-weight:bold;">[${r.label}] ${r.name}</span> <span style="color:#9db0c6">(${rclStr}) | NRG: ${r.nrg}/${r.cap} | Spawns: ${spawnStr} | TTL: ${r.ttl}</span>`);
+                console.log(`[${r.label}] ${r.name} (${rclStr} | ${r.phase}) | NRG: ${r.nrg}/${r.cap} | Spawns: ${spawnStr} | TTL: ${r.ttl}`);
                 console.log(`  └─ ${r.roles}`);
             });
         }
-        console.log('');
     },
 
     auditTactical: function(snapshot) {

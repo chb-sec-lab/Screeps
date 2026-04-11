@@ -232,7 +232,7 @@ module.exports = {
                 if (exit) creep.moveTo(exit, { visualizePathStyle: { stroke: '#00ffcc' } });
                 return;
             }
-            creep.say('Full');
+            creep.say('Idle:Full');
             if (creep.pos.x === 0 || creep.pos.x === 49 || creep.pos.y === 0 || creep.pos.y === 49) {
                 creep.moveTo(new RoomPosition(25, 25, creep.room.name), { range: 22 });
             }
@@ -251,7 +251,7 @@ module.exports = {
                 return;
             }
             
-            creep.say('Wait');
+            creep.say('Idle:Wait');
             if (creep.pos.x === 0 || creep.pos.x === 49 || creep.pos.y === 0 || creep.pos.y === 49) {
                 creep.moveTo(new RoomPosition(25, 25, creep.room.name), { range: 22 });
             }
@@ -271,7 +271,7 @@ module.exports = {
             return;
         }
 
-        creep.say('Zzz');
+        creep.say('Idle:NoJob');
         if (creep.pos.x === 0 || creep.pos.x === 49 || creep.pos.y === 0 || creep.pos.y === 49) {
             creep.moveTo(new RoomPosition(25, 25, creep.room.name), { range: 22 });
         }

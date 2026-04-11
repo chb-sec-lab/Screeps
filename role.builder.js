@@ -159,12 +159,12 @@ module.exports = {
         if (creep.memory.working && creep.store[RESOURCE_ENERGY] <= LOW_ENERGY_REFILL) {
             creep.memory.working = false;
             clearWorkLock();
-            creep.say('Fill');
+            creep.say('Need Nrg');
         }
         if (!creep.memory.working && creep.store.getFreeCapacity() === 0) {
             creep.memory.working = true;
             clearEnergyLock();
-            creep.say('Work');
+            creep.say('Working');
         }
 
         // -------------------------
@@ -264,12 +264,12 @@ module.exports = {
             // 4) Upgrade fallback
             if (creep.room.controller) {
                 if (creep.room.controller.my) {
-                    creep.say('Upgrade');
+                    creep.say('Aux:Upg');
                     if (creep.upgradeController(creep.room.controller) === ERR_NOT_IN_RANGE) {
                         creep.moveTo(creep.room.controller, { visualizePathStyle: { stroke: '#ffff00' } });
                     }
                 } else {
-                    creep.say('Wait Claim');
+                    creep.say('Wait:Claim');
                     if (!creep.pos.inRangeTo(creep.room.controller, 3)) {
                         creep.moveTo(creep.room.controller, { visualizePathStyle: { stroke: '#555555' } });
                     }
@@ -280,7 +280,7 @@ module.exports = {
                 return;
             }
 
-            creep.say('Zzz');
+            creep.say('Idle:NoJob');
             if (creep.pos.x === 0 || creep.pos.x === 49 || creep.pos.y === 0 || creep.pos.y === 49) {
                 creep.moveTo(new RoomPosition(25, 25, creep.room.name), { range: 22 });
             }
@@ -326,7 +326,7 @@ module.exports = {
             return;
         }
 
-        creep.say('No E');
+        creep.say('Idle:NoNrg');
         if (creep.pos.x === 0 || creep.pos.x === 49 || creep.pos.y === 0 || creep.pos.y === 49) {
             creep.moveTo(new RoomPosition(25, 25, creep.room.name), { range: 22 });
         }

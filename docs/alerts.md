@@ -167,3 +167,19 @@ Track urgent production incidents and response quality. Keep entries brief and f
 - Immediate Response: Identified that sleeping while waiting for mineral regeneration (50,000 ticks) exceeds creep lifespan (1,500 ticks), causing silent quota leaks.
 - Resolution: Forced immediate `memory.recycle = true` when minerals are depleted. The universal recycle command automatically dumps inventory before recycling.
 - Follow-up: Avoid sleep states for any timer exceeding creep maximum lifespan.
+
+- Date-Time (UTC): `2026-02-16T21:30:00Z`
+- Severity: `SEV-2`
+- Trigger: Kernel loop crashes (`ReferenceError: targetRoom is not defined` and `armyOn is not defined`).
+- Scope: Spawner orchestration halted.
+- Immediate Response: Identified missing variable declarations following the Infinite-Base architecture refactoring.
+- Resolution: Re-declared `targetRoom`, `expansionRoom`, and `armyOn` at the top of the Spawner pass.
+- Follow-up: Ensure legacy dependencies in helper functions like `readNeeds()` are either updated or provided with their required scope variables.
+
+- Date-Time (UTC): `2026-02-16T22:00:00Z`
+- Severity: `SEV-3`
+- Trigger: Screeps console outputs raw HTML tags (`<font>`, `<span>`) instead of formatting text.
+- Scope: Visual HUD in `utils.logger.js`.
+- Immediate Response: Identified that the Screeps Steam Client aggressively sanitizes/escapes all HTML tags, unlike the Web Client.
+- Resolution: Completely stripped all HTML tags from the logger and `global.intel`. Shifted to a pure ASCII/Emoji layout for guaranteed cross-client compatibility.
+- Follow-up: Avoid HTML in `console.log` entirely. Rely on text alignment and Emojis for visual hierarchy.

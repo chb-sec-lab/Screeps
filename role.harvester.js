@@ -34,6 +34,13 @@ module.exports = {
                 }
             });
 
+            // 1.5 Priority: Links (Beam the energy!)
+            if (!target) {
+                target = creep.pos.findClosestByPath(FIND_STRUCTURES, {
+                    filter: (s) => s.structureType === STRUCTURE_LINK && s.store.getFreeCapacity(RESOURCE_ENERGY) > 0 && creep.pos.inRangeTo(s, 2)
+                });
+            }
+
             // 2. Secondary: Storage
             if (!target) {
                 target = creep.room.storage;
@@ -55,13 +62,13 @@ module.exports = {
                 // Fallback: If the base is 100% full, use WORK parts to help out instead of idling
                 const site = creep.pos.findClosestByPath(FIND_CONSTRUCTION_SITES);
                 if (site) {
-                    creep.say('Build');
+                    creep.say('Aux:Bld');
                     if (creep.build(site) === ERR_NOT_IN_RANGE) creep.moveTo(site, { visualizePathStyle: { stroke: '#ffff00' } });
                 } else if (creep.room.controller) {
-                    creep.say('Upgrade');
+                    creep.say('Aux:Upg');
                     if (creep.upgradeController(creep.room.controller) === ERR_NOT_IN_RANGE) creep.moveTo(creep.room.controller, { visualizePathStyle: { stroke: '#ffff00' } });
                 } else {
-                    creep.say('Full');
+                    creep.say('Idle:Full');
                     let source = Game.getObjectById(creep.memory.targetSourceId);
                     if (source) {
                         if (!creep.pos.inRangeTo(source, 3)) creep.moveTo(source, { range: 3, visualizePathStyle: { stroke: '#555555' } });

@@ -58,11 +58,13 @@ module.exports = {
 
         // 4) Rampart floor upkeep (this is what stops “decay within minutes”)
         if (tower.store[RESOURCE_ENERGY] >= MIN_ENERGY_FOR_RAMPARTS) {
-            const weakRampart = tower.pos.findClosestByRange(FIND_STRUCTURES, {
+            const weakRamparts = tower.room.find(FIND_STRUCTURES, {
                 filter: s => s.structureType === STRUCTURE_RAMPART && s.hits < RAMPART_FLOOR
             });
-            if (weakRampart) {
-                tower.repair(weakRampart);
+            if (weakRamparts.length > 0) {
+                // Prioritize the weakest rampart, not just the closest one.
+                const weakest = _.sortBy(weakRamparts, 'hits')[0];
+                tower.repair(weakest);
                 return;
             }
         }
@@ -71,7 +73,7 @@ module.exports = {
         const cap = tower.store.getCapacity(RESOURCE_ENERGY);
         if (tower.store[RESOURCE_ENERGY] < cap * ENERGY_FOR_NORMAL_REPAIR) return;
 
-        const damaged = tower.pos.findClosestByRange(FIND_STRUCTURES, {
+        const damagedStructures = tower.room.find(FIND_STRUCTURES, {
             filter: s => {
                 if (s.hits >= s.hitsMax) return false;
                 if (s.structureType === STRUCTURE_WALL || s.structureType === STRUCTURE_RAMPART) {
@@ -81,8 +83,10 @@ module.exports = {
             }
         });
 
-        if (damaged) {
-            tower.repair(damaged);
+        if (damagedStructures.length > 0) {
+            // Prioritize the structure with the lowest percentage of hits remaining.
+            const mostDamaged = _.sortBy(damagedStructures, s => s.hits / s.hitsMax)[0];
+            tower.repair(mostDamaged);
         }
     }
 };

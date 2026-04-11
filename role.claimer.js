@@ -16,7 +16,7 @@ module.exports = {
         // Travel to target room
         if (creep.room.name !== targetRoom) {
             creep.moveTo(new RoomPosition(25, 25, targetRoom), { visualizePathStyle: { stroke: '#ffffff' }, reusePath: 50 });
-            creep.say('-> ' + targetRoom);
+            creep.say('Move:' + targetRoom);
             return;
         }
 

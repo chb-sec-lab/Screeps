@@ -366,3 +366,52 @@ Capture non-urgent observations that improve system design, role policy, and ope
 - Impact: Stagnant wealth and vulnerability to energy starvation.
 - Action: Implemented `utils.market.js`. The module automatically sells minerals above 10k buffer to the highest bidder and auto-buys energy if colony reserves fall below 50k. Added credit tracking to the Heartbeat HUD.
 - Evidence: Heartbeat logs display `💰 150,000c (+2,400)`.
+
+- Date-Time (UTC): `2026-02-16T22:30:00Z`
+- Context: HUD accuracy and room state transitions.
+- Observation: Newly claimed rooms (e.g. `W8N8`) were still tracked as `REMOTE` outposts, and the HUD displayed `Unclaimed` for reserved rooms due to missing phase context.
+- Impact: Pioneers were not dispatched to build spawns in freshly conquered territory.
+- Action: Updated `main.js` to automatically upgrade any `my: true` room in the inventory to a `CORE` registry type. Added detailed phase strings (e.g., `Phase 3 (Empire)`, `Bootstrap (No Spawn)`) to `getPhaseQuotas` and exposed them in the HUD.
+- Evidence: HUD now accurately shows `[CORE] W8N8 (RCL 2 | Phase 1 (Pioneers))` and correctly triggers the builder priority.
+
+- Date-Time (UTC): `2026-02-16T23:00:00Z`
+- Context: Base Planner expansion for advanced RCL structures.
+- Observation: Manual code adjustments were required for every new structure type (Labs, Terminals, Nukers, Extractors) as the colony leveled up.
+- Impact: Hinders full autonomy.
+- Action: Rewrote `utils.planner.js` to dynamically iterate through all core structures defined in `CONTROLLER_STRUCTURES` and place them automatically via the spiral-checkerboard algorithm. Added specific placement logic for Extractors and Containers.
+- Evidence: Terminals and Extractors are now placed immediately upon reaching RCL 6 without human intervention.
+
+- Date-Time (UTC): `2026-02-16T23:30:00Z`
+- Context: Late-game base defense optimization.
+- Observation: Perimeter walls (`STRUCTURE_WALL`) consume vast amounts of energy to maintain against decay, stalling economic growth.
+- Impact: "Bunker Bankrupting" limits expansion.
+- Action: Adopted the "Smart-Bunker" (Point-Defense) strategy. `utils.planner.js` now only places `STRUCTURE_RAMPART` directly on critical assets (Spawns, Towers, Storage, Terminal). The `structure.tower.js` prioritizes the absolute weakest rampart for emergency upkeep up to 50k hits.
+- Evidence: Critical infrastructure is protected without the massive energy drain of perimeter walling.
+
+- Date-Time (UTC): `2026-02-17T00:30:00Z`
+- Context: Hauler Ping-Pong loop between Storage and delivery states.
+- Observation: Haulers endlessly withdrew from storage and immediately deposited back because withdrawal logic lacked a strict sink-demand check.
+- Impact: Idle-timers never triggered, preventing surplus haulers from recycling.
+- Action: Restricted `storage` withdrawal in `role.hauler.js` to strictly require active demand from Spawns, Extensions, or Towers.
+- Evidence: Extra haulers correctly entered `Idle:Empty` state and recycled.
+
+- Date-Time (UTC): `2026-02-17T01:00:00Z`
+- Context: Inter-colony logistics and energy balancing.
+- Observation: New or besieged colonies could starve while mature core bases accumulated vast energy surpluses (>150k).
+- Impact: Slower recovery and expansion for struggling rooms.
+- Action: Added internal logistics to `utils.market.js`. Core bases with `>150k` energy automatically send 10k batches via Terminal to owned rooms falling below `50k` energy.
+- Evidence: Terminal sends `RESOURCE_ENERGY` directly, averting market purchases when internal surplus is available.
+
+- Date-Time (UTC): `2026-02-17T01:30:00Z`
+- Context: RCL 5+ intra-room logistics optimization.
+- Observation: Harvesters and haulers lost massive efficiency walking long distances between sources, controllers, and storage in mature rooms.
+- Impact: Bottleneck in energy throughput at higher controller levels.
+- Action: Implemented `structure.link.js` network. Source links beam energy to controller links (priority 1) or core storage links (priority 2), significantly reducing hauler pathing overhead.
+- Evidence: Link transfers route energy instantly; harvesters prioritize depositing into adjacent links.
+
+- Date-Time (UTC): `2026-02-17T02:00:00Z`
+- Context: Creep Observability on the game map.
+- Observation: Restricting frequent `creep.say()` calls for visual clarity made it impossible to easily identify creep roles and tasks on the map.
+- Impact: Operator lost immediate visual feedback on creep distribution and behavior.
+- Action: Added `room.visual.text()` overlay in the `main.js` execution loop to continuously render the creep's role beneath them without cluttering the action logs or overlapping chat bubbles.
+- Evidence: Creeps now display small, color-coded role labels directly beneath their sprites.

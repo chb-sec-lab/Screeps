@@ -63,9 +63,10 @@ Remote Mining:
 - Diplomacy: Known peaceful players can be whitelisted globally (`ALLIES` array) to allow safe passage through bunker-style ramparts. Currently empty for the new sector.
 - Emergency Recovery: Builders unconditionally prioritize Construction Sites for `STRUCTURE_SPAWN` above all repairs (even emergency container/rampart hits) to guarantee cold-boot recovery from wipes.
 - Defender demand remains active for a cooldown window after last detection to prevent spawn flapping.
-- Ramparts are maintained by repairers with a hard minimum floor (`50k`) and optional soft reinforcement in home room.
+- SCOS implements "Smart-Bunker" Point-Defense: Ramparts are only built directly over critical structures (Spawns, Towers, Storage, Terminals) rather than full perimeter walls. Towers prioritize the weakest rampart up to `50k` hits.
 - Remote haulers use minimum pickup thresholds to avoid low-value room-to-room oscillation.
 - Scavengers avoid withdraw/distribute loops unless the room has urgent sinks (spawn/extension/tower demand).
+- Link networks automate energy transit from Sources directly to Controllers (priority) or Storage (fallback), bypassing haulers where possible.
 - Obsolete or stuck creeps can be decommissioned by setting `memory.recycle = true`, routing them to the nearest spawn for energy reclamation.
 
 ## Documentation Governance

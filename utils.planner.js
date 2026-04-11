@@ -12,6 +12,8 @@ module.exports = {
         this.planExtractors(room);
         this.planContainers(room);
         this.planRamparts(room);
+        this.planLinks(room);
+        this.planLabs(room);
     },
 
     planRoads: function(room) {
@@ -19,7 +21,7 @@ module.exports = {
         if (spawns.length === 0) return;
         const anchor = spawns[0].pos;
 
-        const targets = [...room.find(FIND_SOURCES)];
+        const targets = [...room.find(FIND_SOURCES), ...room.find(FIND_MINERALS)];
         if (room.controller) targets.push(room.controller);
 
         targets.forEach(target => {
@@ -115,6 +117,108 @@ module.exports = {
         });
     },
 
+    planLinks: function(room) {
+        // Links sind ab RCL 5 verfügbar
+        if (!room.controller || !room.controller.my || room.controller.level < 5) return;
+
+        const allowed = CONTROLLER_STRUCTURES[STRUCTURE_LINK][room.controller.level] || 0;
+        const current = room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType === STRUCTURE_LINK}).length +
+                        room.find(FIND_CONSTRUCTION_SITES, {filter: s => s.structureType === STRUCTURE_LINK}).length;
+
+        if (current >= allowed) return;
+
+        let placed = current;
+        
+        // Prioritätenliste der Standorte: 1. Storage, 2. Quellen, 3. Controller
+        const targets = [];
+        if (room.storage) targets.push(room.storage);
+        targets.push(...room.find(FIND_SOURCES));
+        targets.push(room.controller);
+
+        for (const target of targets) {
+            if (placed >= allowed) break;
+
+            const nearbyLinks = target.pos.findInRange(FIND_MY_STRUCTURES, 2, {filter: s => s.structureType === STRUCTURE_LINK});
+            const nearbySites = target.pos.findInRange(FIND_CONSTRUCTION_SITES, 2, {filter: s => s.structureType === STRUCTURE_LINK});
+
+            if (nearbyLinks.length === 0 && nearbySites.length === 0) {
+                let spotFound = false;
+                // Suche bevorzugt in exakt 2 Feldern Abstand (d=2), um Platz am Container zu lassen. Wenn blockiert, d=1.
+                for (let d = 2; d >= 1 && !spotFound; d--) {
+                    for (let dx = -d; dx <= d && !spotFound; dx++) {
+                        for (let dy = -d; dy <= d && !spotFound; dy++) {
+                            if (Math.max(Math.abs(dx), Math.abs(dy)) !== d) continue;
+
+                            const pos = new RoomPosition(target.pos.x + dx, target.pos.y + dy, room.name);
+                            const terrain = Game.map.getRoomTerrain(room.name).get(pos.x, pos.y);
+                            if (terrain === TERRAIN_MASK_WALL) continue;
+
+                            const hasStuff = pos.lookFor(LOOK_STRUCTURES).length > 0 || pos.lookFor(LOOK_CONSTRUCTION_SITES).length > 0;
+                            if (!hasStuff) {
+                                if (room.createConstructionSite(pos, STRUCTURE_LINK) === OK) {
+                                    placed++;
+                                    spotFound = true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+
+    planLabs: function(room) {
+        // Labs sind ab RCL 6 verfügbar
+        if (!room.controller || !room.controller.my || room.controller.level < 6) return;
+
+        const allowed = CONTROLLER_STRUCTURES[STRUCTURE_LAB][room.controller.level] || 0;
+        const built = room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType === STRUCTURE_LAB}).length +
+                      room.find(FIND_CONSTRUCTION_SITES, {filter: s => s.structureType === STRUCTURE_LAB}).length;
+
+        if (built >= allowed) return;
+        const spawns = room.find(FIND_MY_SPAWNS);
+        if (spawns.length === 0) return;
+
+        // Kompaktes 10-Labor-Layout. Die ersten beiden [0,1] und [1,2] sind die Zentral-Labore.
+        const labStamp = [
+            [0,1], [1,2], [0,0], [1,0], [2,1], [2,2], [2,3], [1,3], [0,3], [-1,2]
+        ];
+
+        // Einmalig einen leeren Ankerpunkt für den ganzen Block suchen und im Raum-Memory speichern
+        if (!room.memory.labAnchor) {
+            let found = false;
+            for (let radius = 3; radius <= 15 && !found; radius++) {
+                for (let dx = -radius; dx <= radius && !found; dx++) {
+                    for (let dy = -radius; dy <= radius && !found; dy++) {
+                        if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius) continue;
+
+                        const baseX = spawns[0].pos.x + dx;
+                        const baseY = spawns[0].pos.y + dy;
+
+                        let valid = true;
+                        for (const offset of labStamp) {
+                            const x = baseX + offset[0];
+                            const y = baseY + offset[1];
+                            if (x < 2 || x > 47 || y < 2 || y > 47 || Game.map.getRoomTerrain(room.name).get(x, y) === TERRAIN_MASK_WALL) { valid = false; break; }
+                            const pos = new RoomPosition(x, y, room.name);
+                            if (pos.lookFor(LOOK_STRUCTURES).some(s => s.structureType !== STRUCTURE_ROAD) || pos.lookFor(LOOK_CONSTRUCTION_SITES).some(s => s.structureType !== STRUCTURE_ROAD)) { valid = false; break; }
+                        }
+                        if (valid) { room.memory.labAnchor = { x: baseX, y: baseY }; found = true; }
+                    }
+                }
+            }
+        }
+
+        if (room.memory.labAnchor) {
+            for (let i = built; i < allowed && i < labStamp.length; i++) {
+                const pos = new RoomPosition(room.memory.labAnchor.x + labStamp[i][0], room.memory.labAnchor.y + labStamp[i][1], room.name);
+                if (!pos.lookFor(LOOK_STRUCTURES).some(s => s.structureType === STRUCTURE_LAB) && !pos.lookFor(LOOK_CONSTRUCTION_SITES).some(s => s.structureType === STRUCTURE_LAB)) {
+                    room.createConstructionSite(pos, STRUCTURE_LAB);
+                }
+            }
+        }
+    },
+
     planCore: function(room) {
         const spawns = room.find(FIND_MY_SPAWNS);
         if (spawns.length === 0) {
@@ -139,10 +243,11 @@ module.exports = {
 
         const rcl = room.controller ? room.controller.level : 0;
         
-        // Dynamische Liste aller Kern-Strukturen, die in der Basis stehen sollen
+        // Dynamische Liste aller Kern-Strukturen, die in das Schachbrett-Muster passen.
+        // ACHTUNG: STRUCTURE_LINK und STRUCTURE_LAB wurden entfernt! Sie erfordern eigene Platzierungs-Logik.
         const coreStructures = [
             STRUCTURE_SPAWN, STRUCTURE_EXTENSION, STRUCTURE_TOWER, STRUCTURE_STORAGE,
-            STRUCTURE_TERMINAL, STRUCTURE_LINK, STRUCTURE_LAB, STRUCTURE_OBSERVER,
+            STRUCTURE_TERMINAL, STRUCTURE_OBSERVER,
             STRUCTURE_NUKER, STRUCTURE_POWER_SPAWN, STRUCTURE_FACTORY
         ];
 

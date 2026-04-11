@@ -151,7 +151,7 @@ module.exports = {
             if (creep.room.name !== targetRoom) {
                 // --- PRE-FLIGHT CHECK: Wait for healing if damaged before leaving safe room ---
                 if (creep.hits < creep.hitsMax && creep.room.name === homeRoom) {
-                    creep.say('PitStop');
+                    creep.say('Wait:Heal');
                     return; // Warte im sicheren Raum, bis der Tower dich vollgeheilt hat
                 }
 
@@ -177,7 +177,7 @@ module.exports = {
             }
 
             if (!source) {
-                creep.say('No Src');
+                creep.say('Wait:NoSrc');
                 if (creep.pos.x === 0 || creep.pos.x === 49 || creep.pos.y === 0 || creep.pos.y === 49) {
                     creep.moveTo(new RoomPosition(25, 25, creep.room.name), { range: 22 });
                 }
@@ -206,7 +206,7 @@ module.exports = {
                             creep.memory.reassignCooldownUntil = Game.time + REASSIGN_COOLDOWN_TICKS;
                             creep.memory.overbookCount = 0;
                             source = bestAlt;
-                            creep.say('New Src');
+                            creep.say('Swap:Crowd');
                         } else {
                             // No real improvement: stay put, reset counter slowly
                             creep.memory.overbookCount = Math.max(0, creep.memory.overbookCount - 1);
@@ -226,7 +226,7 @@ module.exports = {
             if (harvestResult === ERR_NOT_IN_RANGE) {
                 creep.moveTo(source, { visualizePathStyle: { stroke: '#ffaa00' } });
             } else if (harvestResult === ERR_NOT_OWNER) {
-                creep.say('Core!');
+                creep.say('Flee:Core');
                 creep.memory.lastDangerTick = Game.time; // Trigger amnesia fix
                 const exit = creep.pos.findClosestByRange(creep.room.findExitTo(homeRoom));
                 if (exit) creep.moveTo(exit, { visualizePathStyle: { stroke: '#ff0000' } });
@@ -259,7 +259,7 @@ module.exports = {
             return;
         }
 
-        creep.say('No Sink');
+        creep.say('Idle:Full');
         if (creep.pos.x === 0 || creep.pos.x === 49 || creep.pos.y === 0 || creep.pos.y === 49) {
             creep.moveTo(new RoomPosition(25, 25, creep.room.name), { range: 22 });
         }

@@ -109,7 +109,7 @@ module.exports = {
             return;
         }
 
-        creep.say('No E');
+        creep.say('Idle:NoNrg');
         creep.memory.lastIdleTick = Game.time;
         creep.memory.idleCount = (creep.memory.idleCount || 0) + 1;
         if (creep.memory.idleCount > 100) creep.memory.recycle = true;

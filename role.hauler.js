@@ -40,11 +40,11 @@ module.exports = {
 
         if (danger || (creep.memory.fleeCooldown && Game.time < creep.memory.fleeCooldown)) {
             if (creep.room.name !== deliveryRoom && creep.room.name !== localWorkRoom) {
-                creep.say('Flee!');
+                creep.say('Flee:Enemy');
                 const exit = creep.pos.findClosestByRange(creep.room.findExitTo(deliveryRoom));
                 if (exit) creep.moveTo(exit, { visualizePathStyle: { stroke: '#ff0000' } });
             } else {
-                creep.say('Safe');
+                creep.say('Wait:Safe');
                 if (creep.pos.x === 0 || creep.pos.x === 49 || creep.pos.y === 0 || creep.pos.y === 49) {
                     creep.moveTo(new RoomPosition(25, 25, creep.room.name), { range: 22 });
                 }
@@ -58,7 +58,7 @@ module.exports = {
         if (remoteTargetRoom) {
             // --- PRE-FLIGHT CHECK: Wait for healing if damaged before leaving safe room ---
             if (creep.hits < creep.hitsMax && creep.room.name === deliveryRoom) {
-                creep.say('PitStop');
+                creep.say('Wait:Heal');
                 return; // Warte im sicheren Raum, bis der Tower dich vollgeheilt hat
             }
 
@@ -102,7 +102,7 @@ module.exports = {
                     return;
                 }
 
-                creep.say('Loot?');
+                creep.say('Seek Drop');
                 if (creep.pos.x === 0 || creep.pos.x === 49 || creep.pos.y === 0 || creep.pos.y === 49) {
                     creep.moveTo(new RoomPosition(25, 25, creep.room.name), { range: 22 });
                 }
@@ -153,17 +153,33 @@ module.exports = {
                 filter: s =>
                     s.structureType === STRUCTURE_CONTAINER &&
                     s.store &&
-                    s.store[RESOURCE_ENERGY] > 0
+                    s.store[RESOURCE_ENERGY] >= 100 // Verhindert Micro-Transaktionen und erlaubt den Idle-Timer!
             });
 
-            if (!src && storage && storage.store[RESOURCE_ENERGY] > 0) src = storage;
+            // 3.5 Core Link (Unload beamed energy into storage)
+            if (!src && storage) {
+                let coreLink = creep.pos.findClosestByPath(FIND_STRUCTURES, {
+                    filter: s => s.structureType === STRUCTURE_LINK && s.store[RESOURCE_ENERGY] >= 200 && s.pos.inRangeTo(storage, 2)
+                });
+                if (coreLink) src = coreLink;
+            }
+
+            // 4. Storage (NUR wenn Spawns, Extensions oder Türme auch wirklich Energie brauchen!)
+            if (!src && storage && storage.store[RESOURCE_ENERGY] > 0) {
+                const needsRefill = creep.room.find(FIND_STRUCTURES, {
+                    filter: s => 
+                        ((s.structureType === STRUCTURE_SPAWN || s.structureType === STRUCTURE_EXTENSION) && s.store.getFreeCapacity(RESOURCE_ENERGY) > 0) ||
+                        (s.structureType === STRUCTURE_TOWER && s.store.getFreeCapacity(RESOURCE_ENERGY) > 0 && s.store[RESOURCE_ENERGY] < s.store.getCapacity(RESOURCE_ENERGY) * 0.90)
+                });
+                if (needsRefill.length > 0) src = storage;
+            }
 
             if (src) {
                 if (creep.withdraw(src, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
                     creep.moveTo(src, { visualizePathStyle: { stroke: '#ffaa00' } });
                 }
             } else {
-                creep.say('No E');
+                creep.say('Idle:Empty');
                 // Anti-Ping-Pong im Idle
                 if (creep.pos.x === 0 || creep.pos.x === 49 || creep.pos.y === 0 || creep.pos.y === 49) {
                     creep.moveTo(new RoomPosition(25, 25, creep.room.name), { range: 22 });
@@ -209,7 +225,7 @@ module.exports = {
             return;
         }
 
-        creep.say('Zzz');
+        creep.say('Idle:Full');
         if (creep.pos.x === 0 || creep.pos.x === 49 || creep.pos.y === 0 || creep.pos.y === 49) {
             creep.moveTo(new RoomPosition(25, 25, creep.room.name), { range: 22 });
         }

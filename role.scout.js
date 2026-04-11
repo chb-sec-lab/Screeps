@@ -12,7 +12,7 @@ module.exports = {
 
         // --- ÜBERLEBENS-REFLEX (Flee) ---
         if (creep.hits < creep.hitsMax) {
-            creep.say('FLEE!');
+            creep.say('Flee:Enemy');
             if (Memory.inventory && Memory.inventory.rooms[creep.room.name]) {
                 Memory.inventory.rooms[creep.room.name].dangerUntil = Game.time + 1500; // Raum für ~1 Stunde sperren
             }
@@ -29,13 +29,41 @@ module.exports = {
         if (creep.memory.lastRoom !== creep.room.name) {
             inventory.scanRoom(creep.room);
             creep.memory.lastRoom = creep.room.name;
-            creep.say('Scan');
+            creep.say('Scanning');
         }
 
         // BORDER BOUNCE FIX
         if (creep.pos.x === 0 || creep.pos.x === 49 || creep.pos.y === 0 || creep.pos.y === 49) {
             creep.moveTo(new RoomPosition(25, 25, creep.room.name));
             return;
+        }
+
+        // --- 1.5. SIGN CONTROLLER ---
+        // Wir signieren nur neutrale oder unsere eigenen Controller, um nicht in Feindmauern festzustecken
+        if (creep.room.controller && (!creep.room.controller.owner || creep.room.controller.my)) {
+            const currentSign = creep.room.controller.sign;
+            
+            // Wenn noch nicht von uns signiert, wähle einen zufälligen Spruch und signiere!
+            if (!currentSign || currentSign.username !== creep.owner.username) {
+                if (!creep.memory.signText) {
+                    const jokes = [
+                        "I'm just a lost Roomba. Beep boop. 🤖",
+                        "Do you have a moment to talk about our lord and savior, the Source? ⚡",
+                        "This sector looks nice, but the Wi-Fi is terrible. 📶",
+                        "I was told there would be free energy here... 🔋",
+                        "Just passing through! Nice roads you have here. 🛣️",
+                        "404: Hostile intentions not found. 🕊️"
+                    ];
+                    creep.memory.signText = jokes[Math.floor(Math.random() * jokes.length)];
+                }
+                if (creep.signController(creep.room.controller, creep.memory.signText) === ERR_NOT_IN_RANGE) {
+                    creep.moveTo(creep.room.controller, { visualizePathStyle: {stroke: '#ffff00'}, reusePath: 20 });
+                    return; // Blockiere das Weiterreisen, bis das Schild aufgestellt wurde!
+                }
+            } else {
+                // Wenn erfolgreich signiert, Text für den nächsten Raum wieder vergessen
+                creep.memory.signText = null;
+            }
         }
 
         // 2. Nächstes Ziel suchen (ältester Scan)

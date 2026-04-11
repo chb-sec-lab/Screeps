@@ -6,6 +6,7 @@ const rooms = require('config.rooms');
 const roles = require('config.roles');
 const logger = require('utils.logger');
 const towerLogic = require('structure.tower');
+const linkLogic = require('structure.link');
 const planner = require('utils.planner');
 const inventory = require('utils.inventory');
 const market = require('utils.market');
@@ -63,19 +64,18 @@ roleNames.forEach(name => {
 global.intel = function() {
     if (!Memory.inventory || !Memory.inventory.rooms) return "Keine Inventar-Daten gefunden.";
     let intel = Memory.inventory.rooms;
-    let out = ["\n<span style='color:#53d2b7; font-weight:bold;'>--- SCOS SCOUT INTEL ---</span>"];
+    console.log(`--- SCOS SCOUT INTEL ---`);
     Object.keys(intel).forEach(r => {
         let d = intel[r];
         let owner = d.my ? 'ME' : (d.reservation || 'None');
         let danger = '';
         if (d.dangerUntil && Game.time < d.dangerUntil) {
-            danger = ` | <span style='color:#ff4d4d; font-weight:bold;'>⚠️ DANGER (${d.dangerUntil - Game.time}t)</span>`;
+            danger = ` | ⚠️ DANGER (${d.dangerUntil - Game.time}t)`;
         } else if (d.hostileTowers > 0 && !d.my) {
-            danger = ` | <span style='color:#ffaa00; font-weight:bold;'>🏰 ENEMY BASE</span>`;
+            danger = ` | 🏰 ENEMY BASE`;
         }
-        out.push(`<span style='color:#9db0c6'>🌍 [${r}]</span> | 👑 Owner: <span style='color:#ffb766'>${owner}</span> | ⚡ Src: ${d.sources} | 💎 Min: ${d.mineralAmount} | ⏱️ Scan: ${Game.time - d.lastUpdated}t ago${danger}`);
+        console.log(`🌍 [${r}] | 👑 Owner: ${owner} | ⚡ Src: ${d.sources} | 💎 Min: ${d.mineralAmount} | ⏱️ Scan: ${Game.time - d.lastUpdated}t ago${danger}`);
     });
-    console.log(out.join('\n'));
     return "Intel report generated.";
 };
 
@@ -103,7 +103,8 @@ module.exports.loop = function () {
     }
     if (Memory.inventory && Memory.inventory.rooms) {
         Object.keys(Memory.inventory.rooms).forEach(rn => {
-            if (Memory.inventory.rooms[rn].my && !activeRegistry[rn]) activeRegistry[rn] = { type: 'CORE' };
+            // Wenn ein Raum uns gehört, wird er IMMER dynamisch zur eigenen Kolonie (CORE) hochgestuft!
+            if (Memory.inventory.rooms[rn].my) activeRegistry[rn] = { type: 'CORE' };
         });
     }
     if (Memory.empire && Memory.empire.targetRoom && !activeRegistry[Memory.empire.targetRoom]) {
@@ -113,28 +114,39 @@ module.exports.loop = function () {
     // --- EVOLUTION PROTOCOL (RCL-Based Dynamic Quotas) ---
     // JIT (Just-In-Time) Bedarfssteuerung: Evaluiert JEDEN geclaimten Raum einzeln basierend auf RCL UND tatsächlichem Bedarf
     function getPhaseQuotas(level, invData) {
-        if (!invData) return { builder: 0, upgrader: 0, repairer: 0, hauler: 0, scav: 0 };
+        if (!invData) return { name: 'Unknown', builder: 0, upgrader: 0, repairer: 0, hauler: 0, scav: 0 };
         const sites = invData.constructionSites;
         const drops = invData.droppedEnergy;
         
         let b = 0, u = 0, r = 0, h = 0, s = 0;
+        let phaseName = '';
         
         if (level <= 2) {
             const noSpawn = invData.spawns === 0;
             b = sites > 0 ? (sites > 5 ? 3 : 2) : (noSpawn ? 1 : 0); // AUTO-VISION: 1 Pionier geht vor um den Raum aufzudecken, falls der Planner noch nicht lief!
             u = sites > 0 ? 0 : (!noSpawn ? 2 : 0); // JIT: Upgrader erst, wenn der Spawn steht.
+            
+            // JIT LOGISTIK: Ab RCL 2 brauchen wir 1 Hauler, der die Container leert und Extensions füllt
+            if (level === 2 && invData.containers > 0 && invData.extensions > 0) {
+                h = 1;
+                phaseName = 'Phase 1 (Logistics)';
+            } else {
+                phaseName = noSpawn ? 'Bootstrap (No Spawn)' : 'Phase 1 (Pioneers)';
+            }
         } else if (level === 3) {
             b = sites > 0 ? (sites > 5 ? 3 : 2) : 0; // JIT: 0 Builder wenn nichts zu bauen ist!
             u = sites > 0 ? 1 : 3; // JIT: Arbeiter werden zu Upgradern umgeschichtet
             r = 1; h = 1;
             s = drops > 1 ? 1 : 0; // JIT: Scavenger nur bei tatsächlichem Müll
+            phaseName = 'Phase 2 (Basic Infra)';
         } else {
             b = sites > 0 ? (sites > 5 ? 3 : 2) : 0; 
             u = sites > 0 ? 1 : 3; 
             r = 1; h = 2;
             s = drops > 1 ? 1 : 0; 
+            phaseName = 'Phase 3 (Empire)';
         }
-        return { builder: b, upgrader: u, repairer: r, hauler: h, scav: s };
+        return { name: phaseName, builder: b, upgrader: u, repairer: r, hauler: h, scav: s };
     }
 
     const homeRCL = homeRoom && homeRoom.controller ? homeRoom.controller.level : 1;
@@ -270,6 +282,11 @@ module.exports.loop = function () {
         if (creep.hits < (creep.memory.lastHits || creep.hitsMax)) logger.log(`⚠️ ATTACK: ${creep.name} in ${creep.room.name}!`, 'error');
         creep.memory.lastHits = creep.hits;
 
+        // --- VISUALS: Creep Role / Function Labels ---
+        if (creep.room) {
+            creep.room.visual.text(creep.memory.role, creep.pos.x, creep.pos.y + 0.4, { font: 0.3, color: '#a2b9d1', opacity: 0.8 });
+        }
+
         // --- AUTO-RECYCLE OBSOLETE DEFENSE ---
         if (creep.memory.role === 'defender' || creep.memory.role === 'healer') {
             if (!defenseActive) {
@@ -372,6 +389,7 @@ module.exports.loop = function () {
             towers.forEach(t => {
                 try { towerLogic.run(t); } catch (e) { logger.log('Tower Error: ' + e, 'error'); }
             });
+            try { linkLogic.run(room); } catch (e) { logger.log('Link Error: ' + e, 'error'); }
         }
     });
 
@@ -379,6 +397,9 @@ module.exports.loop = function () {
     let queuePreview = [];
     const spawnActions = [];
     const plannedSpawns = [];
+    const targetRoom = rooms.TARGET;
+    const expansionRoom = rooms.EXPANSION;
+    const armyOn = rooms.WAR_MODE === true;
 
     function getPreSpawnTime(creep) {
         const spawnTime = creep.body.length * 3;
@@ -780,9 +801,9 @@ module.exports.loop = function () {
         if (s.spawning) {
             const spawningCreep = Game.creeps[s.spawning.name];
             const role = spawningCreep ? spawningCreep.memory.role : 'unknown';
-            spawnsByRoom[s.room.name].push(`<span style="color:#ffb766">${role}(${s.spawning.remainingTime}t)</span>`);
+            spawnsByRoom[s.room.name].push(`${role}(${s.spawning.remainingTime}t)`);
         } else {
-            spawnsByRoom[s.room.name].push('<span style="color:#00ffcc">IDLE</span>');
+            spawnsByRoom[s.room.name].push('IDLE');
         }
     });
 
@@ -801,87 +822,81 @@ module.exports.loop = function () {
 
     const fQ = (role, have, need) => {
         if (need === 0 && have === 0) return '';
-        const color = have < need ? '#ffb766' : (have > need ? '#ff4d4d' : '#00ffcc');
-        return `<span style="color:${color}">${role}:${have}/${need}</span>`;
+        return `${role}:${have}/${need}`;
     };
 
     const roomReports = [];
     
-    const homeDynMiners = dynamicMinerQueue.filter(q => q.room === rooms.HOME);
-    roomReports.push({
-        name: rooms.HOME, label: 'HOME',
-        nrg: homeRoom ? homeRoom.energyAvailable : 0,
-        cap: homeRoom ? homeRoom.energyCapacityAvailable : 0,
-        rcl: homeRCL,
-        spawns: spawnsByRoom[rooms.HOME] || [],
-        ttl: getRoomTTL(rooms.HOME),
-        roles: [
-            fQ('HV', _.sum(homeDynMiners, 'current'), _.sum(homeDynMiners, 'required')),
-            fQ('BLD', baseNeeds.homeBuilders, HOME_BUILDER_QUOTA),
-            fQ('UPG', baseNeeds.homeUpgraders, HOME_UPGRADER_QUOTA),
-            fQ('REP', baseNeeds.homeRepairers, HOME_REPAIRER_QUOTA),
-            fQ('HAUL', countRole('hauler'), roles.COUNTS.hauler),
-            fQ('SCAV', countRole('scavenger'), roles.COUNTS.scavenger)
-        ].filter(s => s).join(' ') || '<span style="color:#9db0c6">None</span>'
+    Object.keys(activeRegistry).forEach(rn => {
+        const config = activeRegistry[rn];
+        const inv = Memory.inventory.rooms[rn];
+        const rcl = inv ? inv.rcl : 0;
+        
+        if (config.type === 'CORE') {
+            const phase = getPhaseQuotas(rcl, inv);
+            const dynM = dynamicMinerQueue.find(q => q.room === rn);
+            const b = countAssigned('builder', rn, 'workRoom');
+            const u = countAssigned('upgrader', rn, 'targetRoom');
+            const r = countAssigned('repairer', rn, 'workRoom');
+            const h = countAssigned('hauler', rn, 'workRoom');
+            const s = countAssigned('scavenger', rn, 'workRoom');
+            
+            let rolesStr = [];
+            if (dynM) rolesStr.push(fQ('HV', dynM.current, dynM.required));
+            
+            if (!inv || !inv.my) {
+                rolesStr.push(fQ('CLM', countAssigned('claimer', rn, 'targetRoom'), 1));
+                // GCL Fallback ins HUD einfügen: Wenn wir nicht claimen können, zeigen wir die Remote-Miner an!
+                if (!canClaimMore && inv) {
+                    rolesStr.push(fQ('RMIN', countAssigned('remoteMiner', rn, 'targetRoom'), inv.sources * 2));
+                    rolesStr.push(fQ('RHAUL', countAssigned('hauler', rn, 'targetRoom'), inv.sources));
+                }
+            }
+            
+            rolesStr.push(fQ('BLD', b, phase.builder));
+            rolesStr.push(fQ('UPG', u, phase.upgrader));
+            rolesStr.push(fQ('REP', r, phase.repairer));
+            rolesStr.push(fQ('HAUL', h, phase.hauler));
+            rolesStr.push(fQ('SCAV', s, phase.scav));
+            
+            roomReports.push({
+                name: rn, label: 'CORE',
+                nrg: Game.rooms[rn] ? Game.rooms[rn].energyAvailable : 0,
+                cap: Game.rooms[rn] ? Game.rooms[rn].energyCapacityAvailable : 0,
+                rcl: rcl,
+                my: inv ? inv.my : false,
+                reservation: inv ? inv.reservation : null,
+                phase: phase.name,
+                spawns: spawnsByRoom[rn] || [],
+                ttl: getRoomTTL(rn),
+                roles: rolesStr.filter(Boolean).join(' ') || 'None'
+            });
+        } else if (config.type === 'REMOTE') {
+            const clm = countAssigned('claimer', rn, 'targetRoom');
+            const rMiners = countAssigned('remoteMiner', rn, 'targetRoom');
+            const rHaulers = countAssigned('hauler', rn, 'targetRoom');
+            
+            let remotePhase = 'Unsecured Mine';
+            if (inv && inv.my) remotePhase = 'Claimed (Pending Core)';
+            else if (inv && inv.reservation) remotePhase = 'Secured Mine';
+
+            roomReports.push({
+                name: rn, label: 'REMOTE',
+                nrg: Game.rooms[rn] ? Game.rooms[rn].energyAvailable : 0,
+                cap: Game.rooms[rn] ? Game.rooms[rn].energyCapacityAvailable : 0,
+                rcl: rcl,
+                my: inv ? inv.my : false,
+                reservation: inv ? inv.reservation : null,
+                phase: remotePhase,
+                spawns: [], ttl: getRoomTTL(rn),
+                roles: [
+                    fQ('CLM', clm, 1),
+                    fQ('RMIN', rMiners, inv ? inv.sources * 2 : 2),
+                    fQ('HAUL', rHaulers, inv ? inv.sources : 1)
+                ].filter(Boolean).join(' ') || 'None'
+            });
+        }
     });
-
-    if (rooms.TARGET) {
-        const rv = Game.rooms[rooms.TARGET];
-        const dynM = dynamicMinerQueue.filter(q => q.room === rooms.TARGET);
-        roomReports.push({
-            name: rooms.TARGET, label: 'TARGET',
-            nrg: rv ? rv.energyAvailable : 0, cap: rv ? rv.energyCapacityAvailable : 0,
-            rcl: rv && rv.controller ? rv.controller.level : 0,
-            spawns: spawnsByRoom[rooms.TARGET] || [],
-            ttl: getRoomTTL(rooms.TARGET),
-            roles: [
-                fQ('CLM', baseNeeds.targetClaimers, TARGET_CLAIMER_QUOTA),
-                fQ('HV', _.sum(dynM, 'current'), _.sum(dynM, 'required')),
-                fQ('BLD', baseNeeds.targetBuilders, TARGET_BUILDER_QUOTA),
-                fQ('UPG', baseNeeds.targetUpgraders, TARGET_UPGRADER_QUOTA),
-                fQ('REP', baseNeeds.targetRepairers, TARGET_REPAIRER_QUOTA),
-                fQ('HAUL', baseNeeds.targetHaulers, TARGET_HAULER_QUOTA),
-                fQ('RMIN', baseNeeds.targetRemoteMiners, TARGET_REMOTE_MINER_QUOTA),
-                fQ('RHAUL', baseNeeds.targetRemoteHaulers, TARGET_REMOTE_HAULER_QUOTA)
-            ].filter(s => s).join(' ') || '<span style="color:#9db0c6">None</span>'
-        });
-    }
-
-    if (rooms.EXPANSION) {
-        const rv = Game.rooms[rooms.EXPANSION];
-        roomReports.push({
-            name: rooms.EXPANSION, label: 'EXPANSION',
-            nrg: rv ? rv.energyAvailable : 0, cap: rv ? rv.energyCapacityAvailable : 0,
-            rcl: rv && rv.controller ? rv.controller.level : 0,
-            spawns: spawnsByRoom[rooms.EXPANSION] || [],
-            ttl: getRoomTTL(rooms.EXPANSION),
-            roles: [
-                fQ('RMIN', baseNeeds.expansionRemoteMiners, EXPANSION_MINER_QUOTA),
-                fQ('HAUL', baseNeeds.expansionHaulers, EXPANSION_HAULER_QUOTA),
-                fQ('BLD', baseNeeds.expansionBuilders, EXPANSION_BUILDER_QUOTA),
-                fQ('UPG', baseNeeds.expansionUpgraders, EXPANSION_UPGRADER_QUOTA),
-                fQ('REP', baseNeeds.expansionRepairers, EXPANSION_REPAIRER_QUOTA)
-            ].filter(s => s).join(' ') || '<span style="color:#9db0c6">None</span>'
-        });
-    }
-
-    if (rooms.MINING) {
-        const rv = Game.rooms[rooms.MINING];
-        roomReports.push({
-            name: rooms.MINING, label: 'MINING',
-            nrg: rv ? rv.energyAvailable : 0, cap: rv ? rv.energyCapacityAvailable : 0,
-            rcl: rv && rv.controller ? rv.controller.level : 0,
-            spawns: spawnsByRoom[rooms.MINING] || [],
-            ttl: getRoomTTL(rooms.MINING),
-            roles: [
-                fQ('CLM', baseNeeds.miningClaimers, MINING_CLAIMER_QUOTA),
-                fQ('RMIN', baseNeeds.miningRemoteMiners, MINING_REMOTE_MINER_QUOTA),
-                fQ('HAUL', baseNeeds.miningHaulers, MINING_HAULER_QUOTA),
-                fQ('BLD', baseNeeds.miningBuilders, MINING_BUILDER_QUOTA),
-                fQ('UPG', baseNeeds.miningUpgraders, MINING_UPGRADER_QUOTA)
-            ].filter(s => s).join(' ') || '<span style="color:#9db0c6">None</span>'
-        });
-    }
 
     logger.report({
         recycling: recyclingCount,
