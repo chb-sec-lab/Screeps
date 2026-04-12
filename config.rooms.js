@@ -24,8 +24,9 @@ module.exports = {
     registry: {
         'W7N8': { type: 'CORE' }, // Heimatbasis (Wird nun vollautomatisch durch JIT & Fact-Based Scaling skaliert)
         'W6N8': { type: 'REMOTE', base: 'W7N8' }, // Ex-Kolonie, jetzt strikte Mine
-        'W8N8': { type: 'REMOTE', base: 'W7N8' },         // Expansion (Mine)
-        'W7N7': { type: 'REMOTE', base: 'W7N8' },         // Mining (Mine)
-        'W6N7': { type: 'REMOTE', base: 'W7N8' }  // Neue Mine
+        'W8N8': { type: 'REMOTE', base: 'W7N8' }, // Expansion (Mine)
+        'W7N7': { type: 'REMOTE', base: 'W7N8' }, // Mining (Mine)
+        'W6N7': { type: 'REMOTE', base: 'W7N8' }, // Neue Mine
+        'W8N7': { type: 'REMOTE', base: 'W7N8' }  // Border/Connection Room (Reserve & Mine)
     }
 };
