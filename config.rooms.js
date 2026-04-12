@@ -12,6 +12,9 @@ module.exports = {
     // Global PathFinder Blacklist: Creeps will never route through these rooms
     BLACKLIST: ['W6N6'], // Invader Core
 
+    // Diplomacy Whitelist: Players who are ignored by towers and defenders
+    ALLIES: [],
+
     // Toggle this to true to spawn the army and attack.
     WAR_MODE: false,
 

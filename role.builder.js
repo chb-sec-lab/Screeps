@@ -236,7 +236,7 @@ module.exports = {
         if (creep.memory.working) {
 
             // 0) ABSOLUTE EMERGENCY: Build Spawns (Colony Recovery)
-            const emergencySpawnSite = creep.pos.findClosestByPath(FIND_CONSTRUCTION_SITES, {
+            const emergencySpawnSite = creep.pos.findClosestByRange(FIND_CONSTRUCTION_SITES, {
                 filter: s => s.structureType === STRUCTURE_SPAWN
             });
             if (emergencySpawnSite) {
@@ -245,7 +245,7 @@ module.exports = {
             }
 
             // 1) Emergency: save containers
-            const dyingContainer = creep.pos.findClosestByPath(FIND_STRUCTURES, {
+            const dyingContainer = creep.pos.findClosestByRange(FIND_STRUCTURES, {
                 filter: s => s.structureType === STRUCTURE_CONTAINER && s.hits < CONTAINER_EMERGENCY_HITS
             });
             if (dyingContainer) {
@@ -254,7 +254,7 @@ module.exports = {
             }
 
             // 2) Rampart floor (only if you already built ramparts)
-            const weakRamp = creep.pos.findClosestByPath(FIND_STRUCTURES, {
+            const weakRamp = creep.pos.findClosestByRange(FIND_STRUCTURES, {
                 filter: s => s.structureType === STRUCTURE_RAMPART && s.hits < RAMPART_FLOOR
             });
             if (weakRamp) {

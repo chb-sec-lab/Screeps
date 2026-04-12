@@ -9,11 +9,13 @@
  *  4) Rampart floor upkeep (allowed even at medium energy)
  *  5) Normal repairs only when tower is high energy
  */
+const rooms = require('config.rooms');
+
 module.exports = {
     run: function (tower) {
         
         // --- DIPLOMACY WHITELIST ---
-        const ALLIES = [];
+        const ALLIES = rooms.ALLIES || [];
 
         // 1) DEFENSE
         const hostile = tower.pos.findClosestByRange(FIND_HOSTILE_CREEPS, {

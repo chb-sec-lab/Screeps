@@ -148,7 +148,10 @@ module.exports = {
         // --------------------------------
         // 2. MINING & DELIVERY LOGIC
         // --------------------------------
-        if (creep.store.getFreeCapacity() > 0) {
+        let source = creep.memory.sourceId ? Game.getObjectById(creep.memory.sourceId) : null;
+        const isDepleted = source && source.energy === 0;
+
+        if (creep.store.getFreeCapacity() > 0 && !(isDepleted && creep.store.getUsedCapacity() > 0)) {
             // Need Energy: Go to Target Room
             if (creep.room.name !== targetRoom) {
                 // --- PRE-FLIGHT CHECK: Wait for healing if damaged before leaving safe room ---
@@ -168,9 +171,6 @@ module.exports = {
             }
 
             // In Target Room: lock a source and harvest it
-            // Ensure we have a source lock
-            let source = creep.memory.sourceId ? Game.getObjectById(creep.memory.sourceId) : null;
-
             // If invalid, pick one and lock it
             if (!source) {
                 source = pickLeastAssignedSource(creep.room);

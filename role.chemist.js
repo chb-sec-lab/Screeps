@@ -71,20 +71,23 @@ module.exports = {
 
         // --- 2. OUTPUTS ABSAUGEN ---
         for (let out of outputs) {
-            if (out.store.getUsedCapacity() > 0) {
-                const res = Object.keys(out.store)[0];
-                if (creep.withdraw(out, res) === ERR_NOT_IN_RANGE) creep.moveTo(out);
+            const outMin = Object.keys(out.store).find(k => k !== RESOURCE_ENERGY);
+            if (outMin) {
+                if (creep.withdraw(out, outMin) === ERR_NOT_IN_RANGE) creep.moveTo(out);
                 return;
             }
         }
 
         // --- 3. FALSCHE INPUTS REINIGEN ---
-        if (in1.store.getUsedCapacity() > 0 && (!reaction || Object.keys(in1.store)[0] !== reaction[0])) {
-            if (creep.withdraw(in1, Object.keys(in1.store)[0]) === ERR_NOT_IN_RANGE) creep.moveTo(in1);
+        const in1Min = Object.keys(in1.store).find(k => k !== RESOURCE_ENERGY);
+        if (in1Min && (!reaction || in1Min !== reaction[0])) {
+            if (creep.withdraw(in1, in1Min) === ERR_NOT_IN_RANGE) creep.moveTo(in1);
             return;
         }
-        if (in2.store.getUsedCapacity() > 0 && (!reaction || Object.keys(in2.store)[0] !== reaction[1])) {
-            if (creep.withdraw(in2, Object.keys(in2.store)[0]) === ERR_NOT_IN_RANGE) creep.moveTo(in2);
+        
+        const in2Min = Object.keys(in2.store).find(k => k !== RESOURCE_ENERGY);
+        if (in2Min && (!reaction || in2Min !== reaction[1])) {
+            if (creep.withdraw(in2, in2Min) === ERR_NOT_IN_RANGE) creep.moveTo(in2);
             return;
         }
 

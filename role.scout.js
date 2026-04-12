@@ -17,10 +17,23 @@ module.exports = {
                 Memory.inventory.rooms[creep.room.name].dangerUntil = Game.time + 1500; // Raum für ~1 Stunde sperren
             }
             
-            // Fliehe zum nächsten Ausgang, um den Raum sofort zu verlassen
-            const exit = creep.pos.findClosestByPath(FIND_EXIT) || creep.pos.findClosestByRange(FIND_EXIT);
-            if (exit) creep.moveTo(exit, { visualizePathStyle: {stroke: '#ff0000'} });
+            // --- RADAR-BASED ESCAPE ROUTE ---
+            // Hochgradig CPU-optimierte Flucht vor allen Feinden/Türmen
+            const hostiles = creep.room.find(FIND_HOSTILE_CREEPS);
+            const towers = creep.room.find(FIND_HOSTILE_STRUCTURES, { filter: s => s.structureType === STRUCTURE_TOWER });
+            const threats = [...hostiles, ...towers];
             
+            if (threats.length > 0) {
+                const goals = threats.map(t => ({ pos: t.pos, range: 10 }));
+                const pathRes = PathFinder.search(creep.pos, goals, { flee: true, maxRooms: 2 });
+                if (pathRes.path.length > 0) {
+                    creep.move(creep.pos.getDirectionTo(pathRes.path[0]));
+                }
+            } else {
+                const exit = creep.pos.findClosestByRange(FIND_EXIT);
+                if (exit) creep.moveTo(exit, { visualizePathStyle: {stroke: '#ff0000'} });
+            }
+
             creep.memory.targetRoom = null; // Ziel löschen, damit er nach der Flucht neu plant
             return;
         }

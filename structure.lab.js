@@ -30,7 +30,10 @@ module.exports = {
         // --- REAKTIONEN DURCHFÜHREN ---
         // Labore haben einen Cooldown. Wir geben einfach jeden Tick den Befehl, 
         // die Engine führt ihn automatisch aus, sobald der Cooldown auf 0 ist.
-        if (input1.store.getUsedCapacity() > 0 && input2.store.getUsedCapacity() > 0) {
+        const in1Ready = Object.keys(input1.store).some(k => k !== RESOURCE_ENERGY);
+        const in2Ready = Object.keys(input2.store).some(k => k !== RESOURCE_ENERGY);
+        
+        if (in1Ready && in2Ready) {
             outputs.forEach(outLab => {
                 if (outLab.cooldown === 0 && outLab.store.getFreeCapacity() > 0) {
                     outLab.runReaction(input1, input2);

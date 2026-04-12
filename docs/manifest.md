@@ -38,6 +38,9 @@ The system utilizes the **Evolution Protocol** (dynamic RCL-based evaluation per
 - **Phase 2 (RCL 3 "Basic Infra"):** 2 Builders, 2 Upgraders, 1 Repairer, 1 Hauler, 1 Scav. Introduces container logistics and tower upkeep.
 - **Phase 3 (RCL 4+ "Empire"):** 1 Builder, 2 Upgraders, 1 Repairer, 2 Haulers, 2 Scavs. Fully enables multi-room remote assignments.
 
+- **Self-Healing Logistics:** Hauler and Scavenger quotas automatically scale up if local containers overflow (>1500 energy) or excessive dropped energy is detected, eliminating the need for manual per-room tuning.
+- **Fact-Based Scaling:** Harvester quotas dynamically scale down from 2 to 1 per source at RCL 4+ because a single large Harvester perfectly matches the 10 energy/tick source regeneration limit.
+
 Remote Mining:
 - Handled via explicit mapping in `main.js` (Target: 2 RMs per source).
 - `mineralMiner`: Dynamic (1 per active Extractor in RCL 6+ rooms).

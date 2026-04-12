@@ -71,13 +71,14 @@ module.exports = {
             return;
         }
 
-        if (creep.store.getFreeCapacity() > 0) {
-            let source = creep.memory.targetSourceId ? Game.getObjectById(creep.memory.targetSourceId) : null;
+        let source = creep.memory.targetSourceId ? Game.getObjectById(creep.memory.targetSourceId) : null;
+        // Auto-Fix: Falls die Quelle nicht mehr existiert oder im falschen Raum ist
+        if (source && source.room.name !== creep.room.name) source = null;
+        
+        const isDepleted = source && source.energy === 0;
 
-            // Auto-Fix: Falls die Quelle nicht mehr existiert oder im falschen Raum ist
-            if (source && source.room.name !== creep.room.name) {
-                source = null;
-            }
+        // REFLEX: Wenn der Rucksack Platz hat, ABER die Quelle leer ist und wir Energie dabei haben -> Liefern!
+        if (creep.store.getFreeCapacity() > 0 && !(isDepleted && creep.store.getUsedCapacity() > 0)) {
 
             // Falls keine Quelle gelockt ist, suche die am wenigsten besetzte
             if (!source) {

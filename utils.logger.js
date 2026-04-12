@@ -25,6 +25,11 @@ module.exports = {
         const queueInfo = (stats.queue && stats.queue.length) ? stats.queue.slice(0, 5).join(' ➔ ') : 'clear';
         console.log(`📋 QUEUE  | ${queueInfo}`);
 
+        // DEADLOCK LINE (Nur sichtbar im Notfall)
+        if (stats.deadlocks && stats.deadlocks.length > 0) {
+            console.log(`💀 DEADLOCK| Starvation detected in: ${[...new Set(stats.deadlocks)].join(', ')}! Priority Spawns blocked.`);
+        }
+
         // WISHLIST LINE
         if (Memory.empire && Memory.empire.wishlist && Memory.empire.wishlist.length > 0) {
             console.log(`🎯 WISH   | ${Memory.empire.wishlist.join(', ')}`);

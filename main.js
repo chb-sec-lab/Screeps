@@ -127,7 +127,7 @@ module.exports.loop = function () {
 
     // --- EVOLUTION PROTOCOL (RCL-Based Dynamic Quotas) ---
     // JIT (Just-In-Time) Bedarfssteuerung: Evaluiert JEDEN geclaimten Raum einzeln basierend auf RCL UND tatsächlichem Bedarf
-    function getPhaseQuotas(level, invData, config) {
+    function getPhaseQuotas(level, invData, config, roomName) {
         if (!invData) return { name: 'Unknown', builder: 0, upgrader: 0, repairer: 0, hauler: 0, scav: 0 };
         const sites = invData.constructionSites;
         const drops = invData.droppedEnergy;
@@ -162,6 +162,17 @@ module.exports.loop = function () {
             phaseName = 'Phase 3 (Empire)';
         }
 
+        // --- SELF-HEALING LOGISTICS (Auto-Scaling) ---
+        // Eliminiert die Notwendigkeit für manuelle "Per-Room Tweaks"!
+        if (roomName && Game.rooms[roomName]) {
+            const rObj = Game.rooms[roomName];
+            const overflowingContainers = rObj.find(FIND_STRUCTURES, {
+                filter: s => s.structureType === STRUCTURE_CONTAINER && s.store[RESOURCE_ENERGY] > 1500
+            }).length;
+            if (overflowingContainers > 0) h += overflowingContainers; // Container läuft über? Mehr Hauler spawnen!
+            if (drops > 3) s += 1; // Zuviel liegengelassene Energie? Scavenger spawnen!
+        }
+
         // Raumspezifische Overrides (z.B. enge Steinbrüche) aus config.rooms.js
         if (config && config.maxBuilders !== undefined) {
             b = Math.min(b, config.maxBuilders);
@@ -172,8 +183,9 @@ module.exports.loop = function () {
         return { name: phaseName, builder: b, upgrader: u, repairer: r, hauler: h, scav: s };
     }
 
+    const homeInv = Memory.inventory && Memory.inventory.rooms ? Memory.inventory.rooms[rooms.HOME] : null;
     const homeRCL = homeRoom && homeRoom.controller ? homeRoom.controller.level : 1;
-    const homePhase = getPhaseQuotas(homeRCL, homeRoom, activeRegistry[rooms.HOME]);
+    const homePhase = getPhaseQuotas(homeRCL, homeInv, activeRegistry[rooms.HOME], rooms.HOME);
     let HOME_BUILDER_QUOTA = homePhase.builder;
     let HOME_UPGRADER_QUOTA = homePhase.upgrader;
     let HOME_REPAIRER_QUOTA = homePhase.repairer;
@@ -192,11 +204,11 @@ module.exports.loop = function () {
     let TARGET_REMOTE_HAULER_QUOTA = 0;
 
     if (targetInv && targetInv.my) {
-        targetPhase = getPhaseQuotas(targetInv.rcl, targetInv, activeRegistry[rooms.TARGET]);
+        targetPhase = getPhaseQuotas(targetInv.rcl, targetInv, activeRegistry[rooms.TARGET], rooms.TARGET);
     } else if (homeRCL >= 3) {
         TARGET_CLAIMER_QUOTA = 1; // Claim oder Reserve
         if (canClaimMore) {
-            targetPhase = targetInv ? getPhaseQuotas(0, targetInv, activeRegistry[rooms.TARGET]) : { builder: 1, upgrader: 0, repairer: 0, hauler: 0 }; 
+            targetPhase = targetInv ? getPhaseQuotas(0, targetInv, activeRegistry[rooms.TARGET], rooms.TARGET) : { builder: 1, upgrader: 0, repairer: 0, hauler: 0 }; 
         } else {
             TARGET_REMOTE_MINER_QUOTA = targetInv ? targetInv.sources * 2 : 2; // GCL-MAX FALLBACK: Nutze Target temporär als Remote Mine!
             TARGET_REMOTE_HAULER_QUOTA = targetInv ? targetInv.sources : 1;
@@ -220,7 +232,7 @@ module.exports.loop = function () {
     const expansionInv = Memory.inventory && Memory.inventory.rooms ? Memory.inventory.rooms[rooms.EXPANSION] : null;
     let expansionPhase = { builder: 0, upgrader: 0, repairer: 0, hauler: 0 };
     if (expansionInv && expansionInv.my) {
-        expansionPhase = getPhaseQuotas(expansionInv.rcl, expansionInv, activeRegistry[rooms.EXPANSION]);
+        expansionPhase = getPhaseQuotas(expansionInv.rcl, expansionInv, activeRegistry[rooms.EXPANSION], rooms.EXPANSION);
     }
     let EXPANSION_BUILDER_QUOTA = expansionPhase.builder;
     let EXPANSION_UPGRADER_QUOTA = expansionPhase.upgrader;
@@ -238,7 +250,7 @@ module.exports.loop = function () {
     // --- DEFENSE STATUS (Dynamic Empire-Wide) ---
     if (!Memory.defense) Memory.defense = {};
     
-    const ALLIES = []; // Whitelist for passing players
+    const ALLIES = rooms.ALLIES || []; // Whitelist for passing players
 
     function getHostileCount(room) {
         if (!room) return 0;
@@ -402,7 +414,7 @@ module.exports.loop = function () {
     });
 
     // --- PASS 4: SPAWNING (MULTI-SPAWN INFINITE BASES) ---
-    let queuePreview = [];
+    var queuePreview = [];
     const spawnActions = [];
     const plannedSpawns = [];
     const targetRoom = rooms.TARGET;
@@ -597,7 +609,8 @@ module.exports.loop = function () {
     ownedRoomNames.forEach(rn => {
         const inv = Memory.inventory.rooms[rn];
         const config = activeRegistry[rn];
-        let multiplier = 3; // Auf Wunsch des Commanders: IMMER 3 Miner pro Quelle für lückenlosen Abbau!
+        // Fact-Based Scaling: 1 großer Miner (5 WORK = 10e/t) reicht für lückenlosen Abbau bei RCL 4+
+        let multiplier = (inv.rcl >= 4) ? 1 : 2; 
 
         let requiredMiners = inv.sources * multiplier;
         if (config && config.harvesters !== undefined) requiredMiners = config.harvesters; // Hard-Override
@@ -635,7 +648,7 @@ module.exports.loop = function () {
         const pBoost = isHome ? 0 : 1; // Core Base wird bei Gleichstand leicht bevorzugt (-1 zur Prio)
 
         if (config.type === 'CORE') {
-            const phase = getPhaseQuotas(rcl, inv, config);
+            const phase = getPhaseQuotas(rcl, inv, config, rn);
             
             const dynM = dynamicMinerQueue.find(q => q.room === rn);
             if (dynM) {
@@ -672,7 +685,7 @@ module.exports.loop = function () {
         } else if (config.type === 'REMOTE') {
             const baseRoom = config.base || rooms.HOME;
             // Spezifische Einstellungen aus der config.rooms.js nutzen (z.B. minersPerSource)
-            const mMult = config.minersPerSource || 3;
+            const mMult = config.minersPerSource || 2; // Optimaler Fallback für Remotes
             const srcCount = inv ? inv.sources : (config.knownSources || 1);
             const rMinersAllowed = srcCount * mMult;
             const rHaulersAllowed = srcCount * mMult;
@@ -738,6 +751,7 @@ module.exports.loop = function () {
         if (Game.time % 20 === 0) logger.log(`🛑 Global Population Cap (${HARD_POP_CAP}) reached! Spawning halted to prevent Quota Leaks.`, 'error');
     }
 
+    let deadlocks = [];
     for (const spawn of idleSpawns) {
         for (let i = 0; i < requestQueue.length; i++) {
             const req = requestQueue[i];
@@ -802,6 +816,9 @@ module.exports.loop = function () {
                 logger.log(logMsg, 'success');
                 break; // Erfolgreich gespawnt! Weiter zum nächsten freien Spawn.
             } else {
+                if (spawnRes === ERR_NOT_ENOUGH_ENERGY && isEmergency) {
+                    deadlocks.push(spawn.room.name); // Raum verhungert und kann Retter nicht bezahlen!
+                }
                 logger.log(`${spawn.name} blocked: role=${sRole} code=${spawnRes}`, 'warn');
                 break; // Auch bei Fehler abbrechen, um Energie-Diebstahl zu verhindern!
             }
@@ -957,6 +974,7 @@ module.exports.loop = function () {
         pop: Object.keys(Game.creeps).length,
         cap: HARD_POP_CAP,
         queue: queuePreview,
+        deadlocks: deadlocks,
         rooms: roomReports,
         defense: {
             active: !!defenseActive,

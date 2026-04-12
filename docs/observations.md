@@ -450,3 +450,10 @@ Capture non-urgent observations that improve system design, role policy, and ope
 - Impact: Needless loss of civilian creeps during early core deployments.
 - Action: Enhanced `ACTIVE EVASION (KITING)` protocol across all civilian roles to detect `STRUCTURE_INVADER_CORE` and permitted cross-room fleeing (`maxRooms: 2`).
 - Evidence: Civilians accurately display `Kite!` and flee to adjacent rooms when cornered.
+
+- Date-Time (UTC): `2026-02-17T06:00:00Z`
+- Context: Spawner deadlocks and idle creep swarms in mature mining rooms.
+- Observation: The "Screeps Speed Limit" means a source yields exactly 10e/t (3000 energy / 300 ticks). 3 large Harvesters (RCL 4+) strip a source in 85 ticks and idle for 215 ticks. Meanwhile, logistics bottlenecks cause full containers but empty spawns.
+- Impact: Wasted spawn capacity, massive CPU sink from idle swarms, and manual tweaking of `config.rooms.js` required for every room.
+- Action: Implemented "Fact-Based Scaling" (1 harvester per source at RCL 4+) and "Self-Healing Logistics" (dynamic hauler/scavenger quotas based on container overflow and dropped energy).
+- Evidence: Heartbeat logs now dynamically scale hauler quotas and harvesters no longer cluster idly around depleted sources.
