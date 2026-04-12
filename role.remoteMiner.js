@@ -16,7 +16,7 @@ module.exports = {
         // ----------------
         // TUNABLE SETTINGS
         // ----------------
-        const MAX_MINERS_PER_SOURCE = 2;      // allow 2 miners per source (set 3 if you want)
+        const MAX_MINERS_PER_SOURCE = 3;      // allow 3 miners per source
         const OVERBOOK_TICKS = 8;             // must be overcrowded this many ticks in a row to switch
         const REASSIGN_COOLDOWN_TICKS = 25;   // once we switch, wait before switching again
 
@@ -103,15 +103,8 @@ module.exports = {
         function findLocalDepositTarget(room) {
             if (!room) return null;
 
-            let target = creep.pos.findClosestByPath(FIND_STRUCTURES, {
-                filter: s =>
-                    (s.structureType === STRUCTURE_SPAWN || s.structureType === STRUCTURE_EXTENSION) &&
-                    s.store &&
-                    s.store.getFreeCapacity(RESOURCE_ENERGY) > 0
-            });
-            if (target) return target;
-
-            target = creep.pos.findClosestByPath(FIND_STRUCTURES, {
+            let target = creep.pos.findClosestByRange(FIND_STRUCTURES, {
+                ignoreCreeps: true,
                 filter: s =>
                     s.store &&
                     s.store.getFreeCapacity &&
@@ -121,6 +114,15 @@ module.exports = {
                         s.structureType === STRUCTURE_STORAGE ||
                         s.structureType === STRUCTURE_LINK
                     )
+            });
+            if (target) return target;
+
+            target = creep.pos.findClosestByRange(FIND_STRUCTURES, {
+                ignoreCreeps: true,
+                filter: s =>
+                    (s.structureType === STRUCTURE_SPAWN || s.structureType === STRUCTURE_EXTENSION) &&
+                    s.store &&
+                    s.store.getFreeCapacity(RESOURCE_ENERGY) > 0
             });
             return target;
         }

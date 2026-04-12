@@ -183,3 +183,11 @@ Track urgent production incidents and response quality. Keep entries brief and f
 - Immediate Response: Identified that the Screeps Steam Client aggressively sanitizes/escapes all HTML tags, unlike the Web Client.
 - Resolution: Completely stripped all HTML tags from the logger and `global.intel`. Shifted to a pure ASCII/Emoji layout for guaranteed cross-client compatibility.
 - Follow-up: Avoid HTML in `console.log` entirely. Rely on text alignment and Emojis for visual hierarchy.
+
+- Date-Time (UTC): `2026-02-17T03:30:00Z`
+- Severity: `SEV-1`
+- Trigger: Global CPU Bucket exhaustion resulting in continuous `Script execution has been terminated` crashes.
+- Scope: Global execution loop.
+- Immediate Response: Added a CPU Circuit Breaker to skip ticks if bucket falls below 500.
+- Resolution: Identified `findClosestByPath` combined with `ignoreCreeps: true` in `role.hauler.js` as a massive CPU sink (O(N^2) pathfinding). Replaced with `findClosestByRange` and cached `inRangeTo` distance checks across all logistics and worker roles.
+- Follow-up: Forbid the use of `findClosestByPath` with `ignoreCreeps: true` in high-frequency arrays.

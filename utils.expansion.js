@@ -11,6 +11,7 @@ module.exports = {
         if (Game.time % 1000 !== 0) return;
 
         if (!Memory.empire) Memory.empire = {};
+        if (!Memory.empire.wishlist) Memory.empire.wishlist = [];
         const inv = Memory.inventory;
         if (!inv || !inv.rooms) return;
 
@@ -32,6 +33,7 @@ module.exports = {
         let bestRoom = null;
         let bestScore = -Infinity;
 
+        const WISHLIST_BONUS = 10000;
         const myMinerals = ownedRooms.map(rn => inv.rooms[rn].mineralType).filter(m => m);
 
         for (const roomName in inv.rooms) {
@@ -53,6 +55,11 @@ module.exports = {
             const dist = Game.map.getRoomLinearDistance(rooms.HOME, roomName);
             if (dist > 4) continue; // Zu weit weg
             score -= dist * 500; // Bestrafung für lange Laufwege
+
+            // Gib Räumen auf der Wunschliste einen massiven Bonus
+            if (Memory.empire.wishlist.includes(roomName)) {
+                score += WISHLIST_BONUS;
+            }
 
             if (score > bestScore) { bestScore = score; bestRoom = roomName; }
         }

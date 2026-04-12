@@ -7,6 +7,28 @@ module.exports = {
     run: function(creep) {
         const workRoom = creep.memory.workRoom || creep.room.name;
         
+        // --- ACTIVE EVASION (KITING) ---
+        const hostileCreeps = creep.room.find(FIND_HOSTILE_CREEPS, {
+            filter: c => c.body.some(p => p.type === ATTACK || p.type === RANGED_ATTACK || p.type === HEAL)
+        });
+        const hostileCores = creep.room.find(FIND_HOSTILE_STRUCTURES, {
+            filter: s => s.structureType === STRUCTURE_INVADER_CORE
+        });
+        const threats = [...hostileCreeps, ...hostileCores];
+
+        if (threats.length > 0) {
+            const closeThreats = threats.filter(h => creep.pos.getRangeTo(h) <= 5);
+            if (closeThreats.length > 0) {
+                creep.say('Kite!');
+                const goals = closeThreats.map(h => ({ pos: h.pos, range: 7 }));
+                const pathRes = PathFinder.search(creep.pos, goals, { flee: true, maxRooms: 2 }); // Flucht in Nachbarräume erlaubt!
+                if (pathRes.path.length > 0) {
+                    creep.move(creep.pos.getDirectionTo(pathRes.path[0]));
+                }
+                return; // Arbeit strikt blockieren, solange Gefahr droht!
+            }
+        }
+
         // Travel to designated room
         if (creep.room.name !== workRoom) {
             const exit = creep.pos.findClosestByRange(creep.room.findExitTo(workRoom));

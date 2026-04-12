@@ -29,6 +29,7 @@ module.exports = {
             storage: room.storage ? 1 : 0,
             terminal: room.terminal ? 1 : 0,
             extractors: room.find(FIND_STRUCTURES, {filter: s => s.structureType === STRUCTURE_EXTRACTOR}).length,
+            labs: room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType === STRUCTURE_LAB}).length,
             hostileTowers: room.find(FIND_HOSTILE_STRUCTURES, {filter: s => s.structureType === STRUCTURE_TOWER}).length,
             hostileCreeps: room.find(FIND_HOSTILE_CREEPS).length,
             sources: room.find(FIND_SOURCES).length,

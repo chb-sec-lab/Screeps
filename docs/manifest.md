@@ -65,8 +65,10 @@ Remote Mining:
 - Defender demand remains active for a cooldown window after last detection to prevent spawn flapping.
 - SCOS implements "Smart-Bunker" Point-Defense: Ramparts are only built directly over critical structures (Spawns, Towers, Storage, Terminals) rather than full perimeter walls. Towers prioritize the weakest rampart up to `50k` hits.
 - Remote haulers use minimum pickup thresholds to avoid low-value room-to-room oscillation.
-- Scavengers avoid withdraw/distribute loops unless the room has urgent sinks (spawn/extension/tower demand).
+- Scavengers avoid withdraw/distribute loops unless the room has urgent sinks (spawn/extension/tower demand). They are also explicitly authorized to plunder residual energy from hostile structures in abandoned rooms.
 - Link networks automate energy transit from Sources directly to Controllers (priority) or Storage (fallback), bypassing haulers where possible.
+- **Mutual Aid Protocol:** Any `CORE` base that loses its economy (0 miners/haulers) or triggers a global defense alert will be autonomously reinforced by Spawns from healthy neighboring `CORE` bases.
+- **Active Evasion (Kiting):** Civilian creeps unconditionally flee from armed hostiles and Invader Cores at a range of 5, temporarily crossing room borders if necessary, before resuming work.
 - Obsolete or stuck creeps can be decommissioned by setting `memory.recycle = true`, routing them to the nearest spawn for energy reclamation.
 
 ## Documentation Governance

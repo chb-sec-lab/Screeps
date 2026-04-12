@@ -13,6 +13,28 @@ module.exports = {
         if (creep.memory.lastIdleTick !== Game.time - 1) {
             creep.memory.idleCount = 0;
         }
+        
+        // --- ACTIVE EVASION (KITING) ---
+        const hostileCreeps = creep.room.find(FIND_HOSTILE_CREEPS, {
+            filter: c => c.body.some(p => p.type === ATTACK || p.type === RANGED_ATTACK || p.type === HEAL)
+        });
+        const hostileCores = creep.room.find(FIND_HOSTILE_STRUCTURES, {
+            filter: s => s.structureType === STRUCTURE_INVADER_CORE
+        });
+        const threats = [...hostileCreeps, ...hostileCores];
+
+        if (threats.length > 0) {
+            const closeThreats = threats.filter(h => creep.pos.getRangeTo(h) <= 5);
+            if (closeThreats.length > 0) {
+                creep.say('Kite!');
+                const goals = closeThreats.map(h => ({ pos: h.pos, range: 7 }));
+                const pathRes = PathFinder.search(creep.pos, goals, { flee: true, maxRooms: 2 }); // Flucht in Nachbarräume erlaubt!
+                if (pathRes.path.length > 0) {
+                    creep.move(creep.pos.getDirectionTo(pathRes.path[0]));
+                }
+                return; // Arbeit strikt blockieren, solange Gefahr droht!
+            }
+        }
 
         const workRoom = creep.memory.workRoom || rooms.HOME;
         const roomOrder = [creep.room.name, workRoom].filter((v, i, a) => a.indexOf(v) === i); // Deduplicate
@@ -46,6 +68,14 @@ module.exports = {
                 if (target) return { roomName: roomName, type: 'tomb', id: target.id };
             }
 
+            const hostileStructs = room.find(FIND_STRUCTURES, {
+                filter: s => s.store && s.store[RESOURCE_ENERGY] > 0 && !s.my && s.structureType !== STRUCTURE_CONTAINER
+            });
+            if (hostileStructs.length) {
+                const target = (creep.room.name === roomName) ? creep.pos.findClosestByPath(hostileStructs) : hostileStructs[0];
+                if (target) return { roomName: roomName, type: 'hostile', id: target.id };
+            }
+
             return null;
         }
 
@@ -60,7 +90,8 @@ module.exports = {
         function findDeliveryTarget(room) {
             if (!room) return null;
 
-            let target = creep.pos.findClosestByPath(FIND_STRUCTURES, {
+            let target = creep.pos.findClosestByRange(FIND_STRUCTURES, {
+                ignoreCreeps: true,
                 filter: s =>
                     (s.structureType === STRUCTURE_SPAWN || s.structureType === STRUCTURE_EXTENSION) &&
                     s.store &&
@@ -68,7 +99,8 @@ module.exports = {
             });
             if (target) return target;
 
-            target = creep.pos.findClosestByPath(FIND_STRUCTURES, {
+            target = creep.pos.findClosestByRange(FIND_STRUCTURES, {
+                ignoreCreeps: true,
                 filter: s =>
                     s.structureType === STRUCTURE_TOWER &&
                     s.store &&
@@ -238,7 +270,7 @@ module.exports = {
             }
             creep.memory.lastIdleTick = Game.time;
             creep.memory.idleCount = (creep.memory.idleCount || 0) + 1;
-            if (creep.memory.idleCount > 100) creep.memory.recycle = true;
+            if (creep.memory.idleCount > 500) creep.memory.recycle = true;
             return; 
         } else if (creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
             if (doDeliver()) return;
@@ -257,7 +289,7 @@ module.exports = {
             }
             creep.memory.lastIdleTick = Game.time;
             creep.memory.idleCount = (creep.memory.idleCount || 0) + 1;
-            if (creep.memory.idleCount > 100) creep.memory.recycle = true;
+            if (creep.memory.idleCount > 500) creep.memory.recycle = true;
             return;
         }
 
@@ -277,6 +309,6 @@ module.exports = {
         }
         creep.memory.lastIdleTick = Game.time;
         creep.memory.idleCount = (creep.memory.idleCount || 0) + 1;
-        if (creep.memory.idleCount > 100) creep.memory.recycle = true;
+        if (creep.memory.idleCount > 500) creep.memory.recycle = true;
     }
 };

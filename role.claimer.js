@@ -13,6 +13,28 @@ module.exports = {
         const targetRoom = creep.memory.targetRoom || rooms.TARGET;
         const mode = creep.memory.claimMode || "reserve"; // safer default
 
+        // --- ACTIVE EVASION (KITING) ---
+        const hostileCreeps = creep.room.find(FIND_HOSTILE_CREEPS, {
+            filter: c => c.body.some(p => p.type === ATTACK || p.type === RANGED_ATTACK || p.type === HEAL)
+        });
+        const hostileCores = creep.room.find(FIND_HOSTILE_STRUCTURES, {
+            filter: s => s.structureType === STRUCTURE_INVADER_CORE
+        });
+        const threats = [...hostileCreeps, ...hostileCores];
+
+        if (threats.length > 0) {
+            const closeThreats = threats.filter(h => creep.pos.getRangeTo(h) <= 5);
+            if (closeThreats.length > 0) {
+                creep.say('Kite!');
+                const goals = closeThreats.map(h => ({ pos: h.pos, range: 7 }));
+                const pathRes = PathFinder.search(creep.pos, goals, { flee: true, maxRooms: 2 }); // Flucht in Nachbarräume erlaubt!
+                if (pathRes.path.length > 0) {
+                    creep.move(creep.pos.getDirectionTo(pathRes.path[0]));
+                }
+                return; // Arbeit strikt blockieren, solange Gefahr droht!
+            }
+        }
+
         // Travel to target room
         if (creep.room.name !== targetRoom) {
             creep.moveTo(new RoomPosition(25, 25, targetRoom), { visualizePathStyle: { stroke: '#ffffff' }, reusePath: 50 });

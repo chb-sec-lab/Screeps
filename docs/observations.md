@@ -415,3 +415,38 @@ Capture non-urgent observations that improve system design, role policy, and ope
 - Impact: Operator lost immediate visual feedback on creep distribution and behavior.
 - Action: Added `room.visual.text()` overlay in the `main.js` execution loop to continuously render the creep's role beneath them without cluttering the action logs or overlapping chat bubbles.
 - Evidence: Creeps now display small, color-coded role labels directly beneath their sprites.
+
+- Date-Time (UTC): `2026-02-17T03:00:00Z`
+- Context: Plundering abandoned enemy bases.
+- Observation: Dead/abandoned rooms often contain hostile structures (Spawns, Towers, Extensions) filled with residual energy that goes to waste when they decay.
+- Impact: Massive free energy influx available with zero mining cost.
+- Action: Upgraded `role.scavenger.js` to target and withdraw from `!s.my` structures containing energy, specifically ignoring containers to protect neutral remote mining setups.
+- Evidence: Scavengers successfully empty hostile structures and return the loot to the empire's storage.
+
+- Date-Time (UTC): `2026-02-17T03:45:00Z`
+- Context: Hauler logistics in rooms with single-access sources (W6N8).
+- Observation: Haulers froze with `Seek Drop` because stationary miners physically blocked the path to the dropped energy, causing `findClosestByPath` to fail.
+- Impact: Complete energy starvation in tight mining outposts.
+- Action: Refactored resource targeting to use `ignoreCreeps: true` with `findClosestByRange` to allow haulers to walk up to the blocking creep and withdraw.
+- Evidence: Haulers successfully approach miners and pull energy directly from their tile.
+
+- Date-Time (UTC): `2026-02-17T04:00:00Z`
+- Context: Cross-room energy and mineral overflow management.
+- Observation: Haulers froze with `Idle:Full` or `Stuck:Min` when local storage was absent or full.
+- Impact: Wasted carrying capacity and halted mining operations.
+- Action: Upgraded `role.hauler.js` with SCOS Cross-System Export. Haulers now scan the global registry for the nearest valid `Storage` or `Terminal` and deliver inter-colony.
+- Evidence: Haulers display `Export:Nrg` or `Export:Min` and traverse rooms to deliver goods.
+
+- Date-Time (UTC): `2026-02-17T04:15:00Z`
+- Context: Colony recovery and multi-room defense orchestration.
+- Observation: Isolated spawns in failing or besieged rooms lacked the energy to bootstrap defenders or recovery workers, resulting in total room death (Death Spiral).
+- Impact: Single points of failure for entire remote sectors.
+- Action: Implemented the SCOS Mutual Aid Protocol. Spawns globally will now construct `defender`, `healer`, or emergency `harvester`/`hauler` units for other `CORE` rooms if those rooms drop to 0 economy creeps or trigger a defense alert.
+- Evidence: Spawns log `🚑 MUTUAL AID: Spawn1 spawning defender to rescue W6N8!`.
+
+- Date-Time (UTC): `2026-02-17T04:30:00Z`
+- Context: Civilian survivability against Invader Cores and creeps.
+- Observation: Builders and Harvesters ignored Invader Cores (classified as structures) and cornered themselves during evasion, causing pathfinder failures.
+- Impact: Needless loss of civilian creeps during early core deployments.
+- Action: Enhanced `ACTIVE EVASION (KITING)` protocol across all civilian roles to detect `STRUCTURE_INVADER_CORE` and permitted cross-room fleeing (`maxRooms: 2`).
+- Evidence: Civilians accurately display `Kite!` and flee to adjacent rooms when cornered.

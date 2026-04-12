@@ -23,6 +23,7 @@ module.exports = {
         breacher:    0,
         healer:      0,
         mineralMiner:0, // Managed dynamically by main.js (1 per active Extractor)
+        chemist:     0, // Managed dynamically by main.js (1 per 3+ Labs)
         scout:       1  // 1 global scout wandering the map
     },
 
@@ -41,6 +42,7 @@ module.exports = {
         breacher:    [WORK, WORK, MOVE, MOVE],
         healer:      [MOVE, MOVE, MOVE, HEAL, HEAL, HEAL],
         mineralMiner:[WORK, WORK, WORK, WORK, CARRY, CARRY, MOVE, MOVE, MOVE],
+        chemist:     [CARRY, CARRY, CARRY, CARRY, MOVE, MOVE], // 200 Carry capacity, fast on roads
         scout:       [MOVE]
     }
 };

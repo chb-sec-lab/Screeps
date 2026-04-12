@@ -2,12 +2,17 @@
  * utils.planner.js - SCOS Automated Construction
  * Safely plans roads and basic infrastructure without blowing up the CPU.
  */
+const roomsConfig = require('config.rooms');
+
 module.exports = {
     run: function(room) {
         // Abort if global construction site limit is near (max 100)
         if (Object.keys(Game.constructionSites).length > 80) return;
 
-        this.planCore(room);
+        // Nur CORE-Basen bekommen Spawns, Extensions etc. Remote-Minen werden verschont!
+        const isRemote = roomsConfig.registry && roomsConfig.registry[room.name] && roomsConfig.registry[room.name].type === 'REMOTE';
+        if (!isRemote) this.planCore(room);
+
         this.planRoads(room);
         this.planExtractors(room);
         this.planContainers(room);
@@ -24,10 +29,22 @@ module.exports = {
         const targets = [...room.find(FIND_SOURCES), ...room.find(FIND_MINERALS)];
         if (room.controller) targets.push(room.controller);
 
-        targets.forEach(target => {
-            const path = PathFinder.search(anchor, { pos: target.pos, range: 1 }, {
+        // --- SCOS AUTO-HIGHWAYS: Remote Räume anbinden ---
+        if (roomsConfig.registry) {
+            Object.keys(roomsConfig.registry).forEach(rn => {
+                if (roomsConfig.registry[rn].type === 'REMOTE' && roomsConfig.registry[rn].base === room.name) {
+                    if (Game.rooms[rn]) {
+                        targets.push(...Game.rooms[rn].find(FIND_SOURCES));
+                    }
+                }
+            });
+        }
+
+        const paveRoute = (startPos, endTarget) => {
+            const path = PathFinder.search(startPos, { pos: endTarget.pos, range: 1 }, {
                 plainCost: 2,
                 swampCost: 2, // Treat swamps like plains so we naturally pave them
+                maxOps: 8000, // WICHTIG: Erlaubt Wegfindung über Raumgrenzen hinweg
                 roomCallback: function(roomName) {
                     let targetRoom = Game.rooms[roomName];
                     if (!targetRoom) return false;
@@ -41,15 +58,34 @@ module.exports = {
                             costs.set(struct.pos.x, struct.pos.y, 255); // Block solid buildings
                         }
                     });
+                    
+                    targetRoom.find(FIND_CONSTRUCTION_SITES).forEach(function(site) {
+                        if (site.structureType === STRUCTURE_ROAD) {
+                            costs.set(site.pos.x, site.pos.y, 1); // Vorhandene Baustellen bevorzugen! (Vermeidet parallele Straßen)
+                        }
+                    });
                     return costs;
                 }
             }).path;
 
             // Place a road construction site on each step of the path
             path.forEach(pos => {
-                room.createConstructionSite(pos, STRUCTURE_ROAD);
+                if (Game.rooms[pos.roomName]) { // Nur wenn wir Sicht in dem Raum haben
+                    pos.createConstructionSite(STRUCTURE_ROAD);
+                }
             });
-        });
+        };
+
+        // 1. Wege vom Spawn zu allen Ressourcen und zum Controller
+        targets.forEach(target => paveRoute(anchor, target));
+
+        // 2. Extra-Highways: Vom Storage direkt zum Controller und zum Mineral
+        if (room.storage) {
+            if (room.controller) paveRoute(room.storage.pos, room.controller);
+            
+            const minerals = room.find(FIND_MINERALS);
+            if (minerals.length > 0) paveRoute(room.storage.pos, minerals[0]);
+        }
     },
 
     planRamparts: function(room) {
@@ -97,6 +133,17 @@ module.exports = {
         // Wir wollen Container an: Quellen, Controller und Mineralien
         const targets = [...room.find(FIND_SOURCES), room.controller, ...room.find(FIND_MINERALS)];
         
+        // --- SCOS AUTO-CONTAINER: Remote Räume abdecken ---
+        if (roomsConfig.registry) {
+            Object.keys(roomsConfig.registry).forEach(rn => {
+                if (roomsConfig.registry[rn].type === 'REMOTE' && roomsConfig.registry[rn].base === room.name) {
+                    if (Game.rooms[rn]) {
+                        targets.push(...Game.rooms[rn].find(FIND_SOURCES));
+                    }
+                }
+            });
+        }
+
         targets.forEach(target => {
             const nearby = target.pos.findInRange(FIND_STRUCTURES, 2, { filter: s => s.structureType === STRUCTURE_CONTAINER });
             const nearbySites = target.pos.findInRange(FIND_CONSTRUCTION_SITES, 2, { filter: s => s.structureType === STRUCTURE_CONTAINER });
@@ -105,11 +152,11 @@ module.exports = {
                 for (let dx = -1; dx <= 1; dx++) {
                     for (let dy = -1; dy <= 1; dy++) {
                         if (dx === 0 && dy === 0) continue;
-                        const pos = new RoomPosition(target.pos.x + dx, target.pos.y + dy, room.name);
-                        const terrain = Game.map.getRoomTerrain(room.name).get(pos.x, pos.y);
+                        const pos = new RoomPosition(target.pos.x + dx, target.pos.y + dy, target.pos.roomName);
+                        const terrain = Game.map.getRoomTerrain(pos.roomName).get(pos.x, pos.y);
                         if (terrain !== TERRAIN_MASK_WALL) {
                             const hasStuff = pos.lookFor(LOOK_STRUCTURES).length > 0 || pos.lookFor(LOOK_CONSTRUCTION_SITES).length > 0;
-                            if (!hasStuff && room.createConstructionSite(pos, STRUCTURE_CONTAINER) === OK) return; // Nur 1 Container pro Target
+                            if (!hasStuff && pos.createConstructionSite(STRUCTURE_CONTAINER) === OK) return; // Nur 1 Container pro Target
                         }
                     }
                 }

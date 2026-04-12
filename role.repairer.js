@@ -14,6 +14,28 @@ module.exports = {
         if (creep.memory.lastIdleTick !== Game.time - 1) {
             creep.memory.idleCount = 0;
         }
+        
+        // --- ACTIVE EVASION (KITING) ---
+        const hostileCreeps = creep.room.find(FIND_HOSTILE_CREEPS, {
+            filter: c => c.body.some(p => p.type === ATTACK || p.type === RANGED_ATTACK || p.type === HEAL)
+        });
+        const hostileCores = creep.room.find(FIND_HOSTILE_STRUCTURES, {
+            filter: s => s.structureType === STRUCTURE_INVADER_CORE
+        });
+        const threats = [...hostileCreeps, ...hostileCores];
+
+        if (threats.length > 0) {
+            const closeThreats = threats.filter(h => creep.pos.getRangeTo(h) <= 5);
+            if (closeThreats.length > 0) {
+                creep.say('Kite!');
+                const goals = closeThreats.map(h => ({ pos: h.pos, range: 7 }));
+                const pathRes = PathFinder.search(creep.pos, goals, { flee: true, maxRooms: 2 }); // Flucht in Nachbarräume erlaubt!
+                if (pathRes.path.length > 0) {
+                    creep.move(creep.pos.getDirectionTo(pathRes.path[0]));
+                }
+                return; // Arbeit strikt blockieren, solange Gefahr droht!
+            }
+        }
 
         const workRoom = creep.memory.workRoom || rooms.TARGET;
 
@@ -28,14 +50,14 @@ module.exports = {
         if (!working && creep.store.getFreeCapacity() === 0) creep.memory.working = true;
 
         if (creep.memory.working) {
-            let target = creep.pos.findClosestByPath(FIND_STRUCTURES, {
+            let target = creep.pos.findClosestByRange(FIND_STRUCTURES, {
                 filter: s =>
                     s.structureType === STRUCTURE_RAMPART &&
                     s.hits < RAMPART_MIN_HITS
             });
 
             if (!target) {
-                target = creep.pos.findClosestByPath(FIND_STRUCTURES, {
+                target = creep.pos.findClosestByRange(FIND_STRUCTURES, {
                     filter: s =>
                         s.structureType === STRUCTURE_RAMPART &&
                         s.hits < RAMPART_SOFT_CAP &&
@@ -48,14 +70,14 @@ module.exports = {
                 return;
             }
 
-            target = creep.pos.findClosestByPath(FIND_STRUCTURES, {
+            target = creep.pos.findClosestByRange(FIND_STRUCTURES, {
                 filter: s =>
                     (s.structureType === STRUCTURE_ROAD || s.structureType === STRUCTURE_CONTAINER) &&
                     s.hits < s.hitsMax * 0.9
             });
 
             if (!target) {
-                target = creep.pos.findClosestByPath(FIND_STRUCTURES, {
+                target = creep.pos.findClosestByRange(FIND_STRUCTURES, {
                     filter: s =>
                         s.hits < s.hitsMax &&
                         s.structureType !== STRUCTURE_WALL &&
@@ -80,7 +102,7 @@ module.exports = {
             return;
         }
 
-        let energySource = creep.pos.findClosestByPath(FIND_DROPPED_RESOURCES, {
+        let energySource = creep.pos.findClosestByRange(FIND_DROPPED_RESOURCES, {
             filter: r => r.resourceType === RESOURCE_ENERGY && r.amount >= 20
         });
         if (energySource) {
@@ -88,7 +110,7 @@ module.exports = {
             return;
         }
 
-        energySource = creep.pos.findClosestByPath(FIND_STRUCTURES, {
+        energySource = creep.pos.findClosestByRange(FIND_STRUCTURES, {
             filter: s =>
                 s.store &&
                 s.store[RESOURCE_ENERGY] > 0 &&
@@ -112,6 +134,6 @@ module.exports = {
         creep.say('Idle:NoNrg');
         creep.memory.lastIdleTick = Game.time;
         creep.memory.idleCount = (creep.memory.idleCount || 0) + 1;
-        if (creep.memory.idleCount > 100) creep.memory.recycle = true;
+        if (creep.memory.idleCount > 500) creep.memory.recycle = true;
     }
 };

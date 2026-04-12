@@ -49,6 +49,32 @@ module.exports = {
                 }
             }
 
+            // --- 0.5 INTERNAL MINERAL LOGISTICS: Mineralien im Imperium teilen ---
+            // Bevor wir an Fremde verkaufen, stellen wir sicher, dass unsere eigenen Basen versorgt sind (für Labs!)
+            let mineralSent = false;
+            for (let res in terminal.store) {
+                if (res === RESOURCE_ENERGY) continue;
+                if (terminal.store[res] > 6000) { // Wir haben reichlich davon
+                    const needyRoom = Object.values(Game.rooms).find(r => 
+                        r.controller && r.controller.my && r.terminal && r.name !== roomName &&
+                        ((r.terminal.store[res] || 0) + (r.storage ? (r.storage.store[res] || 0) : 0)) < 2000
+                    );
+                    
+                    if (needyRoom) {
+                        const sendAmount = 2000;
+                        const cost = Game.market.calcTransactionCost(sendAmount, roomName, needyRoom.name);
+                        if (terminalEnergy >= cost) {
+                            if (terminal.send(res, sendAmount, needyRoom.name) === OK) {
+                                logger.log(`🧪 SYNERGY: Sent ${sendAmount} ${res} from ${roomName} to ${needyRoom.name} for Lab processing.`, 'success');
+                                mineralSent = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            if (mineralSent) continue; // Terminal ist jetzt blockiert, weiter zum nächsten Raum
+
             // --- 1. AUTO-BUY: Energie vom Markt einkaufen bei Notstand ---
             if (totalEnergy < ENERGY_BUY_THRESHOLD && terminalEnergy > 2000 && Game.market.credits > MIN_CREDITS) {
                 const orders = Game.market.getAllOrders({type: ORDER_SELL, resourceType: RESOURCE_ENERGY});

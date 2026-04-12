@@ -25,10 +25,15 @@ module.exports = {
         const queueInfo = (stats.queue && stats.queue.length) ? stats.queue.slice(0, 5).join(' ➔ ') : 'clear';
         console.log(`📋 QUEUE  | ${queueInfo}`);
 
+        // WISHLIST LINE
+        if (Memory.empire && Memory.empire.wishlist && Memory.empire.wishlist.length > 0) {
+            console.log(`🎯 WISH   | ${Memory.empire.wishlist.join(', ')}`);
+        }
+
         // DEFENSE LINE
         const def = stats.defense;
         if (def && def.active) {
-            console.log(`🚨 DEFENSE| ALERT in ${def.room}! Def: ${def.current}/${def.need} Heal: ${def.currentHealers}/${def.healerNeed} | Threat (H/T/E): ${def.homeThreat}/${def.targetThreat}/${def.expansionThreat}`);
+            console.log(`🚨 DEFENSE| ALERT in ${def.room}! Def: ${def.current}/${def.need} Heal: ${def.currentHealers}/${def.healerNeed} | Local Threat Lvl: ${def.targetThreat}`);
         }
 
         // ROOMS

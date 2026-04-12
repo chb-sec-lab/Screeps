@@ -20,8 +20,13 @@ module.exports = {
         if (creep.hits < creep.hitsMax * 0.4 && creep.room.name !== homeRoom) {
             creep.say('Retreating');
             if (creep.getActiveBodyparts(HEAL) > 0) creep.heal(creep);
-            const exit = creep.pos.findClosestByRange(creep.room.findExitTo(homeRoom));
-            if (exit) creep.moveTo(exit, {visualizePathStyle: {stroke: '#ffaa00'}});
+            creep.moveTo(new RoomPosition(25, 25, homeRoom), {visualizePathStyle: {stroke: '#ffaa00'}, reusePath: 50});
+            return;
+        }
+        
+        // --- BORDER BOUNCE FIX ---
+        if (creep.pos.x === 0 || creep.pos.x === 49 || creep.pos.y === 0 || creep.pos.y === 49) {
+            creep.moveTo(new RoomPosition(25, 25, creep.room.name));
             return;
         }
 
@@ -51,8 +56,7 @@ module.exports = {
             // --- 3. PATROL / GUARD POSITION ---
             if (creep.room.name !== targetRoom) {
                 // Reise zum Zielraum
-                const exit = creep.pos.findClosestByRange(creep.room.findExitTo(targetRoom));
-                creep.moveTo(exit, {visualizePathStyle: {stroke: '#ff0000'}});
+                creep.moveTo(new RoomPosition(25, 25, targetRoom), {visualizePathStyle: {stroke: '#ff0000'}, reusePath: 50});
                 creep.say('Deploying');
             } else {
                 // Im Zielraum: Halte Position in der Raummitte

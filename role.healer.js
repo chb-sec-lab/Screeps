@@ -22,6 +22,12 @@ module.exports = {
             creep.heal(creep);
         }
 
+        // --- BORDER BOUNCE FIX ---
+        if (creep.pos.x === 0 || creep.pos.x === 49 || creep.pos.y === 0 || creep.pos.y === 49) {
+            creep.moveTo(new RoomPosition(25, 25, creep.room.name));
+            return;
+        }
+
         // --- 2. MOVEMENT (Follow the Defender) ---
         let moveTarget = creep.pos.findClosestByRange(FIND_MY_CREEPS, {
             filter: c => c.memory.role === 'defender'
@@ -34,8 +40,7 @@ module.exports = {
         } else {
             // Falls kein Defender da ist, geh zum Guard-Point im Zielraum
             if (creep.room.name !== targetRoom) {
-                const exit = creep.pos.findClosestByRange(creep.room.findExitTo(targetRoom));
-                creep.moveTo(exit);
+                creep.moveTo(new RoomPosition(25, 25, targetRoom), {reusePath: 50});
             } else {
                 const guardPos = new RoomPosition(25, 25, targetRoom);
                 creep.moveTo(guardPos, {range: 3});
