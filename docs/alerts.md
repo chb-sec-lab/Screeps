@@ -191,3 +191,11 @@ Track urgent production incidents and response quality. Keep entries brief and f
 - Immediate Response: Added a CPU Circuit Breaker to skip ticks if bucket falls below 500.
 - Resolution: Identified `findClosestByPath` combined with `ignoreCreeps: true` in `role.hauler.js` as a massive CPU sink (O(N^2) pathfinding). Replaced with `findClosestByRange` and cached `inRangeTo` distance checks across all logistics and worker roles.
 - Follow-up: Forbid the use of `findClosestByPath` with `ignoreCreeps: true` in high-frequency arrays.
+
+- Date-Time (UTC): `2026-02-17T06:30:00Z`
+- Severity: `SEV-2`
+- Trigger: Circuit breaker activated repeatedly (`CRITICAL CPU BUCKET (<500)`) after removing legacy config overrides, leaving 7 surplus harvesters idle.
+- Scope: Global CPU performance, legacy civilian creeps.
+- Immediate Response: CPU Circuit Breaker successfully intercepted the hard timeout by skipping execution ticks, keeping the Screeps VM alive and allowing priority spawns to continue.
+- Resolution: Eradicated lingering `findClosestByPath` calls in the fallback/idle states of all civilian roles and replaced them with `findClosestByRange`.
+- Follow-up: CPU stabilized below 15. Ensure no `O(N^2)` pathfinding functions are used in fallback states where surplus creeps might cluster.

@@ -3,6 +3,8 @@
  * Logic: Hunter-Killer with Fixed Point Patrol.
  * UPDATE: Zieht aktiv in den Zielraum und hält Position bei (31, 3), wenn kein Feind da ist.
  */
+const rooms = require('config.rooms');
+
 module.exports = {
     run: function(creep) {
         const targetRoom = creep.memory.targetRoom || creep.memory.target || 'E57S56';
@@ -13,6 +15,11 @@ module.exports = {
         if (creep.room.name === homeRoom && creep.hits < creep.hitsMax) {
             creep.say('Wait:Heal');
             if (creep.getActiveBodyparts(HEAL) > 0) creep.heal(creep);
+            
+            // FIX: Bewege dich vom Ausgang weg, um Ping-Pong beim Retreat zu verhindern!
+            if (creep.pos.x === 0 || creep.pos.x === 49 || creep.pos.y === 0 || creep.pos.y === 49) {
+                creep.moveTo(new RoomPosition(25, 25, creep.room.name));
+            }
             return;
         }
 
@@ -31,12 +38,17 @@ module.exports = {
         }
 
         // --- 1. TARGET ACQUISITION ---
-        let target = creep.pos.findClosestByRange(FIND_HOSTILE_CREEPS, {
-            filter: c => c.getActiveBodyparts(HEAL) > 0
+        const ALLIES = rooms.ALLIES || [];
+        const hostiles = creep.room.find(FIND_HOSTILE_CREEPS, {
+            filter: c => !ALLIES.includes(c.owner.username)
         });
-        if (!target) {
-            target = creep.pos.findClosestByRange(FIND_HOSTILE_CREEPS);
+        
+        let target = null;
+        if (hostiles.length > 0) {
+            target = creep.pos.findClosestByRange(hostiles, { filter: c => c.getActiveBodyparts(HEAL) > 0 });
+            if (!target) target = creep.pos.findClosestByRange(hostiles);
         }
+        
         if (!target) {
             target = creep.pos.findClosestByRange(FIND_HOSTILE_STRUCTURES, {
                 filter: s => s.structureType === STRUCTURE_INVADER_CORE

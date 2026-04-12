@@ -457,3 +457,10 @@ Capture non-urgent observations that improve system design, role policy, and ope
 - Impact: Wasted spawn capacity, massive CPU sink from idle swarms, and manual tweaking of `config.rooms.js` required for every room.
 - Action: Implemented "Fact-Based Scaling" (1 harvester per source at RCL 4+) and "Self-Healing Logistics" (dynamic hauler/scavenger quotas based on container overflow and dropped energy).
 - Evidence: Heartbeat logs now dynamically scale hauler quotas and harvesters no longer cluster idly around depleted sources.
+
+- Date-Time (UTC): `2026-02-17T07:00:00Z`
+- Context: End-of-day configuration and performance sweep.
+- Observation: Legacy static overrides in `config.rooms.js` (e.g., `harvesters: 9`) were bypassing the new Fact-Based Scaling logic, and civilian idle states contained residual `O(N^2)` pathing functions.
+- Impact: Hindered autonomous JIT scaling and exposed the VM to CPU exhaustion when large numbers of legacy creeps idled.
+- Action: Stripped all manual creep quotas from `config.rooms.js` to enforce pure OS autonomy. Eradicated `findClosestByPath` in fallback routines globally.
+- Evidence: CPU stabilized at ~15ms, Spawns operate strictly on algorithmic demand, and `config.rooms.js` now acts purely as a topology map.

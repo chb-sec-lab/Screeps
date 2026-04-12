@@ -22,10 +22,10 @@ module.exports = {
     // Die zentrale Architektur für volle Automatisierung.
     // Künftige Kernels lesen dieses Objekt aus, um Basen (CORE) und Außenposten (REMOTE) zu steuern.
     registry: {
-        'W7N8': { type: 'CORE', maxHaulers: 2, harvesters: 9 }, // Heimatbasis (Tuning: 2 Hauler, 9 Miner)
-        'W6N8': { type: 'REMOTE', base: 'W7N8', maxBuilders: 1, minersPerSource: 1 }, // Ex-Kolonie, jetzt strikte Mine wegen Steinbruch!
+        'W7N8': { type: 'CORE' }, // Heimatbasis (Wird nun vollautomatisch durch JIT & Fact-Based Scaling skaliert)
+        'W6N8': { type: 'REMOTE', base: 'W7N8' }, // Ex-Kolonie, jetzt strikte Mine
         'W8N8': { type: 'REMOTE', base: 'W7N8' },         // Expansion (Mine)
         'W7N7': { type: 'REMOTE', base: 'W7N8' },         // Mining (Mine)
-        'W6N7': { type: 'REMOTE', base: 'W7N8', minersPerSource: 2, knownSources: 3 } // Neue Mine (2 Miner pro Source = 6 Gesamt)
+        'W6N7': { type: 'REMOTE', base: 'W7N8' }  // Neue Mine
     }
 };

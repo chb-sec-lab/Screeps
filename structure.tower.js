@@ -45,7 +45,7 @@ module.exports = {
         // Energy gates
         const MIN_ENERGY_FOR_EMERGENCY = 100;   // allow emergency even when low
         const MIN_ENERGY_FOR_RAMPARTS = 200;    // allow rampart upkeep at medium energy
-        const ENERGY_FOR_NORMAL_REPAIR = 0.50;  // lowered to 50% so it helps out more often
+        const ENERGY_FOR_NORMAL_REPAIR = 0.80;  // CPU/Energy Fix: Increased to 80% to preserve combat buffer
 
         // 3) EMERGENCY container saving (prevents losing infrastructure)
         if (tower.store[RESOURCE_ENERGY] >= MIN_ENERGY_FOR_EMERGENCY) {
@@ -64,8 +64,8 @@ module.exports = {
                 filter: s => s.structureType === STRUCTURE_RAMPART && s.hits < RAMPART_FLOOR
             });
             if (weakRamparts.length > 0) {
-                // Prioritize the weakest rampart, not just the closest one.
-                const weakest = _.sortBy(weakRamparts, 'hits')[0];
+                // O(N) scan instead of O(N log N) sort for better CPU performance
+                const weakest = _.min(weakRamparts, 'hits');
                 tower.repair(weakest);
                 return;
             }
@@ -78,6 +78,9 @@ module.exports = {
         const damagedStructures = tower.room.find(FIND_STRUCTURES, {
             filter: s => {
                 if (s.hits >= s.hitsMax) return false;
+                // Towers are highly inefficient at repairing roads due to range penalties.
+                // We delegate road maintenance entirely to the repairer creeps!
+                if (s.structureType === STRUCTURE_ROAD) return false;
                 if (s.structureType === STRUCTURE_WALL || s.structureType === STRUCTURE_RAMPART) {
                     return s.hits < WALL_RAMPART_MAX;
                 }
@@ -86,8 +89,8 @@ module.exports = {
         });
 
         if (damagedStructures.length > 0) {
-            // Prioritize the structure with the lowest percentage of hits remaining.
-            const mostDamaged = _.sortBy(damagedStructures, s => s.hits / s.hitsMax)[0];
+            // O(N) scan for the structure with the lowest hit percentage
+            const mostDamaged = _.min(damagedStructures, s => s.hits / s.hitsMax);
             tower.repair(mostDamaged);
         }
     }

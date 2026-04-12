@@ -334,7 +334,7 @@ module.exports.loop = function () {
                 const resType = Object.keys(creep.store)[0]; // Energie oder Mineralien
                 let sink = creep.room.storage;
                 if (!sink || sink.store.getFreeCapacity(resType) === 0) {
-                    sink = creep.pos.findClosestByPath(FIND_STRUCTURES, {
+                    sink = creep.pos.findClosestByRange(FIND_STRUCTURES, {
                         filter: s => (s.structureType === STRUCTURE_SPAWN || s.structureType === STRUCTURE_EXTENSION || s.structureType === STRUCTURE_CONTAINER) &&
                                      s.store && s.store.getFreeCapacity(resType) > 0
                     });
@@ -347,7 +347,7 @@ module.exports.loop = function () {
                 }
             }
 
-            let spawn = creep.pos.findClosestByPath(FIND_MY_SPAWNS) || creep.pos.findClosestByRange(FIND_MY_SPAWNS) || Object.values(Game.spawns)[0];
+            let spawn = creep.pos.findClosestByRange(FIND_MY_SPAWNS) || Object.values(Game.spawns)[0];
             if (spawn) {
                 if (creep.room.name !== spawn.room.name) {
                     creep.moveTo(new RoomPosition(25, 25, spawn.room.name), { visualizePathStyle: { stroke: '#ff00ff' }, reusePath: 50 });

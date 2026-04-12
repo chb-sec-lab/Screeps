@@ -51,7 +51,10 @@ module.exports = {
                 creep.moveTo(ASSEMBLY_POINT);
             }
         } else {
-            const hostiles = creep.room.find(FIND_HOSTILE_CREEPS);
+            const ALLIES = rooms.ALLIES || [];
+            const hostiles = creep.room.find(FIND_HOSTILE_CREEPS, {
+                filter: c => !ALLIES.includes(c.owner.username)
+            });
             
             // FULL RETREAT: If hostiles present but squad is broken, go all the way to ASSEMBLY_POINT
             if (hostiles.length > 0 && (vanguardsInTarget < 2 || medicsInTarget < 1)) {
@@ -62,12 +65,10 @@ module.exports = {
             }
 
             // TARGET PRIORITIZATION: FOCUS FIRE
-            let target = creep.pos.findClosestByRange(FIND_HOSTILE_CREEPS, {
-                filter: (c) => c.getActiveBodyparts(HEAL) > 0
-            });
-
-            if (!target) {
-                target = creep.pos.findClosestByRange(FIND_HOSTILE_CREEPS);
+            let target = null;
+            if (hostiles.length > 0) {
+                target = creep.pos.findClosestByRange(hostiles, { filter: c => c.getActiveBodyparts(HEAL) > 0 });
+                if (!target) target = creep.pos.findClosestByRange(hostiles);
             }
 
             if (target) {

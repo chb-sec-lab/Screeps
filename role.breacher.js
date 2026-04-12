@@ -1,6 +1,8 @@
 /**
  * role.breacher.js - SIEGE UNIT
  */
+const rooms = require('config.rooms');
+
 module.exports = {
     run: function(creep) {
         const targetRoom = creep.memory.target;
@@ -10,10 +12,13 @@ module.exports = {
             return;
         }
 
+        const ALLIES = rooms.ALLIES || [];
+        const isHostile = s => s.owner && !ALLIES.includes(s.owner.username);
+
         let target = creep.pos.findClosestByRange(FIND_HOSTILE_STRUCTURES, {
-            filter: s => s.structureType === STRUCTURE_TOWER || s.structureType === STRUCTURE_SPAWN
+            filter: s => isHostile(s) && (s.structureType === STRUCTURE_TOWER || s.structureType === STRUCTURE_SPAWN)
         });
-        if (!target) target = creep.pos.findClosestByRange(FIND_HOSTILE_STRUCTURES, {filter: s => s.structureType !== STRUCTURE_CONTROLLER});
+        if (!target) target = creep.pos.findClosestByRange(FIND_HOSTILE_STRUCTURES, {filter: s => isHostile(s) && s.structureType !== STRUCTURE_CONTROLLER});
 
         if (target) {
             if (creep.dismantle(target) === ERR_NOT_IN_RANGE) creep.moveTo(target);

@@ -244,6 +244,16 @@ module.exports = {
                 return;
             }
 
+            // 1) VITAL INFRASTRUCTURE: Extensions (Needed to spawn defenders/bigger creeps)
+            // Pulled above Rampart floor so builders don't get trapped upgrading ramparts while the colony starves for capacity.
+            const extSite = creep.pos.findClosestByRange(FIND_CONSTRUCTION_SITES, {
+                filter: s => s.structureType === STRUCTURE_EXTENSION
+            });
+            if (extSite) {
+                if (creep.build(extSite) === ERR_NOT_IN_RANGE) creep.moveTo(extSite, { visualizePathStyle: { stroke: '#ffffff' } });
+                return;
+            }
+
             // 1) Emergency: save containers
             const dyingContainer = creep.pos.findClosestByRange(FIND_STRUCTURES, {
                 filter: s => s.structureType === STRUCTURE_CONTAINER && s.hits < CONTAINER_EMERGENCY_HITS
@@ -269,12 +279,6 @@ module.exports = {
 
             let targetSite = null;
 
-            // Extensions first (critical for room energy capacity)
-            if (!targetSite) {
-                const extSites = sites.filter(s => s.structureType === STRUCTURE_EXTENSION);
-                targetSite = pickSite(extSites);
-            }
-
             // Containers second
             if (!targetSite) {
                 const contSites = sites.filter(s => s.structureType === STRUCTURE_CONTAINER);
@@ -293,7 +297,7 @@ module.exports = {
                     const nonRoad = sites.filter(s => s.structureType !== STRUCTURE_ROAD);
                     targetSite = pickSite(nonRoad);
                 } else {
-                    targetSite = creep.pos.findClosestByPath(FIND_CONSTRUCTION_SITES);
+                    targetSite = creep.pos.findClosestByRange(FIND_CONSTRUCTION_SITES);
                 }
             }
 
@@ -314,7 +318,7 @@ module.exports = {
             }
 
             // 3) Light maintenance: containers only
-            const weakContainer = creep.pos.findClosestByPath(FIND_STRUCTURES, {
+            const weakContainer = creep.pos.findClosestByRange(FIND_STRUCTURES, {
                 filter: s =>
                     s.structureType === STRUCTURE_CONTAINER &&
                     s.hits < s.hitsMax * CONTAINER_REPAIR_THRESHOLD
@@ -383,7 +387,7 @@ module.exports = {
                 ignoreCreeps: true,
                 filter: s =>
                     s.store &&
-                    s.store[RESOURCE_ENERGY] > 0 &&
+                    s.store[RESOURCE_ENERGY] >= 50 &&
                     (
                         s.structureType === STRUCTURE_STORAGE ||
                         s.structureType === STRUCTURE_CONTAINER ||

@@ -50,12 +50,22 @@ module.exports = {
         if (!working && creep.store.getFreeCapacity() === 0) creep.memory.working = true;
 
         if (creep.memory.working) {
+            // 1. Critical Defense (Absolute Priority)
             let target = creep.pos.findClosestByRange(FIND_STRUCTURES, {
-                filter: s =>
-                    s.structureType === STRUCTURE_RAMPART &&
-                    s.hits < RAMPART_MIN_HITS
+                filter: s => s.structureType === STRUCTURE_RAMPART && s.hits < RAMPART_MIN_HITS
             });
 
+            // 2. Decaying Infrastructure (Roads & Containers)
+            // 80% threshold ensures 100% repair energy efficiency (no max-HP overflow waste)
+            if (!target) {
+                target = creep.pos.findClosestByRange(FIND_STRUCTURES, {
+                    filter: s =>
+                        (s.structureType === STRUCTURE_ROAD || s.structureType === STRUCTURE_CONTAINER) &&
+                        s.hits < s.hitsMax * 0.8
+                });
+            }
+
+            // 3. Rampart Soft Cap (Buffer building during peace time)
             if (!target) {
                 target = creep.pos.findClosestByRange(FIND_STRUCTURES, {
                     filter: s =>
@@ -65,17 +75,7 @@ module.exports = {
                 });
             }
 
-            if (target) {
-                if (creep.repair(target) === ERR_NOT_IN_RANGE) creep.moveTo(target, { visualizePathStyle: { stroke: '#00ffcc' } });
-                return;
-            }
-
-            target = creep.pos.findClosestByRange(FIND_STRUCTURES, {
-                filter: s =>
-                    (s.structureType === STRUCTURE_ROAD || s.structureType === STRUCTURE_CONTAINER) &&
-                    s.hits < s.hitsMax * 0.9
-            });
-
+            // 4. Everything else (except Walls/Ramparts)
             if (!target) {
                 target = creep.pos.findClosestByRange(FIND_STRUCTURES, {
                     filter: s =>
@@ -90,7 +90,7 @@ module.exports = {
                 return;
             }
 
-            const buildSite = creep.pos.findClosestByPath(FIND_CONSTRUCTION_SITES);
+            const buildSite = creep.pos.findClosestByRange(FIND_CONSTRUCTION_SITES);
             if (buildSite) {
                 if (creep.build(buildSite) === ERR_NOT_IN_RANGE) creep.moveTo(buildSite);
                 return;
@@ -113,7 +113,7 @@ module.exports = {
         energySource = creep.pos.findClosestByRange(FIND_STRUCTURES, {
             filter: s =>
                 s.store &&
-                s.store[RESOURCE_ENERGY] > 0 &&
+                s.store[RESOURCE_ENERGY] >= 50 &&
                 (
                     s.structureType === STRUCTURE_CONTAINER ||
                     s.structureType === STRUCTURE_STORAGE ||
@@ -125,7 +125,7 @@ module.exports = {
             return;
         }
 
-        const source = creep.pos.findClosestByPath(FIND_SOURCES_ACTIVE);
+        const source = creep.pos.findClosestByRange(FIND_SOURCES_ACTIVE);
         if (source) {
             if (creep.harvest(source) === ERR_NOT_IN_RANGE) creep.moveTo(source, { visualizePathStyle: { stroke: '#ffaa00' } });
             return;

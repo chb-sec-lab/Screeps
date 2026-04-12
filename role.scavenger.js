@@ -48,7 +48,7 @@ module.exports = {
                 filter: r => r.resourceType === RESOURCE_ENERGY && r.amount >= minPickup
             });
             if (dropped.length) {
-                const target = (creep.room.name === roomName) ? creep.pos.findClosestByPath(dropped) : dropped[0];
+                const target = (creep.room.name === roomName) ? creep.pos.findClosestByRange(dropped) : dropped[0];
                 if (target) return { roomName: roomName, type: 'drop', id: target.id };
             }
 
@@ -56,7 +56,7 @@ module.exports = {
                 filter: r => r.store && r.store[RESOURCE_ENERGY] > 0
             });
             if (ruins.length) {
-                const target = (creep.room.name === roomName) ? creep.pos.findClosestByPath(ruins) : ruins[0];
+                const target = (creep.room.name === roomName) ? creep.pos.findClosestByRange(ruins) : ruins[0];
                 if (target) return { roomName: roomName, type: 'ruin', id: target.id };
             }
 
@@ -64,7 +64,7 @@ module.exports = {
                 filter: t => t.store && t.store[RESOURCE_ENERGY] > 0
             });
             if (tombs.length) {
-                const target = (creep.room.name === roomName) ? creep.pos.findClosestByPath(tombs) : tombs[0];
+                const target = (creep.room.name === roomName) ? creep.pos.findClosestByRange(tombs) : tombs[0];
                 if (target) return { roomName: roomName, type: 'tomb', id: target.id };
             }
 
@@ -72,7 +72,7 @@ module.exports = {
                 filter: s => s.store && s.store[RESOURCE_ENERGY] > 0 && !s.my && s.structureType !== STRUCTURE_CONTAINER
             });
             if (hostileStructs.length) {
-                const target = (creep.room.name === roomName) ? creep.pos.findClosestByPath(hostileStructs) : hostileStructs[0];
+                const target = (creep.room.name === roomName) ? creep.pos.findClosestByRange(hostileStructs) : hostileStructs[0];
                 if (target) return { roomName: roomName, type: 'hostile', id: target.id };
             }
 
@@ -116,7 +116,7 @@ module.exports = {
             target = room.terminal;
             if (target && target.store.getFreeCapacity(RESOURCE_ENERGY) > 0) return target;
 
-            target = creep.pos.findClosestByPath(FIND_STRUCTURES, {
+            target = creep.pos.findClosestByRange(FIND_STRUCTURES, {
                 filter: s =>
                     s.structureType === STRUCTURE_CONTAINER &&
                     s.store &&
@@ -127,10 +127,10 @@ module.exports = {
 
         function findWithdrawTarget(room) {
             if (!room) return null;
-            return creep.pos.findClosestByPath(FIND_STRUCTURES, {
+            return creep.pos.findClosestByRange(FIND_STRUCTURES, {
                 filter: s =>
                     s.store &&
-                    s.store[RESOURCE_ENERGY] > 0 &&
+                    s.store[RESOURCE_ENERGY] >= 50 &&
                     (
                         s.structureType === STRUCTURE_CONTAINER ||
                         s.structureType === STRUCTURE_STORAGE ||
@@ -246,7 +246,7 @@ module.exports = {
             if (!creep.room.storage || creep.room.storage.store.getFreeCapacity(RESOURCE_ENERGY) === 0) return false;
             
             // Empty containers that are starting to fill up
-            const container = creep.pos.findClosestByPath(FIND_STRUCTURES, {
+            const container = creep.pos.findClosestByRange(FIND_STRUCTURES, {
                 filter: s => s.structureType === STRUCTURE_CONTAINER && s.store && s.store[RESOURCE_ENERGY] >= 400
             });
             if (!container) return false;

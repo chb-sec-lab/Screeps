@@ -152,7 +152,7 @@ module.exports = {
                 }
             } else {
                 // Fallback: If the base is 100% full, use WORK parts to help out instead of idling
-                const site = creep.pos.findClosestByPath(FIND_CONSTRUCTION_SITES);
+                const site = creep.pos.findClosestByRange(FIND_CONSTRUCTION_SITES);
                 if (site) {
                     creep.say('Aux:Bld');
                     if (creep.build(site) === ERR_NOT_IN_RANGE) creep.moveTo(site, { visualizePathStyle: { stroke: '#ffff00' } });

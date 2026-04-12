@@ -51,7 +51,7 @@ module.exports = {
             let src = creep.pos.findClosestByRange(FIND_STRUCTURES, {
                 filter: s =>
                     s.store &&
-                    s.store[RESOURCE_ENERGY] > 0 &&
+                    s.store[RESOURCE_ENERGY] >= 50 &&
                     (
                         s.structureType === STRUCTURE_STORAGE ||
                         s.structureType === STRUCTURE_CONTAINER ||
@@ -83,7 +83,7 @@ module.exports = {
                 return;
             }
 
-            const natural = creep.pos.findClosestByPath(FIND_SOURCES_ACTIVE);
+            const natural = creep.pos.findClosestByRange(FIND_SOURCES_ACTIVE);
             if (natural) {
                 if (creep.harvest(natural) === ERR_NOT_IN_RANGE) creep.moveTo(natural);
                 return;
