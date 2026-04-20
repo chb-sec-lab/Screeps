@@ -58,7 +58,7 @@ Creep.prototype.moveTo = function(target, opts) {
 };
 
 let modules = {};
-const roleNames = ['harvester', 'hauler', 'scavenger', 'repairer', 'defender', 'vanguard', 'medic', 'breacher', 'remoteMiner', 'builder', 'claimer', 'upgrader', 'healer', 'mineralMiner', 'chemist', 'scout'];
+const roleNames = ['harvester', 'hauler', 'remoteHauler', 'scavenger', 'repairer', 'defender', 'vanguard', 'medic', 'breacher', 'remoteMiner', 'builder', 'claimer', 'upgrader', 'healer', 'mineralMiner', 'chemist', 'scout'];
 
 roleNames.forEach(name => {
     try { modules[name] = require('role.' + name); } catch (e) { /* Safe Load */ }
@@ -156,8 +156,8 @@ module.exports.loop = function () {
             phaseName = 'Phase 2 (Basic Infra)';
         } else {
             b = sites > 0 ? (sites > 5 ? 3 : 2) : 0; 
-            u = sites > 0 ? 1 : 3; 
-            r = 1; h = 3; // 3 Hauler für große Basen (RCL 4+)
+            u = sites > 0 ? 1 : 2; // Reduce upgrade pressure to favor economy
+            r = 1; h = 1; // Base of 1 hauler, let self-healing scale up
             s = drops > 1 ? 1 : 0; 
             phaseName = 'Phase 3 (Empire)';
         }
@@ -467,58 +467,6 @@ module.exports.loop = function () {
         }
     }
 
-    function readNeeds() {
-        const homeBuilders = countAssigned('builder', rooms.HOME, 'workRoom');
-        const homeUpgraders = countAssigned('upgrader', rooms.HOME, 'targetRoom');
-        const homeRepairers = countAssigned('repairer', rooms.HOME, 'workRoom');
-        const targetBuilders = countAssigned('builder', targetRoom, 'workRoom');
-        const targetRepairers = countAssigned('repairer', targetRoom, 'workRoom');
-        const targetUpgraders = countAssigned('upgrader', targetRoom, 'targetRoom');
-        const targetHaulers = countAssigned('hauler', targetRoom, 'workRoom');
-        const targetClaimers = countAssigned('claimer', targetRoom, 'targetRoom');
-        const targetRemoteMiners = countAssigned('remoteMiner', targetRoom, 'targetRoom');
-        const targetRemoteHaulers = countAssigned('hauler', targetRoom, 'targetRoom');
-        const miningBuilders = countAssigned('builder', rooms.MINING, 'workRoom');
-        const miningUpgraders = countAssigned('upgrader', rooms.MINING, 'targetRoom');
-        const miningHaulers = countAssigned('hauler', rooms.MINING, 'workRoom');
-        const miningClaimers = countAssigned('claimer', rooms.MINING, 'targetRoom');
-        const expansionBuilders = countAssigned('builder', rooms.EXPANSION, 'workRoom');
-        const expansionUpgraders = countAssigned('upgrader', rooms.EXPANSION, 'targetRoom');
-        const expansionRepairers = countAssigned('repairer', rooms.EXPANSION, 'workRoom');
-        const expansionRemoteMiners = countAssigned('remoteMiner', expansionRoom, 'targetRoom');
-        const expansionHaulers = countAssigned('hauler', expansionRoom, 'targetRoom');
-        const miningRemoteMiners = countAssigned('remoteMiner', rooms.MINING, 'targetRoom');
-        const defenseDefenders = defenseTargetRoom ? countAssigned('defender', defenseTargetRoom, 'targetRoom') : 0;
-        const defenseHealers = defenseTargetRoom ? countAssigned('healer', defenseTargetRoom, 'targetRoom') : 0;
-        const miningController = Game.rooms[rooms.MINING] && Game.rooms[rooms.MINING].controller;
-        const shouldReserveMining = !miningController || !miningController.my;
-        return {
-            homeBuilders,
-            homeUpgraders,
-            homeRepairers,
-            targetBuilders,
-            targetRepairers,
-            targetUpgraders,
-            targetHaulers,
-            targetClaimers,
-            targetRemoteMiners,
-            targetRemoteHaulers,
-            miningBuilders,
-            miningUpgraders,
-            miningHaulers,
-            miningClaimers,
-            expansionBuilders,
-            expansionUpgraders,
-            expansionRepairers,
-            expansionRemoteMiners,
-            expansionHaulers,
-            miningRemoteMiners,
-            defenseDefenders,
-            defenseHealers,
-            shouldReserveMining
-        };
-    }
-
     function bodyCost(body) {
         return _.sum(body, part => BODYPART_COST[part] || 0);
     }
@@ -540,33 +488,45 @@ module.exports.loop = function () {
         let body = [];
         let cost = 0;
 
+        // Harvesters, Remote Miners, Mineral Miners: Prioritize WORK, then CARRY/MOVE
         if (role === 'harvester' || role === 'remoteMiner' || role === 'mineralMiner') {
-            body = [WORK, CARRY, MOVE]; cost = 200;
-            if (cost > energy) return null;
-            while (cost + 100 <= energy && body.length < 15) {
-                if (cost + 100 <= energy) { body.push(WORK); cost += 100; }
-                if (body.filter(p => p === WORK).length % 2 === 0 && cost + 50 <= energy) {
-                    body.push(MOVE); cost += 50;
-                }
+            if (energy < 100) return null; // Cannot even afford a WORK part
+            body.push(WORK); cost += 100;
+            if (energy >= 150) { body.push(CARRY); cost += 50; }
+            if (energy >= 200) { body.push(MOVE); cost += 50; }
+            
+            while (cost + 150 <= energy && body.length < 15) { // Add more WORK, CARRY, MOVE
+                body.push(WORK); cost += 100;
+                if (cost + 50 <= energy) { body.push(CARRY); cost += 50; }
+                if (cost + 50 <= energy) { body.push(MOVE); cost += 50; }
             }
             return body;
         }
 
+        // Builders, Upgraders, Repairers: Prioritize WORK, then CARRY/MOVE
         if (role === 'builder' || role === 'upgrader' || role === 'repairer') {
-            body = [WORK, CARRY, MOVE]; cost = 200;
-            if (cost > energy) return null;
-            while (cost + 200 <= energy && body.length < 18) {
-                body.push(WORK, CARRY, MOVE); cost += 200;
+            if (energy < 100) return null; // Cannot even afford a WORK part
+            body.push(WORK); cost += 100;
+            if (energy >= 150) { body.push(CARRY); cost += 50; }
+            if (energy >= 200) { body.push(MOVE); cost += 50; }
+
+            while (cost + 200 <= energy && body.length < 18) { // Add more WORK, CARRY, MOVE
+                body.push(WORK); cost += 100;
+                if (cost + 50 <= energy) { body.push(CARRY); cost += 50; }
+                if (cost + 50 <= energy) { body.push(MOVE); cost += 50; }
             }
-            if (cost + 100 <= energy) { body.push(WORK); cost += 100; }
             return body;
         }
 
-        if (role === 'hauler' || role === 'scavenger' || role === 'chemist') {
-            body = [CARRY, CARRY, MOVE]; cost = 150;
-            if (cost > energy) return null;
-            while (cost + 150 <= energy && body.length < 21) {
-                body.push(CARRY, CARRY, MOVE); cost += 150;
+        // Haulers, Scavengers, Chemists, Remote Haulers: Prioritize CARRY, then MOVE
+        if (role === 'hauler' || role === 'scavenger' || role === 'chemist' || role === 'remoteHauler') {
+            if (energy < 50) return null; // Cannot even afford a CARRY part
+            body.push(CARRY); cost += 50;
+            if (energy >= 100) { body.push(MOVE); cost += 50; }
+            
+            while (cost + 100 <= energy && body.length < 21) { // Add more CARRY, MOVE
+                body.push(CARRY); cost += 50;
+                if (cost + 50 <= energy) { body.push(MOVE); cost += 50; }
             }
             return body;
         }
@@ -593,7 +553,7 @@ module.exports.loop = function () {
         const currentCount = countAssigned(role, targetRoomName, memoryKey);
         
         // Notstand: Verhindert das Verhungern der Kolonie
-        const isEmergency = currentCount === 0 || (role === 'harvester' && currentCount < 2);
+        const isEmergency = (role === 'harvester' && currentCount < 2) || (role === 'hauler' && currentCount === 0);
 
         // Death-Spiral-Fix: Warten auf volle Energie, außer es herrscht absoluter Notstand!
         if (currentEnergy < maxCap && currentEnergy < fullCost && !isEmergency) {
@@ -646,7 +606,7 @@ module.exports.loop = function () {
         const rcl = inv ? inv.rcl : 0;
         const isHome = rn === rooms.HOME;
         const pBoost = isHome ? 0 : 1; // Core Base wird bei Gleichstand leicht bevorzugt (-1 zur Prio)
-
+        
         if (config.type === 'CORE') {
             const phase = getPhaseQuotas(rcl, inv, config, rn);
             
@@ -668,7 +628,7 @@ module.exports.loop = function () {
             if (uCount < phase.upgrader) requestQueue.push({ role: 'upgrader', memory: { targetRoom: rn }, priority: 50 + pBoost, count: uCount, max: phase.upgrader });
 
             const hCount = countAssigned('hauler', rn, 'workRoom');
-            if (hCount < phase.hauler) requestQueue.push({ role: 'hauler', memory: { workRoom: rn }, priority: 60 + pBoost, count: hCount, max: phase.hauler });
+            if (hCount < phase.hauler) requestQueue.push({ role: 'hauler', memory: { workRoom: rn }, priority: 25 + pBoost, count: hCount, max: phase.hauler });
 
             const sCount = countAssigned('scavenger', rn, 'workRoom');
             if (sCount < phase.scav) requestQueue.push({ role: 'scavenger', memory: { workRoom: rn }, priority: 65 + pBoost, count: sCount, max: phase.scav });
@@ -683,7 +643,7 @@ module.exports.loop = function () {
             if (dynChem && dynChem.current < dynChem.required) requestQueue.push({ role: 'chemist', memory: { workRoom: rn }, priority: 85 + pBoost, count: dynChem.current, max: dynChem.required });
 
         } else if (config.type === 'REMOTE') {
-            const baseRoom = config.base || rooms.HOME;
+            const baseRoom = config.base || Object.keys(rooms.registry).find(r => rooms.registry[r].type === 'CORE');
             // Spezifische Einstellungen aus der config.rooms.js nutzen (z.B. minersPerSource)
             const mMult = config.minersPerSource || 2; // Optimaler Fallback für Remotes
             const srcCount = inv ? inv.sources : (config.knownSources || 1);
@@ -705,18 +665,18 @@ module.exports.loop = function () {
             const rmCount = countAssigned('remoteMiner', rn, 'targetRoom');
             if (rmCount < rMinersAllowed) requestQueue.push({ role: 'remoteMiner', memory: { targetRoom: rn, homeRoom: baseRoom }, priority: 47 + pBoost, count: rmCount, max: rMinersAllowed });
 
-            const rhCount = countAssigned('hauler', rn, 'targetRoom');
-            if (rhCount < rHaulersAllowed) requestQueue.push({ role: 'hauler', memory: { targetRoom: rn, homeRoom: baseRoom }, priority: 48 + pBoost, count: rhCount, max: rHaulersAllowed });
+            const rhCount = countAssigned('remoteHauler', rn, 'targetRoom');
+            if (rhCount < rHaulersAllowed) requestQueue.push({ role: 'remoteHauler', memory: { targetRoom: rn, homeRoom: baseRoom }, priority: 48 + pBoost, count: rhCount, max: rHaulersAllowed });
         }
     });
 
     // Global Fallbacks (Defense, Army, Scouts)
     if (defenseActive) {
         const dCount = countAssigned('defender', defenseTargetRoom, 'targetRoom');
-        if (dCount < defenseNeed) requestQueue.push({ role: 'defender', memory: { targetRoom: defenseTargetRoom, homeRoom: rooms.HOME }, priority: 20, count: dCount, max: defenseNeed });
+        if (dCount < defenseNeed) requestQueue.push({ role: 'defender', memory: { targetRoom: defenseTargetRoom, homeRoom: Object.keys(rooms.registry).find(r => rooms.registry[r].type === 'CORE') }, priority: 20, count: dCount, max: defenseNeed });
         
         const healCount = countAssigned('healer', defenseTargetRoom, 'targetRoom');
-        if (healCount < defenseHealerNeed) requestQueue.push({ role: 'healer', memory: { targetRoom: defenseTargetRoom, homeRoom: rooms.HOME }, priority: 21, count: healCount, max: defenseHealerNeed });
+        if (healCount < defenseHealerNeed) requestQueue.push({ role: 'healer', memory: { targetRoom: defenseTargetRoom, homeRoom: Object.keys(rooms.registry).find(r => rooms.registry[r].type === 'CORE') }, priority: 21, count: healCount, max: defenseHealerNeed });
     }
 
     if (armyOn) {
@@ -944,7 +904,7 @@ module.exports.loop = function () {
             
             let remotePhase = 'Unsecured Mine';
             if (inv && inv.my) remotePhase = 'Claimed (Pending Core)';
-            else if (inv && inv.reservation) remotePhase = 'Secured Mine';
+            else if (inv && inv.reservation) remotePhase = `Secured Mine (${inv.reservation})`;
 
             roomReports.push({
                 name: rn, label: 'REMOTE',
@@ -1076,8 +1036,8 @@ module.exports.loop = function () {
     expander.run();
 
     // --- PASS 9: AUTOMATED BASE PLANNING ---
-    // Alle 100 Ticks prüfen. Extrem ressourcenschonend, sorgt aber für schnelles Bootstrapping.
-    if (Game.time % 100 === 0) {
+    // Alle 1001 Ticks prüfen. Verhindert CPU-Spikes und Kollisionen mit anderen Events.
+    if (Game.time % 1001 === 0) {
         Object.values(Game.rooms)
             .filter(r => r.controller && r.controller.my)
             .forEach(r => planner.run(r));

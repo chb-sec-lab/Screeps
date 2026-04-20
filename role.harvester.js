@@ -117,26 +117,26 @@ module.exports = {
                 }
             }
         } else {
-            // 1. Priority: Links (Stationary mining beam)
+            // 1. Priority: Vital Infrastructure (Spawn & Extensions) - breaks death spirals
             let target = creep.pos.findClosestByRange(FIND_STRUCTURES, {
-                filter: (s) => s.structureType === STRUCTURE_LINK && s.store.getFreeCapacity(RESOURCE_ENERGY) > 0 && creep.pos.inRangeTo(s, 2)
+                ignoreCreeps: true,
+                filter: (s) => {
+                    return (s.structureType === STRUCTURE_EXTENSION || s.structureType === STRUCTURE_SPAWN) &&
+                           s.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
+                }
             });
 
-            // 2. Priority: Containers (Stationary mining buffer)
+            // 2. Priority: Links (Stationary mining beam)
             if (!target) {
                 target = creep.pos.findClosestByRange(FIND_STRUCTURES, {
-                    filter: (s) => s.structureType === STRUCTURE_CONTAINER && s.store.getFreeCapacity(RESOURCE_ENERGY) > 0 && creep.pos.inRangeTo(s, 3)
+                    filter: (s) => s.structureType === STRUCTURE_LINK && s.store.getFreeCapacity(RESOURCE_ENERGY) > 0 && creep.pos.inRangeTo(s, 2)
                 });
             }
 
-            // 3. Fallback: Vital Infrastructure (Spawn & Extensions) - Springt ein, wenn Container voll/nicht da ist!
+            // 3. Priority: Containers (Stationary mining buffer)
             if (!target) {
                 target = creep.pos.findClosestByRange(FIND_STRUCTURES, {
-                    ignoreCreeps: true,
-                    filter: (s) => {
-                        return (s.structureType === STRUCTURE_EXTENSION || s.structureType === STRUCTURE_SPAWN) &&
-                               s.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
-                    }
+                    filter: (s) => s.structureType === STRUCTURE_CONTAINER && s.store.getFreeCapacity(RESOURCE_ENERGY) > 0 && creep.pos.inRangeTo(s, 3)
                 });
             }
 

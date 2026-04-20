@@ -24,6 +24,8 @@ module.exports = {
         healer:      0,
         mineralMiner:0, // Managed dynamically by main.js (1 per active Extractor)
         chemist:     0, // Managed dynamically by main.js (1 per 3+ Labs)
+        remoteHauler:0, // New role: Remote energy transport
+        resourceHauler:0, // New role: Mineral/compound transport & inter-colony transfers
         scout:       1  // 1 global scout wandering the map
     },
 
@@ -43,6 +45,8 @@ module.exports = {
         healer:      [MOVE, MOVE, MOVE, HEAL, HEAL, HEAL],
         mineralMiner:[WORK, WORK, WORK, WORK, CARRY, CARRY, MOVE, MOVE, MOVE],
         chemist:     [CARRY, CARRY, CARRY, CARRY, MOVE, MOVE], // 200 Carry capacity, fast on roads
+        remoteHauler:[CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE], // Similar to local hauler, but for remote
+        resourceHauler:[CARRY, CARRY, CARRY, CARRY, MOVE, MOVE], // For minerals, smaller batches
         scout:       [MOVE]
     }
 };

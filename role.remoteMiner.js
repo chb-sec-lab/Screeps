@@ -1,10 +1,11 @@
 /**
- * role.remoteMiner.js - SCOS v6.1.9
- * Updated: 2026-02-13 CET (Amsterdam)
- * Role: Remote Harvester/Walker with Vision-Corrected Safety Logic
- * Fix:
- *  - Stop "spinning": source is LOCKED and only reassigned after sustained overcrowding + cooldown
- *  - Home delivery: FIRST found Container OR Storage OR Spawn/Extension (with free capacity)
+ * role.remoteMiner.js - SCOS v8.0.0
+ * Role: Autonomous remote mining outpost operator.
+ * Behavior:
+ *  - Travels to a target room.
+ *  - Harvests a source and maintains its own container.
+ *  - Builds and repairs the container as needed.
+ *  - Does NOT leave the room to deliver energy. That is a hauler's job.
  */
 const rooms = require('config.rooms');
 
@@ -13,14 +14,7 @@ module.exports = {
         const targetRoom = creep.memory.targetRoom || rooms.TARGET;
         const homeRoom = creep.memory.homeRoom || rooms.HOME;
 
-        // ----------------
-        // TUNABLE SETTINGS
-        // ----------------
-        const MAX_MINERS_PER_SOURCE = 3;      // allow 3 miners per source
-        const OVERBOOK_TICKS = 8;             // must be overcrowded this many ticks in a row to switch
-        const REASSIGN_COOLDOWN_TICKS = 25;   // once we switch, wait before switching again
-
-        // --- 1. HOSTILE INTELLIGENCE & STABLE PARKING ---
+        // --- 1. SURVIVAL: HOSTILE INTELLIGENCE & STABLE PARKING ---
         const targetView = Game.rooms[targetRoom];
 
         const hostileCreeps = targetView ? targetView.find(FIND_HOSTILE_CREEPS, {
@@ -45,12 +39,11 @@ module.exports = {
 
         if (isDangerous) {
             creep.say(hostilesInSight ? 'DANGER!' : 'Wait');
-
             if (creep.room.name === targetRoom) {
                 const exit = creep.pos.findClosestByRange(creep.room.findExitTo(homeRoom));
                 creep.moveTo(exit, { visualizePathStyle: { stroke: '#ff0000' } });
             } else {
-                // Hold position in safe room to avoid "dance" from crowding one parking point.
+                // Hold position in safe room to avoid "border dancing".
                 creep.say('Standby');
                 if (creep.pos.x === 0 || creep.pos.x === 49 || creep.pos.y === 0 || creep.pos.y === 49) {
                     creep.moveTo(new RoomPosition(25, 25, creep.room.name), { range: 22 });
@@ -59,211 +52,98 @@ module.exports = {
             return;
         }
 
-        // ---------------------------
-        // Helpers: source balancing
-        // ---------------------------
-
-        // Count how many remote miners are assigned to a given sourceId
-        // NOTE: If you don't set creep.memory.role, remove that line below.
-        function countAssignedMiners(sourceId) {
-            return _.sum(Game.creeps, c =>
-                c.my &&
-                c.memory &&
-                c.memory.role === creep.memory.role && // remove if you don't use roles in memory
-                c.memory.sourceId === sourceId
-            );
+        // --- 2. STATE MACHINE ---
+        if (creep.memory.working && creep.store.getUsedCapacity() === 0) {
+            creep.memory.working = false;
+            creep.say('Harvest');
+        }
+        if (!creep.memory.working && creep.store.getFreeCapacity() === 0) {
+            creep.memory.working = true;
+            creep.say('Work');
         }
 
-        function getSourcesInRoom(room) {
-            const active = room.find(FIND_SOURCES_ACTIVE);
-            return active.length ? active : room.find(FIND_SOURCES);
-        }
-
-        function pickLeastAssignedSource(room) {
-            const sources = getSourcesInRoom(room);
-            if (!sources.length) return null;
-
-            // choose by lowest assigned count, tie-break by range
-            let best = null;
-            let bestCount = Infinity;
-            let bestRange = Infinity;
-
-            for (const s of sources) {
-                const cnt = countAssignedMiners(s.id);
-                const r = creep.pos.getRangeTo(s);
-                if (cnt < bestCount || (cnt === bestCount && r < bestRange)) {
-                    best = s;
-                    bestCount = cnt;
-                    bestRange = r;
-                }
-            }
-            return best;
-        }
-
-        function findLocalDepositTarget(room) {
-            if (!room) return null;
-
-            let target = creep.pos.findClosestByRange(FIND_STRUCTURES, {
-                ignoreCreeps: true,
-                filter: s =>
-                    s.store &&
-                    s.store.getFreeCapacity &&
-                    s.store.getFreeCapacity(RESOURCE_ENERGY) > 0 &&
-                    (
-                        s.structureType === STRUCTURE_CONTAINER ||
-                        s.structureType === STRUCTURE_STORAGE ||
-                        s.structureType === STRUCTURE_LINK
-                    )
-            });
-            if (target) return target;
-
-            target = creep.pos.findClosestByRange(FIND_STRUCTURES, {
-                ignoreCreeps: true,
-                filter: s =>
-                    (s.structureType === STRUCTURE_SPAWN || s.structureType === STRUCTURE_EXTENSION) &&
-                    s.store &&
-                    s.store.getFreeCapacity(RESOURCE_ENERGY) > 0
-            });
-            return target;
-        }
-
-        function findAdjacentDepositTarget(room) {
-            if (!room) return null;
-            const nearby = creep.pos.findInRange(FIND_STRUCTURES, 1, {
-                filter: s =>
-                    s.store &&
-                    s.store.getFreeCapacity &&
-                    s.store.getFreeCapacity(RESOURCE_ENERGY) > 0 &&
-                    (
-                        s.structureType === STRUCTURE_SPAWN ||
-                        s.structureType === STRUCTURE_EXTENSION ||
-                        s.structureType === STRUCTURE_CONTAINER ||
-                        s.structureType === STRUCTURE_STORAGE ||
-                        s.structureType === STRUCTURE_LINK
-                    )
-            });
-            return nearby.length ? nearby[0] : null;
-        }
-
-        // --------------------------------
-        // 2. MINING & DELIVERY LOGIC
-        // --------------------------------
-        let source = creep.memory.sourceId ? Game.getObjectById(creep.memory.sourceId) : null;
-        const isDepleted = source && source.energy === 0;
-
-        if (creep.store.getFreeCapacity() > 0 && !(isDepleted && creep.store.getUsedCapacity() > 0)) {
-            // Need Energy: Go to Target Room
+        // --- 3. EXECUTION LOGIC ---
+        if (!creep.memory.working) {
+            // --- HARVEST MODE ---
             if (creep.room.name !== targetRoom) {
-                // --- PRE-FLIGHT CHECK: Wait for healing if damaged before leaving safe room ---
                 if (creep.hits < creep.hitsMax && creep.room.name === homeRoom) {
                     creep.say('Wait:Heal');
-                    return; // Warte im sicheren Raum, bis der Tower dich vollgeheilt hat
+                    return;
                 }
-
                 creep.moveTo(new RoomPosition(25, 25, targetRoom), { visualizePathStyle: { stroke: '#ffffff' }, reusePath: 50 });
                 return;
             }
 
-            // --- BORDER BOUNCE FIX ---
-            if (creep.pos.x === 0 || creep.pos.x === 49 || creep.pos.y === 0 || creep.pos.y === 49) {
-                creep.moveTo(new RoomPosition(25, 25, creep.room.name));
-                return;
-            }
-
-            // In Target Room: lock a source and harvest it
-            // If invalid, pick one and lock it
+            let source = creep.memory.sourceId ? Game.getObjectById(creep.memory.sourceId) : null;
             if (!source) {
-                source = pickLeastAssignedSource(creep.room);
+                // If orchestrator didn't assign a source, find the first one and lock it.
+                const sources = creep.room.find(FIND_SOURCES);
+                if (sources.length > 0) source = sources[0];
                 creep.memory.sourceId = source ? source.id : null;
-                creep.memory.overbookCount = 0;
             }
 
             if (!source) {
                 creep.say('Wait:NoSrc');
-                if (creep.pos.x === 0 || creep.pos.x === 49 || creep.pos.y === 0 || creep.pos.y === 49) {
-                    creep.moveTo(new RoomPosition(25, 25, creep.room.name), { range: 22 });
-                }
                 return;
             }
 
-            // Overbooking logic with hysteresis + cooldown to prevent oscillation/spinning
-            const assigned = countAssignedMiners(source.id);
-
-            const cooldownUntil = creep.memory.reassignCooldownUntil || 0;
-            const canReassign = Game.time >= cooldownUntil;
-
-            if (assigned > MAX_MINERS_PER_SOURCE && canReassign) {
-                // count consecutive ticks overcrowded
-                creep.memory.overbookCount = (creep.memory.overbookCount || 0) + 1;
-
-                if (creep.memory.overbookCount >= OVERBOOK_TICKS) {
-                    const bestAlt = pickLeastAssignedSource(creep.room);
-
-                    // Only switch if alternative is actually better (less assigned than current)
-                    if (bestAlt && bestAlt.id !== source.id) {
-                        const altAssigned = countAssignedMiners(bestAlt.id);
-
-                        if (altAssigned < assigned) {
-                            creep.memory.sourceId = bestAlt.id;
-                            creep.memory.reassignCooldownUntil = Game.time + REASSIGN_COOLDOWN_TICKS;
-                            creep.memory.overbookCount = 0;
-                            source = bestAlt;
-                            creep.say('Swap:Crowd');
-                        } else {
-                            // No real improvement: stay put, reset counter slowly
-                            creep.memory.overbookCount = Math.max(0, creep.memory.overbookCount - 1);
-                        }
-                    } else {
-                        // No alternative: stay put
-                        creep.memory.overbookCount = Math.max(0, creep.memory.overbookCount - 1);
-                    }
-                }
-            } else {
-                // Not overcrowded (or in cooldown): reset counter
-                creep.memory.overbookCount = 0;
-            }
-
-            // Harvest (this is what they should keep doing)
             const harvestResult = creep.harvest(source);
             if (harvestResult === ERR_NOT_IN_RANGE) {
                 creep.moveTo(source, { visualizePathStyle: { stroke: '#ffaa00' } });
             } else if (harvestResult === ERR_NOT_OWNER) {
                 creep.say('Flee:Core');
-                creep.memory.lastDangerTick = Game.time; // Trigger amnesia fix
+                creep.memory.lastDangerTick = Game.time;
                 const exit = creep.pos.findClosestByRange(creep.room.findExitTo(homeRoom));
                 if (exit) creep.moveTo(exit, { visualizePathStyle: { stroke: '#ff0000' } });
             }
-            return;
-
-        }
-
-        // Full: Prefer local delivery in current room.
-        let target = findAdjacentDepositTarget(creep.room) || findLocalDepositTarget(creep.room);
-        if (target) {
-            if (creep.transfer(target, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
-                creep.moveTo(target, { visualizePathStyle: { stroke: '#00ff00' } });
+        } else {
+            // --- WORK MODE (DEPOSIT, BUILD, REPAIR) ---
+            if (creep.room.name !== targetRoom) {
+                creep.moveTo(new RoomPosition(25, 25, targetRoom), { visualizePathStyle: { stroke: '#ffffff' }, reusePath: 50 });
+                return;
             }
-            return;
-        }
 
-        // If no nearby sink exists, try home room as overflow fallback.
-        if (creep.room.name !== homeRoom) {
-            const exit = creep.pos.findClosestByRange(creep.room.findExitTo(homeRoom));
-            if (exit) creep.moveTo(exit, { visualizePathStyle: { stroke: '#00ff00' } });
-            return;
-        }
-
-        target = findAdjacentDepositTarget(creep.room) || findLocalDepositTarget(creep.room);
-        if (target) {
-            if (creep.transfer(target, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
-                creep.moveTo(target, { visualizePathStyle: { stroke: '#00ff00' } });
+            const source = creep.memory.sourceId ? Game.getObjectById(creep.memory.sourceId) : null;
+            if (!source) {
+                creep.say('No Source');
+                return;
             }
-            return;
-        }
 
-        creep.say('Idle:Full');
-        if (creep.pos.x === 0 || creep.pos.x === 49 || creep.pos.y === 0 || creep.pos.y === 49) {
-            creep.moveTo(new RoomPosition(25, 25, creep.room.name), { range: 22 });
+            // Find or create a container near the source
+            let container = creep.pos.findClosestByRange(FIND_STRUCTURES, {
+                filter: s => s.structureType === STRUCTURE_CONTAINER && s.pos.inRangeTo(source, 2)
+            });
+
+            if (container) {
+                // Container exists: repair or deposit
+                if (container.hits < container.hitsMax * 0.8) {
+                    if (creep.repair(container) === ERR_NOT_IN_RANGE) {
+                        creep.moveTo(container, { visualizePathStyle: { stroke: '#00ffcc' } });
+                    }
+                } else {
+                    if (creep.transfer(container, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
+                        creep.moveTo(container, { visualizePathStyle: { stroke: '#00ffcc' } });
+                    }
+                }
+            } else {
+                // No container: build one
+                let site = creep.pos.findClosestByRange(FIND_CONSTRUCTION_SITES, {
+                    filter: s => s.structureType === STRUCTURE_CONTAINER && s.pos.inRangeTo(source, 2)
+                });
+
+                if (site) {
+                    if (creep.build(site) === ERR_NOT_IN_RANGE) {
+                        creep.moveTo(site, { visualizePathStyle: { stroke: '#ffffff' } });
+                    }
+                } else {
+                    // No site, create one. Find a valid spot next to the source.
+                    const path = creep.room.findPath(creep.pos, source.pos, { ignoreCreeps: true, range: 1 });
+                    if (path.length > 0) {
+                        const pos = path[path.length - 1];
+                        creep.room.createConstructionSite(pos.x, pos.y, STRUCTURE_CONTAINER);
+                    }
+                }
+            }
         }
     }
 };

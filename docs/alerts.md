@@ -199,3 +199,11 @@ Track urgent production incidents and response quality. Keep entries brief and f
 - Immediate Response: CPU Circuit Breaker successfully intercepted the hard timeout by skipping execution ticks, keeping the Screeps VM alive and allowing priority spawns to continue.
 - Resolution: Eradicated lingering `findClosestByPath` calls in the fallback/idle states of all civilian roles and replaced them with `findClosestByRange`.
 - Follow-up: CPU stabilized below 15. Ensure no `O(N^2)` pathfinding functions are used in fallback states where surplus creeps might cluster.
+
+- Date-Time (UTC): `2026-02-18T08:00:00Z`
+- Severity: `SEV-1`
+- Trigger: Global logistics deadlock. Haulers and builders were spawned but remained idle ("standing around"), leading to energy starvation in towers/storage and a halt in construction, despite full containers.
+- Scope: `role.hauler`, `role.builder`, and by extension the entire colony economy.
+- Immediate Response: A series of patches attempting to fix the roles individually failed, sometimes introducing new syntax/reference errors that crashed the entire script.
+- Resolution: A systemic root cause was identified: creeps lacked logic to handle unreachable targets (`ERR_NO_PATH`), causing them to get stuck in an infinite loop trying to move to a blocked container. The final fix involved implementing a temporary target blacklisting system in both `hauler` and `builder` roles, allowing them to intelligently re-route around obstacles. All script-crashing syntax errors were also resolved.
+- Follow-up: The "Unreachable Target Deadlock" is now a primary pattern to check for in all future roles that involve `moveTo` logic.

@@ -21,71 +21,108 @@ module.exports = {
         this.planLabs(room);
     },
 
+    paveRoute: function(startPos, endTarget) {
+        const path = PathFinder.search(startPos, { pos: endTarget.pos, range: 1 }, {
+            plainCost: 2,
+            swampCost: 2, // Treat swamps like plains so we naturally pave them
+            maxOps: 8000, // WICHTIG: Erlaubt Wegfindung über Raumgrenzen hinweg
+            roomCallback: function(roomName) {
+                let targetRoom = Game.rooms[roomName];
+                if (!targetRoom) return false;
+                let costs = new PathFinder.CostMatrix;
+                
+                targetRoom.find(FIND_STRUCTURES).forEach(function(struct) {
+                    if (struct.structureType === STRUCTURE_ROAD) {
+                        costs.set(struct.pos.x, struct.pos.y, 1); // Prefer existing roads to avoid parallel paths
+                    } else if (struct.structureType !== STRUCTURE_CONTAINER &&
+                               (struct.structureType !== STRUCTURE_RAMPART || !struct.my)) {
+                        costs.set(struct.pos.x, struct.pos.y, 255); // Block solid buildings
+                    }
+                });
+                
+                targetRoom.find(FIND_CONSTRUCTION_SITES).forEach(function(site) {
+                    if (site.structureType === STRUCTURE_ROAD) {
+                        costs.set(site.pos.x, site.pos.y, 1); // Vorhandene Baustellen bevorzugen! (Vermeidet parallele Straßen)
+                    }
+                });
+                return costs;
+            }
+        }).path;
+
+        // Place a road construction site on each step of the path
+        path.forEach(pos => {
+            if (Game.rooms[pos.roomName]) { // Nur wenn wir Sicht in dem Raum haben
+                pos.createConstructionSite(STRUCTURE_ROAD);
+            }
+        });
+    },
+
+    planRemoteHighways: function(room, anchor) {
+        if (!roomsConfig.registry) return;
+
+        // Get all remote rooms for this base
+        const remoteRoomNames = Object.keys(roomsConfig.registry).filter(rn =>
+            roomsConfig.registry[rn].type === 'REMOTE' && roomsConfig.registry[rn].base === room.name
+        );
+        if (remoteRoomNames.length === 0) return;
+
+        // Use memory to stagger the planning
+        if (!room.memory.planner) room.memory.planner = {};
+        if (room.memory.planner.nextRemoteIndex === undefined || room.memory.planner.nextRemoteIndex >= remoteRoomNames.length) {
+            room.memory.planner.nextRemoteIndex = 0;
+        }
+
+        const remoteRoomName = remoteRoomNames[room.memory.planner.nextRemoteIndex];
+        const remoteRoom = Game.rooms[remoteRoomName];
+
+        // If we have vision, plan roads to its sources
+        if (remoteRoom) {
+            const remoteSources = remoteRoom.find(FIND_SOURCES);
+            if (remoteSources.length > 0) {
+                // To be even safer, let's just plan to ONE source per run.
+                if (room.memory.planner.nextRemoteSourceIndex === undefined || room.memory.planner.nextRemoteSourceIndex >= remoteSources.length) {
+                    room.memory.planner.nextRemoteSourceIndex = 0;
+                }
+
+                const sourceToPlan = remoteSources[room.memory.planner.nextRemoteSourceIndex];
+                console.log(`[Planner] Planning highway from ${room.name} to source ${sourceToPlan.id} in ${remoteRoomName}.`);
+                this.paveRoute(anchor, sourceToPlan);
+
+                // Increment source index for next run
+                room.memory.planner.nextRemoteSourceIndex++;
+                if (room.memory.planner.nextRemoteSourceIndex >= remoteSources.length) {
+                    // We've planned all sources in this room, move to the next room for the next planner run.
+                    room.memory.planner.nextRemoteSourceIndex = 0;
+                    room.memory.planner.nextRemoteIndex++;
+                }
+                return; // Only do one path per run.
+            }
+        }
+
+        // If we don't have vision, or the room has no sources, just move to the next remote room for the next run.
+        room.memory.planner.nextRemoteIndex++;
+    },
+
     planRoads: function(room) {
         const spawns = room.find(FIND_MY_SPAWNS);
         if (spawns.length === 0) return;
         const anchor = spawns[0].pos;
 
-        const targets = [...room.find(FIND_SOURCES), ...room.find(FIND_MINERALS)];
-        if (room.controller) targets.push(room.controller);
-
-        // --- SCOS AUTO-HIGHWAYS: Remote Räume anbinden ---
-        if (roomsConfig.registry) {
-            Object.keys(roomsConfig.registry).forEach(rn => {
-                if (roomsConfig.registry[rn].type === 'REMOTE' && roomsConfig.registry[rn].base === room.name) {
-                    if (Game.rooms[rn]) {
-                        targets.push(...Game.rooms[rn].find(FIND_SOURCES));
-                    }
-                }
-            });
-        }
-
-        const paveRoute = (startPos, endTarget) => {
-            const path = PathFinder.search(startPos, { pos: endTarget.pos, range: 1 }, {
-                plainCost: 2,
-                swampCost: 2, // Treat swamps like plains so we naturally pave them
-                maxOps: 8000, // WICHTIG: Erlaubt Wegfindung über Raumgrenzen hinweg
-                roomCallback: function(roomName) {
-                    let targetRoom = Game.rooms[roomName];
-                    if (!targetRoom) return false;
-                    let costs = new PathFinder.CostMatrix;
-                    
-                    targetRoom.find(FIND_STRUCTURES).forEach(function(struct) {
-                        if (struct.structureType === STRUCTURE_ROAD) {
-                            costs.set(struct.pos.x, struct.pos.y, 1); // Prefer existing roads to avoid parallel paths
-                        } else if (struct.structureType !== STRUCTURE_CONTAINER &&
-                                   (struct.structureType !== STRUCTURE_RAMPART || !struct.my)) {
-                            costs.set(struct.pos.x, struct.pos.y, 255); // Block solid buildings
-                        }
-                    });
-                    
-                    targetRoom.find(FIND_CONSTRUCTION_SITES).forEach(function(site) {
-                        if (site.structureType === STRUCTURE_ROAD) {
-                            costs.set(site.pos.x, site.pos.y, 1); // Vorhandene Baustellen bevorzugen! (Vermeidet parallele Straßen)
-                        }
-                    });
-                    return costs;
-                }
-            }).path;
-
-            // Place a road construction site on each step of the path
-            path.forEach(pos => {
-                if (Game.rooms[pos.roomName]) { // Nur wenn wir Sicht in dem Raum haben
-                    pos.createConstructionSite(STRUCTURE_ROAD);
-                }
-            });
-        };
-
         // 1. Wege vom Spawn zu allen Ressourcen und zum Controller
-        targets.forEach(target => paveRoute(anchor, target));
+        const localTargets = [...room.find(FIND_SOURCES), ...room.find(FIND_MINERALS)];
+        if (room.controller) localTargets.push(room.controller);
+        localTargets.forEach(target => this.paveRoute(anchor, target));
 
         // 2. Extra-Highways: Vom Storage direkt zum Controller und zum Mineral
         if (room.storage) {
-            if (room.controller) paveRoute(room.storage.pos, room.controller);
+            if (room.controller) this.paveRoute(room.storage.pos, room.controller);
             
             const minerals = room.find(FIND_MINERALS);
-            if (minerals.length > 0) paveRoute(room.storage.pos, minerals[0]);
+            if (minerals.length > 0) this.paveRoute(room.storage.pos, minerals[0]);
         }
+
+        // 3. REMOTE HIGHWAYS (STAGGERED & SLOW)
+        this.planRemoteHighways(room, anchor);
     },
 
     planRamparts: function(room) {
@@ -200,8 +237,11 @@ module.exports = {
                             const terrain = Game.map.getRoomTerrain(room.name).get(pos.x, pos.y);
                             if (terrain === TERRAIN_MASK_WALL) continue;
 
-                            const hasStuff = pos.lookFor(LOOK_STRUCTURES).length > 0 || pos.lookFor(LOOK_CONSTRUCTION_SITES).length > 0;
-                            if (!hasStuff) {
+                            // Check for blocking structures or construction sites, but ignore roads.
+                            const hasBlockingStructure = pos.lookFor(LOOK_STRUCTURES).some(s => s.structureType !== STRUCTURE_ROAD);
+                            const hasBlockingSite = pos.lookFor(LOOK_CONSTRUCTION_SITES).some(s => s.structureType !== STRUCTURE_ROAD);
+
+                            if (!hasBlockingStructure && !hasBlockingSite) {
                                 if (room.createConstructionSite(pos, STRUCTURE_LINK) === OK) {
                                     placed++;
                                     spotFound = true;
