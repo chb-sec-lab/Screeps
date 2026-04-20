@@ -648,8 +648,17 @@ module.exports.loop = function () {
             const mMult = config.minersPerSource || 2; // Optimaler Fallback für Remotes
             const srcCount = inv ? inv.sources : (config.knownSources || 1);
             const rMinersAllowed = srcCount * mMult;
-            const rHaulersAllowed = srcCount * mMult;
             
+            // --- SELF-HEALING REMOTE LOGISTICS ---
+            // Beginne mit 1 Hauler pro Quelle. Füge nur dann mehr hinzu, wenn die Container überlaufen.
+            // Das verhindert das Herumstehen von überflüssigen Haulern und spart massiv Energie.
+            let rHaulersAllowed = srcCount;
+            const remoteInv = Memory.inventory && Memory.inventory.rooms ? Memory.inventory.rooms[rn] : null;
+            if (remoteInv && remoteInv.visible) {
+                const overflowingContainers = remoteInv.overflowingContainers || 0;
+                if (overflowingContainers > 0) rHaulersAllowed += overflowingContainers; // Add 1 hauler per overflowing container
+            }
+
             const needsClaim = !inv || (!inv.my && !inv.reservation);
             if (needsClaim) {
                 const clmCount = countAssigned('claimer', rn, 'targetRoom');

@@ -207,3 +207,11 @@ Track urgent production incidents and response quality. Keep entries brief and f
 - Immediate Response: A series of patches attempting to fix the roles individually failed, sometimes introducing new syntax/reference errors that crashed the entire script.
 - Resolution: A systemic root cause was identified: creeps lacked logic to handle unreachable targets (`ERR_NO_PATH`), causing them to get stuck in an infinite loop trying to move to a blocked container. The final fix involved implementing a temporary target blacklisting system in both `hauler` and `builder` roles, allowing them to intelligently re-route around obstacles. All script-crashing syntax errors were also resolved.
 - Follow-up: The "Unreachable Target Deadlock" is now a primary pattern to check for in all future roles that involve `moveTo` logic.
+
+- Date-Time (UTC): `2026-02-18T09:00:00Z`
+- Severity: `SEV-1`
+- Trigger: Global script crash due to CPU bucket exhaustion. All creeps were frozen.
+- Scope: `main.js` orchestrator, affecting all creep roles.
+- Immediate Response: The CPU circuit breaker was firing continuously, but the script was still crashing before it could recover, leading to a total freeze.
+- Resolution: The high-frequency `room.find()` call for overflowing containers in `main.js` was identified as the root cause. This logic was moved into the throttled `utils.inventory.js` scanner. The main loop now reads the cached result from `Memory.inventory`, eliminating the CPU spike.
+- Follow-up: All high-frequency `find` operations must be moved out of the main orchestration loop and into cached, throttled scanners.

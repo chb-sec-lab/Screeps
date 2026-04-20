@@ -7,6 +7,18 @@ const rooms = require('config.rooms');
 
 module.exports = {
     run: function(creep) {
+        // Clear unreachable target if the timeout has expired
+        if (creep.memory.unreachableTimeout && Game.time >= creep.memory.unreachableTimeout) {
+            creep.memory.unreachableTargetId = null;
+            creep.memory.unreachableTimeout = null;
+        }
+
+        // --- BORDER BOUNCE FIX ---
+        if (creep.pos.x === 0 || creep.pos.x === 49 || creep.pos.y === 0 || creep.pos.y === 49) {
+            creep.moveTo(new RoomPosition(25, 25, creep.room.name), { reusePath: 5 });
+            return;
+        }
+
         // --- State Machine ---
         if (creep.memory.working && creep.store.getUsedCapacity() === 0) {
             creep.memory.working = false;
@@ -60,21 +72,27 @@ module.exports = {
             }
             // Delivery priorities: Spawns > Towers > Storage
             let target = creep.pos.findClosestByRange(FIND_STRUCTURES, {
-                filter: s => (s.structureType === STRUCTURE_SPAWN || s.structureType === STRUCTURE_EXTENSION) &&
+                filter: s => s.id !== creep.memory.unreachableTargetId &&
+                             (s.structureType === STRUCTURE_SPAWN || s.structureType === STRUCTURE_EXTENSION) &&
                              s.store.getFreeCapacity(RESOURCE_ENERGY) > 0
             });
             if (!target) {
                 target = creep.pos.findClosestByRange(FIND_STRUCTURES, {
-                    filter: s => s.structureType === STRUCTURE_TOWER && s.store.getFreeCapacity(RESOURCE_ENERGY) > 200
+                    filter: s => s.id !== creep.memory.unreachableTargetId && s.structureType === STRUCTURE_TOWER && s.store.getFreeCapacity(RESOURCE_ENERGY) > 200
                 });
             }
             if (!target && creep.room.storage) {
                 target = creep.room.storage;
-                if (target.store.getFreeCapacity(RESOURCE_ENERGY) === 0) target = null;
+                if (target.id === creep.memory.unreachableTargetId || target.store.getFreeCapacity(RESOURCE_ENERGY) === 0) target = null;
             }
             if (target) {
                 if (creep.transfer(target, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
-                    creep.moveTo(target, { reusePath: 5, visualizePathStyle: { stroke: '#ffffff' } });
+                    const moveResult = creep.moveTo(target, { reusePath: 5, visualizePathStyle: { stroke: '#ffffff' } });
+                    if (moveResult === ERR_NO_PATH) {
+                        creep.say('NoPath!');
+                        creep.memory.unreachableTargetId = target.id;
+                        creep.memory.unreachableTimeout = Game.time + 10;
+                    }
                 }
             } else {
                 creep.say('Idle:Full');
@@ -86,14 +104,19 @@ module.exports = {
                 return;
             }
             // Pickup priorities: Drops > Containers
-            let target = creep.pos.findClosestByRange(FIND_DROPPED_RESOURCES, { filter: r => r.resourceType === RESOURCE_ENERGY && r.amount > 100 });
+            let target = creep.pos.findClosestByRange(FIND_DROPPED_RESOURCES, { filter: r => r.id !== creep.memory.unreachableTargetId && r.resourceType === RESOURCE_ENERGY && r.amount > 100 });
             if (!target) {
-                target = creep.pos.findClosestByRange(FIND_STRUCTURES, { filter: s => s.structureType === STRUCTURE_CONTAINER && s.store[RESOURCE_ENERGY] > 200 });
+                target = creep.pos.findClosestByRange(FIND_STRUCTURES, { filter: s => s.id !== creep.memory.unreachableTargetId && s.structureType === STRUCTURE_CONTAINER && s.store[RESOURCE_ENERGY] > 200 });
             }
             if (target) {
                 const res = (target.amount !== undefined) ? creep.pickup(target) : creep.withdraw(target, RESOURCE_ENERGY);
                 if (res === ERR_NOT_IN_RANGE) {
-                    creep.moveTo(target, { reusePath: 5, visualizePathStyle: { stroke: '#ffaa00' } });
+                    const moveResult = creep.moveTo(target, { reusePath: 5, visualizePathStyle: { stroke: '#ffaa00' } });
+                    if (moveResult === ERR_NO_PATH) {
+                        creep.say('NoPath!');
+                        creep.memory.unreachableTargetId = target.id;
+                        creep.memory.unreachableTimeout = Game.time + 10;
+                    }
                 }
             } else {
                 creep.say('Wait:Nrg');

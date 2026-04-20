@@ -26,6 +26,9 @@ module.exports = {
             extensions: room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType === STRUCTURE_EXTENSION}).length,
             towers: room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType === STRUCTURE_TOWER}).length,
             containers: room.find(FIND_STRUCTURES, {filter: s => s.structureType === STRUCTURE_CONTAINER}).length,
+            overflowingContainers: room.find(FIND_STRUCTURES, {
+                filter: s => s.structureType === STRUCTURE_CONTAINER && s.store.getUsedCapacity(RESOURCE_ENERGY) > 1800
+            }).length,
             storage: room.storage ? 1 : 0,
             terminal: room.terminal ? 1 : 0,
             extractors: room.find(FIND_STRUCTURES, {filter: s => s.structureType === STRUCTURE_EXTRACTOR}).length,
