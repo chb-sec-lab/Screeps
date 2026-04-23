@@ -89,7 +89,9 @@ module.exports = {
 
             const harvestResult = creep.harvest(source);
             if (harvestResult === ERR_NOT_IN_RANGE) {
-                creep.moveTo(source, { visualizePathStyle: { stroke: '#ffaa00' } });
+                if (creep.moveTo(source, { visualizePathStyle: { stroke: '#ffaa00' } }) === ERR_NO_PATH) {
+                    creep.say('NoPath!');
+                }
             } else if (harvestResult === ERR_NOT_OWNER) {
                 creep.say('Flee:Core');
                 creep.memory.lastDangerTick = Game.time;
@@ -118,11 +120,15 @@ module.exports = {
                 // Container exists: repair or deposit
                 if (container.hits < container.hitsMax * 0.8) {
                     if (creep.repair(container) === ERR_NOT_IN_RANGE) {
-                        creep.moveTo(container, { visualizePathStyle: { stroke: '#00ffcc' } });
+                        if (creep.moveTo(container, { visualizePathStyle: { stroke: '#00ffcc' } }) === ERR_NO_PATH) {
+                            creep.say('NoPath!');
+                        }
                     }
                 } else {
                     if (creep.transfer(container, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
-                        creep.moveTo(container, { visualizePathStyle: { stroke: '#00ffcc' } });
+                        if (creep.moveTo(container, { visualizePathStyle: { stroke: '#00ffcc' } }) === ERR_NO_PATH) {
+                            creep.say('NoPath!');
+                        }
                     }
                 }
             } else {
@@ -133,7 +139,9 @@ module.exports = {
 
                 if (site) {
                     if (creep.build(site) === ERR_NOT_IN_RANGE) {
-                        creep.moveTo(site, { visualizePathStyle: { stroke: '#ffffff' } });
+                        if (creep.moveTo(site, { visualizePathStyle: { stroke: '#ffffff' } }) === ERR_NO_PATH) {
+                            creep.say('NoPath!');
+                        }
                     }
                 } else {
                     // No site, create one. Find a valid spot next to the source.

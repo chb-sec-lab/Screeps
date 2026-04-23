@@ -24,6 +24,62 @@ Track urgent production incidents and response quality. Keep entries brief and f
 
 ## Entries
 
+- Date-Time (UTC): `2026-02-18T20:30:00Z`
+- Severity: `SEV-1`
+- Trigger: User correctly identified that autonomous "AI" pathing without failsafes results in "junk" deadlocks across the colony.
+- Scope: `role.scavenger.js`, `role.repairer.js`, `role.mineralMiner.js`, `role.remoteMiner.js`
+- Immediate Response: Conducted a complete, system-wide code audit of all remaining civilian roles for missing `ERR_NO_PATH` fallback logic.
+- Resolution: Applied the `unreachableTargetId` temporary blacklisting system to Scavengers and Repairers. Added explicit `ERR_NO_PATH` logging to single-target roles like Mineral/Remote Miners to prevent silent freezes. The "Unreachable Target Deadlock" is now eradicated from the entire codebase.
+- Follow-up: The core OS framework is now hardened. Proceed with observing autonomous scaling.
+
+- Date-Time (UTC): `2026-02-18T20:00:00Z`
+- Severity: `SEV-1`
+- Trigger: Newly spawned harvesters completely frozen ("steht frei und ist sicher nicht blockiert"), completely ignoring `ERR_NO_PATH` protections.
+- Scope: `main.js` (Spawn body generation)
+- Immediate Response: Investigated creep body part generation under emergency conditions.
+- Resolution: Discovered that when the user killed creeps to force a reset, the colony entered "Emergency Notstand". The spawn built creeps with whatever energy was available (e.g., 100-150 energy). This resulted in bodies like `[WORK]` or `[WORK, CARRY]` which lack a `MOVE` part, rendering them physically incapable of movement. Updated `getOptimalBody()` to enforce a hard baseline of `[WORK, CARRY, MOVE]` (200 energy) for all workers, preventing the creation of legless creeps.
+- Follow-up: Base creep templates must always include at least one `MOVE` part, regardless of emergency status.
+
+- Date-Time (UTC): `2026-02-18T19:30:00Z`
+- Severity: `SEV-1`
+- Trigger: Harvesters frozen in `Wait:Nrg` or `Deliver` state ("machen immer noch nichts"), completely stalling the economy even when newly spawned.
+- Scope: `role.harvester.js`
+- Immediate Response: Investigated harvester pathing blockages and error codes.
+- Resolution: Discovered that Harvesters were missing the "Unreachable Target Deadlock" protection applied to other roles. When blocking each other at a single-access-tile source or full extensions, `moveTo` returned `ERR_NO_PATH` and the creeps silently froze indefinitely. Implemented `unreachableTargetId` system for both Harvesters' sources and delivery targets.
+- Follow-up: NEVER deploy `moveTo` logic for core economic roles without `ERR_NO_PATH` fallback mechanisms.
+
+- Date-Time (UTC): `2026-02-18T18:30:00Z`
+- Severity: `SEV-3`
+- Trigger: Harvesters traveling to new target rooms getting stuck infinitely on room exit tiles.
+- Scope: `role.harvester.js`
+- Immediate Response: Investigated why "old" harvesters were still standing around.
+- Resolution: Applied the universal "Border Bounce Fix" and `RoomPosition` routing to `role.harvester.js`, matching the fix previously deployed to other roles on `2026-02-16T16:00:00Z`.
+- Follow-up: Audit all remaining roles for `findExitTo` legacy code.
+
+- Date-Time (UTC): `2026-02-18T18:00:00Z`
+- Severity: `SEV-2`
+- Trigger: Claimer attempted to claim a REMOTE room (`W6N8`) instead of reserving it. Harvesters stood still dropping energy instead of delivering it to storage/extensions.
+- Scope: `main.js`, `role.claimer.js`, `role.harvester.js`
+- Immediate Response: Intercepted the claimer manually.
+- Resolution: 1. Fixed `main.js` to strictly enforce `claimMode: 'reserve'` for all `REMOTE` rooms, regardless of available GCL. Added a failsafe in `role.claimer.js` to override legacy creep memory if they target a REMOTE room. 2. Reverted the "Strictly Stationary" dropping logic in `role.harvester.js`. Harvesters will now actively deliver to Links/Containers first, then Extensions/Spawns, and finally Storage, acting as their own haulers if necessary.
+- Follow-up: Ensure "Stationary Mining" optimizations do not disable the fallback delivery logic that keeps early/mid-game economies running.
+
+- Date-Time (UTC): `2026-02-18T16:00:00Z`
+- Severity: `SEV-1`
+- Trigger: Harvesters abandoning sources to "claim" rooms and Spawns locked in an infinite Builder spawning loop.
+- Scope: `role.harvester.js`, `role.builder.js`, core spawning economy.
+- Immediate Response: Investigated harvester wandering behavior and builder quota calculations.
+- Resolution: 1. Removed `upgradeController` fallback from `role.harvester.js`. Stationary miners now correctly `drop()` energy if no container is present, preventing them from wandering across rooms. 2. Removed autonomous `pickBestWorkRoom()` logic from `role.builder.js`. Builders now strictly obey the `workRoom` assigned by `main.js`, completely eliminating the Quota Leak that caused infinite spawning.
+- Follow-up: Enforce strict "Single Responsibility" for roles. Civilian units should never autonomously change the memory keys (`workRoom`, `targetRoom`) used by the central orchestrator for counting.
+
+- Date-Time (UTC): `2026-02-18T10:00:00Z`
+- Severity: `SEV-1`
+- Trigger: Global logistics deadlock. Haulers were spawned but remained idle with full energy ("standing around"), starving the colony.
+- Scope: `role.hauler.js`, entire colony economy.
+- Immediate Response: Identified a logic regression where haulers would withdraw from storage without checking for active demand.
+- Resolution: Re-implemented the "urgent sink" check from alert `2026-02-17T00:30:00Z`. Haulers are now forbidden from withdrawing from storage unless spawns, extensions, or towers require energy, preventing them from getting stuck in an idle-full state.
+- Follow-up: Add regression tests or checklists for critical, incident-driven fixes before merging future role refactors.
+
 - Date-Time (UTC): `2026-02-14T10:21:00Z`
 - Severity: `SEV-2`
 - Trigger: invader pressure in `E57S56` while logistics and builder traffic were active

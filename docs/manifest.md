@@ -9,10 +9,13 @@ System-level policy for architecture boundaries, mission priorities, and operati
 ## Topology
 
 Driven by the `registry` in `config.rooms.js`:
-- CORE: `W7N8` (Primary Base)
-- CORE: `W7N7` (Future Secondary Base, 2 Sources)
-- REMOTE: `W6N8` (Expansion Mine, tied to W7N8)
-- REMOTE: `W8N8` (Sector Mine, tied to W7N8)
+- CORE: `W7N8` (Primary Base, spacious)
+- CORE: `W7N7` (Secondary Base, 2 Sources, reclaiming)
+- CORE: `W8N8` (Western Base, 1 Source, narrow layout)
+- REMOTE: `W6N8` (Eastern Mine, 1 Source, tied to W7N8)
+- REMOTE: `W8N7` (Western Mine, 1 Source, tied to W7N8)
+- REMOTE: `W9N6` (New Southern Mine, 2 Sources, tied to W7N8)
+- QUARANTINED: `W6N7` (Hostile bot activity, added to global `BLACKLIST`)
 
 ## Operational Priorities
 
@@ -38,7 +41,7 @@ The system utilizes the **Evolution Protocol** (dynamic RCL-based evaluation per
 - **Phase 2 (RCL 3 "Basic Infra"):** 2 Builders, 2 Upgraders, 1 Repairer, 1 Hauler, 1 Scav. Introduces container logistics and tower upkeep.
 - **Phase 3 (RCL 4+ "Empire"):** 1 Builder, 2 Upgraders, 1 Repairer, 2 Haulers, 2 Scavs. Fully enables multi-room remote assignments.
 
-- **Self-Healing Logistics:** Hauler and Scavenger quotas automatically scale up if local containers overflow (>1500 energy) or excessive dropped energy is detected, eliminating the need for manual per-room tuning.
+- **Self-Healing Logistics:** Hauler and Scavenger quotas automatically scale up if local containers overflow (>1800 energy) or excessive dropped energy is detected, eliminating the need for manual per-room tuning.
 - **Fact-Based Scaling:** Harvester quotas dynamically scale down from 2 to 1 per source at RCL 4+ because a single large Harvester perfectly matches the 10 energy/tick source regeneration limit.
 
 Remote Mining:
@@ -72,6 +75,7 @@ Remote Mining:
 - Link networks automate energy transit from Sources directly to Controllers (priority) or Storage (fallback), bypassing haulers where possible.
 - **Mutual Aid Protocol:** Any `CORE` base that loses its economy (0 miners/haulers) or triggers a global defense alert will be autonomously reinforced by Spawns from healthy neighboring `CORE` bases.
 - **Active Evasion (Kiting):** Civilian creeps unconditionally flee from armed hostiles and Invader Cores at a range of 5, temporarily crossing room borders if necessary, before resuming work.
+- **Universal Survival:** Core survival logic, such as kiting, is abstracted into a shared `utils.survival` module to ensure consistent behavior and maintainability across all roles.
 - Obsolete or stuck creeps can be decommissioned by setting `memory.recycle = true`, routing them to the nearest spawn for energy reclamation.
 
 ## Documentation Governance

@@ -3,31 +3,14 @@
  * Role: Dedicated Mineral Extractor
  * Behavior: Harvests minerals from Extractors and deposits them directly into the room's Terminal or Storage.
  */
+const survival = require('utils.survival');
+
 module.exports = {
     run: function(creep) {
         const workRoom = creep.memory.workRoom || creep.room.name;
         
-        // --- ACTIVE EVASION (KITING) ---
-        const hostileCreeps = creep.room.find(FIND_HOSTILE_CREEPS, {
-            filter: c => c.body.some(p => p.type === ATTACK || p.type === RANGED_ATTACK || p.type === HEAL)
-        });
-        const hostileCores = creep.room.find(FIND_HOSTILE_STRUCTURES, {
-            filter: s => s.structureType === STRUCTURE_INVADER_CORE
-        });
-        const threats = [...hostileCreeps, ...hostileCores];
-
-        if (threats.length > 0) {
-            const closeThreats = threats.filter(h => creep.pos.getRangeTo(h) <= 5);
-            if (closeThreats.length > 0) {
-                creep.say('Kite!');
-                const goals = closeThreats.map(h => ({ pos: h.pos, range: 7 }));
-                const pathRes = PathFinder.search(creep.pos, goals, { flee: true, maxRooms: 2 }); // Flucht in Nachbarräume erlaubt!
-                if (pathRes.path.length > 0) {
-                    creep.move(creep.pos.getDirectionTo(pathRes.path[0]));
-                }
-                return; // Arbeit strikt blockieren, solange Gefahr droht!
-            }
-        }
+        // --- UNIVERSAL SURVIVAL ---
+        if (survival.fleeFromHostiles(creep)) return;
 
         // Travel to designated room
         if (creep.room.name !== workRoom) {
@@ -53,7 +36,9 @@ module.exports = {
                 
                 const res = creep.harvest(mineral);
                 if (res === ERR_NOT_IN_RANGE) {
-                    creep.moveTo(mineral, {visualizePathStyle: {stroke: '#00ffff'}});
+                    if (creep.moveTo(mineral, {visualizePathStyle: {stroke: '#00ffff'}}) === ERR_NO_PATH) {
+                        creep.say('NoPath!');
+                    }
                 }
             }
         } else {
@@ -64,7 +49,9 @@ module.exports = {
             if (target) {
                 const resType = Object.keys(creep.store)[0]; // Dynamically get what mineral we are carrying
                 if (resType && creep.transfer(target, resType) === ERR_NOT_IN_RANGE) {
-                    creep.moveTo(target, {visualizePathStyle: {stroke: '#ffffff'}});
+                    if (creep.moveTo(target, {visualizePathStyle: {stroke: '#ffffff'}}) === ERR_NO_PATH) {
+                        creep.say('NoPath!');
+                    }
                 }
             } else {
                 creep.say('Idle:Full');

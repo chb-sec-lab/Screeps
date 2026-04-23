@@ -5,7 +5,7 @@
  */
 module.exports = {
     // Global PathFinder Blacklist: Creeps will never route through these rooms
-    BLACKLIST: ['W6N6'], // Invader Core
+    BLACKLIST: ['W6N6', 'W6N7'], // Invader Core, Hostile bot room
 
     // Diplomacy Whitelist: Players who are ignored by towers and defenders
     ALLIES: [],
@@ -18,10 +18,12 @@ module.exports = {
     // Künftige Kernels lesen dieses Objekt aus, um Basen (CORE) und Außenposten (REMOTE) zu steuern.
     registry: {
         'W7N8': { type: 'CORE' }, // Heimatbasis (Wird nun vollautomatisch durch JIT & Fact-Based Scaling skaliert)
-        'W6N8': { type: 'REMOTE', base: 'W7N8', knownSources: 1 }, // New Colony Target
-        'W8N8': { type: 'CORE' }, // Was EXPANSION, now a full CORE base
-        'W7N7': { type: 'CORE' }, // Was MINING, now a full CORE base
-        'W6N7': { type: 'REMOTE', base: 'W7N8' }, // Neue Mine
-        'W8N7': { type: 'REMOTE', base: 'W7N8' }  // Border/Connection Room (Reserve & Mine)
+        'W7N7': { type: 'CORE' }, // Your primary expansion target
+        // Example of a strategic override: 'maxBuilders' limits the number of builders the OS will send,
+        // even if JIT logic requests more. Useful for narrow canyons or tight layouts.
+        'W6N8': { type: 'REMOTE', base: 'W7N8', knownSources: 1 }, // Eastern remote mine (1 source)
+        'W8N8': { type: 'CORE', knownSources: 1, maxBuilders: 1 }, // Western base (1 source, narrow)
+        'W8N7': { type: 'REMOTE', base: 'W7N8', knownSources: 1 }, // Western remote mine (1 source)
+        'W9N6': { type: 'REMOTE', base: 'W7N8', knownSources: 2 }  // New southern remote mine (2 sources)
     }
 };

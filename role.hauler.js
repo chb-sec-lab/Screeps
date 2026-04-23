@@ -5,6 +5,7 @@
  * It does NOT handle remote hauling, minerals, or global exports.
  */
 const rooms = require('config.rooms');
+const survival = require('utils.survival');
 
 module.exports = {
     run: function (creep) {
@@ -20,19 +21,8 @@ module.exports = {
             creep.memory.idleCount = 0;
         }
 
-        const hostileCreeps = creep.room.find(FIND_HOSTILE_CREEPS, {
-            filter: c => c.body.some(p => p.type === ATTACK || p.type === RANGED_ATTACK || p.type === HEAL)
-        });
-        if (hostileCreeps.length > 0) {
-            const closeThreats = creep.pos.findInRange(hostileCreeps, 5);
-            if (closeThreats.length > 0) {
-                creep.say('Kite!');
-                const goals = closeThreats.map(h => ({ pos: h.pos, range: 7 }));
-                const pathRes = PathFinder.search(creep.pos, goals, { flee: true, maxRooms: 1 });
-                if (pathRes.path.length > 0) creep.move(creep.pos.getDirectionTo(pathRes.path[0]));
-                return;
-            }
-        }
+        // --- UNIVERSAL SURVIVAL ---
+        if (survival.fleeFromHostiles(creep)) return;
 
         const workRoom = creep.memory.workRoom || creep.room.name;
         if (creep.room.name !== workRoom) {
@@ -101,21 +91,21 @@ module.exports = {
             });
             let target = null;
             if (containers.length > 0) {
-                // BUGFIX: _.max can be unreliable in Screeps' Lodash implementation, causing a deadlock.
-                // Your own alerts.md log shows a past crash from a similar function (_maxBy).
-                // A native JS loop is 100% reliable and guarantees the fullest container is found.
-                let maxEnergy = 0;
-                for(const c of containers) {
-                    if (c.store.getUsedCapacity(RESOURCE_ENERGY) > maxEnergy) {
-                        maxEnergy = c.store.getUsedCapacity(RESOURCE_ENERGY);
-                        target = c;
-                    }
-                }
+                // Use Array.prototype.reduce for a concise and safe way to find the fullest container,
+                // avoiding potentially unreliable Lodash helpers in the Screeps runtime.
+                target = containers.reduce((fullest, c) => 
+                    (!fullest || c.store.getUsedCapacity(RESOURCE_ENERGY) > fullest.store.getUsedCapacity(RESOURCE_ENERGY)) ? c : fullest, 
+                null);
             }
 
             // P2: Storage (if containers are low)
+            // FIX: Only withdraw from storage if there is an urgent need (Spawns, Extensions, Towers).
+            // This prevents haulers from getting stuck in a loop when all sinks are full.
+            // This is a direct implementation of the lesson from alert log 2026-02-17T00:30:00Z.
             if (!target && creep.room.storage && creep.room.storage.store[RESOURCE_ENERGY] > 0 && creep.room.storage.id !== creep.memory.unreachableTargetId) {
-                target = creep.room.storage;
+                if (hasUrgentSink(creep.room)) {
+                    target = creep.room.storage;
+                }
             }
 
             // P3: Dropped resources/ruins (cleanup)
@@ -152,4 +142,23 @@ function idle(creep, state) {
     creep.memory.idleCount = (creep.memory.idleCount || 0) + 1;
     // Auto-recycle if idle for too long
     if (creep.memory.idleCount > 100) creep.memory.recycle = true;
+}
+
+function hasUrgentSink(room) {
+    if (!room) return false;
+    // P1: Spawns & Extensions
+    const needsSpawnEnergy = room.find(FIND_STRUCTURES, {
+        filter: s =>
+            (s.structureType === STRUCTURE_SPAWN || s.structureType === STRUCTURE_EXTENSION) &&
+            s.store.getFreeCapacity(RESOURCE_ENERGY) > 0
+    }).length > 0;
+    if (needsSpawnEnergy) return true;
+
+    // P2: Towers
+    const needsTowerEnergy = room.find(FIND_STRUCTURES, {
+        filter: s =>
+            s.structureType === STRUCTURE_TOWER &&
+            s.store.getFreeCapacity(RESOURCE_ENERGY) > 200 // Only if it needs a decent amount
+    }).length > 0;
+    return needsTowerEnergy;
 }

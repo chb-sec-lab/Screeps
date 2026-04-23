@@ -6,34 +6,22 @@
  *  - mode: creep.memory.claimMode = "claim" | "reserve" (default reserve)
  */
 const rooms = require('config.rooms');
+const survival = require('utils.survival');
 
 module.exports = {
     run: function (creep) {
 
         const targetRoom = creep.memory.targetRoom || rooms.TARGET;
-        const mode = creep.memory.claimMode || "reserve"; // safer default
+        let mode = creep.memory.claimMode || "reserve"; // safer default
 
-        // --- ACTIVE EVASION (KITING) ---
-        const hostileCreeps = creep.room.find(FIND_HOSTILE_CREEPS, {
-            filter: c => c.body.some(p => p.type === ATTACK || p.type === RANGED_ATTACK || p.type === HEAL)
-        });
-        const hostileCores = creep.room.find(FIND_HOSTILE_STRUCTURES, {
-            filter: s => s.structureType === STRUCTURE_INVADER_CORE
-        });
-        const threats = [...hostileCreeps, ...hostileCores];
-
-        if (threats.length > 0) {
-            const closeThreats = threats.filter(h => creep.pos.getRangeTo(h) <= 5);
-            if (closeThreats.length > 0) {
-                creep.say('Kite!');
-                const goals = closeThreats.map(h => ({ pos: h.pos, range: 7 }));
-                const pathRes = PathFinder.search(creep.pos, goals, { flee: true, maxRooms: 2 }); // Flucht in Nachbarräume erlaubt!
-                if (pathRes.path.length > 0) {
-                    creep.move(creep.pos.getDirectionTo(pathRes.path[0]));
-                }
-                return; // Arbeit strikt blockieren, solange Gefahr droht!
-            }
+        // FAILSAFE: Protect REMOTE rooms from accidental claiming by legacy creeps
+        if (rooms.registry && rooms.registry[targetRoom] && rooms.registry[targetRoom].type === 'REMOTE') {
+            mode = 'reserve';
+            creep.memory.claimMode = 'reserve'; // Repair the memory
         }
+
+        // --- UNIVERSAL SURVIVAL ---
+        if (survival.fleeFromHostiles(creep)) return;
 
         // Travel to target room
         if (creep.room.name !== targetRoom) {

@@ -30,7 +30,9 @@ module.exports = {
     },
 
     BODIES: {
-        harvester:   [WORK, WORK, WORK, CARRY, CARRY, MOVE, MOVE, MOVE],
+        // Upgraded to 5 WORK parts to perfectly match source regeneration (10e/tick),
+        // enabling the "Fact-Based Scaling" protocol in main.js to function correctly.
+        harvester:   [WORK, WORK, WORK, WORK, WORK, CARRY, MOVE, MOVE, MOVE],
         hauler:      [CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE],
         scavenger:   [CARRY, CARRY, CARRY, MOVE, MOVE, MOVE],
         repairer:    [WORK, WORK, CARRY, CARRY, MOVE, MOVE, MOVE],

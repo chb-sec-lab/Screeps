@@ -162,15 +162,11 @@ module.exports.loop = function () {
             phaseName = 'Phase 3 (Empire)';
         }
 
-        // --- SELF-HEALING LOGISTICS (Auto-Scaling) ---
-        // Eliminiert die Notwendigkeit für manuelle "Per-Room Tweaks"!
-        if (roomName && Game.rooms[roomName]) {
-            const rObj = Game.rooms[roomName];
-            const overflowingContainers = rObj.find(FIND_STRUCTURES, {
-                filter: s => s.structureType === STRUCTURE_CONTAINER && s.store[RESOURCE_ENERGY] > 1500
-            }).length;
-            if (overflowingContainers > 0) h += overflowingContainers; // Container läuft über? Mehr Hauler spawnen!
-            if (drops > 3) s += 1; // Zuviel liegengelassene Energie? Scavenger spawnen!
+        // --- SELF-HEALING LOGISTICS (Auto-Scaling from cached inventory) ---
+        // This logic now reads from the throttled inventory scanner to prevent CPU spikes.
+        if (invData) {
+            if (invData.overflowingContainers > 0) h += invData.overflowingContainers;
+            if (invData.droppedEnergy > 3) s += 1;
         }
 
         // Raumspezifische Overrides (z.B. enge Steinbrüche) aus config.rooms.js
@@ -490,12 +486,12 @@ module.exports.loop = function () {
 
         // Harvesters, Remote Miners, Mineral Miners: Prioritize WORK, then CARRY/MOVE
         if (role === 'harvester' || role === 'remoteMiner' || role === 'mineralMiner') {
-            if (energy < 100) return null; // Cannot even afford a WORK part
-            body.push(WORK); cost += 100;
-            if (energy >= 150) { body.push(CARRY); cost += 50; }
-            if (energy >= 200) { body.push(MOVE); cost += 50; }
+            // BUGFIX: Ein Creep MUSS zwingend [WORK, CARRY, MOVE] haben, sonst ist er bewegungsunfähig (keine Beine)!
+            // Selbst im absoluten Notstand muss der Spawn auf 200 Energie warten (die er automatisch generiert).
+            if (energy < 200) return null; 
+            body.push(WORK, CARRY, MOVE); cost += 200;
             
-            while (cost + 150 <= energy && body.length < 15) { // Add more WORK, CARRY, MOVE
+            while (cost + 200 <= energy && body.length < 15) { // Add more WORK, CARRY, MOVE
                 body.push(WORK); cost += 100;
                 if (cost + 50 <= energy) { body.push(CARRY); cost += 50; }
                 if (cost + 50 <= energy) { body.push(MOVE); cost += 50; }
@@ -505,10 +501,8 @@ module.exports.loop = function () {
 
         // Builders, Upgraders, Repairers: Prioritize WORK, then CARRY/MOVE
         if (role === 'builder' || role === 'upgrader' || role === 'repairer') {
-            if (energy < 100) return null; // Cannot even afford a WORK part
-            body.push(WORK); cost += 100;
-            if (energy >= 150) { body.push(CARRY); cost += 50; }
-            if (energy >= 200) { body.push(MOVE); cost += 50; }
+            if (energy < 200) return null; // MUST afford [WORK, CARRY, MOVE]
+            body.push(WORK, CARRY, MOVE); cost += 200;
 
             while (cost + 200 <= energy && body.length < 18) { // Add more WORK, CARRY, MOVE
                 body.push(WORK); cost += 100;
@@ -520,9 +514,8 @@ module.exports.loop = function () {
 
         // Haulers, Scavengers, Chemists, Remote Haulers: Prioritize CARRY, then MOVE
         if (role === 'hauler' || role === 'scavenger' || role === 'chemist' || role === 'remoteHauler') {
-            if (energy < 50) return null; // Cannot even afford a CARRY part
-            body.push(CARRY); cost += 50;
-            if (energy >= 100) { body.push(MOVE); cost += 50; }
+            if (energy < 100) return null; // MUST afford [CARRY, MOVE]
+            body.push(CARRY, MOVE); cost += 100;
             
             while (cost + 100 <= energy && body.length < 21) { // Add more CARRY, MOVE
                 body.push(CARRY); cost += 50;
@@ -662,7 +655,8 @@ module.exports.loop = function () {
             const needsClaim = !inv || (!inv.my && !inv.reservation);
             if (needsClaim) {
                 const clmCount = countAssigned('claimer', rn, 'targetRoom');
-                if (clmCount < 1) requestQueue.push({ role: 'claimer', memory: { targetRoom: rn, claimMode: canClaimMore ? 'claim' : 'reserve' }, priority: 45 + pBoost, count: clmCount, max: 1 });
+                // BUGFIX: Remote rooms are outposts. They should ONLY ever be reserved, never claimed!
+                if (clmCount < 1) requestQueue.push({ role: 'claimer', memory: { targetRoom: rn, claimMode: 'reserve' }, priority: 45 + pBoost, count: clmCount, max: 1 });
             }
 
             // Downgrade-Schutz: Wenn wir die Mine geclaimt haben, brauchen wir 1 Upgrader, sonst verfällt sie!

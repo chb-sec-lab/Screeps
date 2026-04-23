@@ -395,6 +395,34 @@ Capture non-urgent observations that improve system design, role policy, and ope
 - Action: Restricted `storage` withdrawal in `role.hauler.js` to strictly require active demand from Spawns, Extensions, or Towers.
 - Evidence: Extra haulers correctly entered `Idle:Empty` state and recycled.
 
+- Date-Time (UTC): `2026-02-18T11:00:00Z`
+- Context: Idle harvesters observed in high-RCL rooms despite "Fact-Based Scaling" being active.
+- Observation: The `role.harvester` body in `config.roles.js` was defined with only 3 WORK parts. This is insufficient to saturate an energy source (10 energy/tick), which requires 5 WORK parts.
+- Impact: The "Fact-Based Scaling" logic in `main.js`, which reduces the harvester quota to 1 per source at RCL 4+, was causing under-harvesting because the single harvester was too small. This resulted in inefficient swarms of underpowered, idle creeps.
+- Action: Upgraded the `harvester` body to a 5-WORK-part configuration. This aligns the physical creep with the documented strategic intent in `manifest.md`, allowing the "Fact-Based Scaling" protocol to function correctly.
+- Evidence: `manifest.md` explicitly states the goal of using a "single large Harvester". The previous body definition did not meet this requirement.
+
+- Date-Time (UTC): `2026-02-18T12:00:00Z`
+- Context: Follow-up to harvester body upgrade. Idle harvesters still observed in `W7N8`.
+- Observation: The "Fact-Based Scaling" logic in `main.js` was set to reduce the harvester multiplier at RCL 4. However, the new 5-WORK part body (700 energy cost) is buildable at RCL 3. This caused the system to over-spawn harvesters (2 per source) at RCL 3, leading to one idle creep per source.
+- Impact: Wasted energy on spawning redundant creeps and CPU on idle creep logic.
+- Action: Adjusted the "Fact-Based Scaling" threshold in `main.js` to trigger at RCL 3. Corrected the `role.harvester.js` idle-recycle timer from 500 to the standard 100 ticks to remove surplus units faster.
+- Evidence: User report of "4 harvesters standing around" in an RCL 3 room with 2 sources, which matches the `2 * 2 = 4` quota calculation.
+
+- Date-Time (UTC): `2026-02-18T14:00:00Z`
+- Context: Harvesters observed idling after the dynamic source-switching logic was implemented.
+- Observation: The logic correctly switched sources if one was empty, but if *all* sources in a room were temporarily depleted, the harvester would still attempt to `harvest()` from an empty source. This returns `ERR_NOT_ENOUGH_RESOURCES` but does not trigger a `moveTo` call, causing the creep to freeze in place.
+- Impact: Harvesters froze until sources regenerated, causing a temporary halt in the entire colony's energy income.
+- Action: Added a final check in `role.harvester.js`. If the chosen source is still empty after re-evaluation, the creep will now explicitly `moveTo()` it and wait within range, instead of attempting a futile `harvest()` call. This makes the role resilient to temporary, room-wide energy depletion.
+- Evidence: User report of "harvester... steht nur rum" (harvester... is just standing around).
+
+- Date-Time (UTC): `2026-02-18T19:00:00Z`
+- Context: Proactive code review of Upgrader efficiency and resilience.
+- Observation: `role.upgrader.js` was lacking the `ERR_NO_PATH` (Unreachable Target Deadlock) protection that was recently added to Builders and Haulers.
+- Impact: Upgraders could permanently freeze if they blocked each other while trying to withdraw from Storage or upgrade the Controller.
+- Action: Added `unreachableTargetId` temporary blacklisting to all `moveTo` calls in the Upgrader role, fulfilling the SEV-1 follow-up directive.
+- Evidence: Code review matched against Alert `2026-02-18T08:00:00Z` follow-up requirement.
+
 - Date-Time (UTC): `2026-02-17T01:00:00Z`
 - Context: Inter-colony logistics and energy balancing.
 - Observation: New or besieged colonies could starve while mature core bases accumulated vast energy surpluses (>150k).
