@@ -24,6 +24,22 @@ Track urgent production incidents and response quality. Keep entries brief and f
 
 ## Entries
 
+- Date-Time (UTC): `2026-02-18T22:00:00Z`
+- Severity: `SEV-1`
+- Trigger: 6 Haulers and 2 Builders spawned for `W7N7` despite the room not having a controller. Economy completely drained.
+- Scope: `main.js` (CORE Room Queue Logic, Self-Healing Logistics)
+- Immediate Response: Analyzed how economy creeps bypassed the ownership checks for `CORE` rooms.
+- Resolution: Identified a structural logic flaw where unowned `CORE` rooms were processed through normal quota evaluation. The "Self-Healing Logistics" algorithm detected 6 leftover full containers from before the downgrade and requested 6 haulers for a room without a spawn. Reworked the architecture to implement **Strict Ownership Gating**. If `!inv.my`, the orchestrator now hard-aborts economy queue generation and forcefully sets local builder/hauler/harvester culling quotas to 0, ensuring only a Claimer is processed. Re-enabled `cullSurplus` (shredder) to actively decommission the erroneous creeps.
+- Follow-up: Algorithms that scale based on infrastructure (Self-Healing) must explicitly verify room ownership before calculating quotas.
+
+- Date-Time (UTC): `2026-02-18T21:00:00Z`
+- Severity: `SEV-2`
+- Trigger: Unowned CORE room (`W7N7`) was never reclaimed after losing its controller.
+- Scope: `main.js` (Infinite-Base Spawn Queue)
+- Immediate Response: Investigated spawn queue generation for CORE rooms.
+- Resolution: Discovered that the logic to push a `claimer` (with `claimMode: 'claim'`) into the `requestQueue` for unowned `CORE` rooms was omitted during the "Infinite-Base" refactoring. Added the missing queue request if `canClaimMore` is true.
+- Follow-up: Ensure all room types (`CORE`, `REMOTE`) have their respective claim/reserve logic explicitly defined in the dynamic queue generator.
+
 - Date-Time (UTC): `2026-02-18T20:30:00Z`
 - Severity: `SEV-1`
 - Trigger: User correctly identified that autonomous "AI" pathing without failsafes results in "junk" deadlocks across the colony.

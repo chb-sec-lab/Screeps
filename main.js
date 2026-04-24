@@ -163,8 +163,9 @@ module.exports.loop = function () {
         }
 
         // --- SELF-HEALING LOGISTICS (Auto-Scaling from cached inventory) ---
-        // This logic now reads from the throttled inventory scanner to prevent CPU spikes.
-        if (invData) {
+        // REWORK: ONLY apply self-healing to rooms we ACTUALLY OWN.
+        // Prevents hallucinating haulers for unowned rooms with leftover full containers!
+        if (invData && invData.my) {
             if (invData.overflowingContainers > 0) h += invData.overflowingContainers;
             if (invData.droppedEnergy > 3) s += 1;
         }
@@ -456,9 +457,9 @@ module.exports.loop = function () {
             const sorted = _.sortBy(liveActive, 'ticksToLive');
             const excess = liveActive.length - maxAllowed;
             for (let i = 0; i < excess; i++) {
-                // Deaktiviert: Keine sofortigen Hinrichtungen mehr! 
-                // Überschüssige Einheiten arbeiten weiter, bis sie natürlich auslaufen.
-                // sorted[i].memory.recycle = true; 
+                // RE-ENABLED: Überschüssige Einheiten (z.B. Fehler-Hauler in unowned rooms) werden sofort recycelt.
+                // Sie werfen ihre Energie ab und erstatten ihre Spawnkosten.
+                sorted[i].memory.recycle = true; 
             }
         }
     }
@@ -601,8 +602,19 @@ module.exports.loop = function () {
         const pBoost = isHome ? 0 : 1; // Core Base wird bei Gleichstand leicht bevorzugt (-1 zur Prio)
         
         if (config.type === 'CORE') {
+            const needsClaim = !inv || !inv.my;
+
+            // --- REWORK: UNOWNED CORE ROOM LOGIC ---
+            if (needsClaim) {
+                if (canClaimMore) {
+                    const clmCount = countAssigned('claimer', rn, 'targetRoom');
+                    if (clmCount < 1) requestQueue.push({ role: 'claimer', memory: { targetRoom: rn, claimMode: 'claim' }, priority: 42 + pBoost, count: clmCount, max: 1 });
+                }
+                return; // ⛔ ABORT: Do not process Harvesters, Builders, Haulers for unowned rooms!
+            }
+
+            // --- REWORK: OWNED CORE ROOM LOGIC ---
             const phase = getPhaseQuotas(rcl, inv, config, rn);
-            
             const dynM = dynamicMinerQueue.find(q => q.room === rn);
             if (dynM) {
                 if (dynM.current < Math.min(3, dynM.required)) {
@@ -741,9 +753,13 @@ module.exports.loop = function () {
                 // 2. Wirtschaftskollaps: Wenn eine CORE-Basis tot ist (0 Miner oder 0 Hauler),
                 // darf jede andere Basis sofort Erste-Hilfe-Creeps schicken, um sie wiederzubeleben!
                 if (activeRegistry[reqRoom] && activeRegistry[reqRoom].type === 'CORE' && !isMyOwnRoom) {
-                    const hrvCount = countAssigned('harvester', reqRoom, 'targetRoom');
-                    const haulCount = countAssigned('hauler', reqRoom, 'workRoom');
-                    if (hrvCount === 0 || haulCount === 0) isMutualAid = true;
+                    const reqInv = Memory.inventory.rooms[reqRoom];
+                    // REWORK: Only provide mutual aid to rooms we ACTUALLY OWN.
+                    if (reqInv && reqInv.my) {
+                        const hrvCount = countAssigned('harvester', reqRoom, 'targetRoom');
+                        const haulCount = countAssigned('hauler', reqRoom, 'workRoom');
+                        if (hrvCount < 2 || haulCount < 1) isMutualAid = true;
+                    }
                 }
 
                 // Darf nur spawnen, wenn es mein Raum/Remote ist, gebootstrapped wird ODER Nothilfe greift.
@@ -828,68 +844,80 @@ module.exports.loop = function () {
         const rcl = inv ? inv.rcl : 0;
         
         if (config.type === 'CORE') {
-            const phase = getPhaseQuotas(rcl, inv, config);
-            const dynM = dynamicMinerQueue.find(q => q.room === rn);
-            const dynMin = dynamicMineralQueue.find(q => q.room === rn);
-            const dynChem = dynamicChemistQueue.find(q => q.room === rn);
-
-            // --- SURPLUS CULLING (Active Quota Enforcement) ---
-            if (dynM) cullSurplus('harvester', rn, 'targetRoom', dynM.required);
-            cullSurplus('mineralMiner', rn, 'workRoom', dynMin ? dynMin.required : 0);
-            cullSurplus('chemist', rn, 'workRoom', dynChem ? dynChem.required : 0);
-
             if (!inv || !inv.my) {
-                cullSurplus('claimer', rn, 'targetRoom', 1);
-                if (!canClaimMore && inv) {
-                    cullSurplus('remoteMiner', rn, 'targetRoom', inv.sources * 2);
-                    cullSurplus('hauler', rn, 'targetRoom', inv.sources);
-                } else {
-                    cullSurplus('remoteMiner', rn, 'targetRoom', 0);
-                    cullSurplus('hauler', rn, 'targetRoom', 0);
-                }
+                // --- REWORK: DRACONIAN CULLING FOR UNOWNED ROOMS ---
+                // Instantly kill all local economy creeps that were erroneously spawned.
+                cullSurplus('harvester', rn, 'targetRoom', 0);
+                cullSurplus('hauler', rn, 'workRoom', 0);
+                cullSurplus('builder', rn, 'workRoom', 0);
+                cullSurplus('upgrader', rn, 'targetRoom', 0);
+                cullSurplus('repairer', rn, 'workRoom', 0);
+                cullSurplus('mineralMiner', rn, 'workRoom', 0);
+                cullSurplus('chemist', rn, 'workRoom', 0);
+                
+                cullSurplus('claimer', rn, 'targetRoom', canClaimMore ? 1 : 0);
+                
+                roomReports.push({
+                    name: rn, label: 'CORE',
+                    nrg: Game.rooms[rn] ? Game.rooms[rn].energyAvailable : 0,
+                    cap: Game.rooms[rn] ? Game.rooms[rn].energyCapacityAvailable : 0,
+                    rcl: rcl,
+                    my: false,
+                    reservation: inv ? inv.reservation : null,
+                    phase: 'Awaiting Claim',
+                    spawns: spawnsByRoom[rn] || [],
+                    ttl: getRoomTTL(rn),
+                    roles: fQ('CLM', countAssigned('claimer', rn, 'targetRoom'), canClaimMore ? 1 : 0) || 'None'
+                });
+                return; // Skip to next room
             } else {
+                // --- OWNED CULLING AND REPORTING ---
+                const phase = getPhaseQuotas(rcl, inv, config);
+                const dynM = dynamicMinerQueue.find(q => q.room === rn);
+                const dynMin = dynamicMineralQueue.find(q => q.room === rn);
+                const dynChem = dynamicChemistQueue.find(q => q.room === rn);
+
+                if (dynM) cullSurplus('harvester', rn, 'targetRoom', dynM.required);
+                cullSurplus('builder', rn, 'workRoom', phase.builder);
+                cullSurplus('upgrader', rn, 'targetRoom', phase.upgrader);
+                cullSurplus('repairer', rn, 'workRoom', phase.repairer);
+                cullSurplus('hauler', rn, 'workRoom', phase.hauler);
+                cullSurplus('scavenger', rn, 'workRoom', phase.scav);
+                cullSurplus('mineralMiner', rn, 'workRoom', dynMin ? dynMin.required : 0);
+                cullSurplus('chemist', rn, 'workRoom', dynChem ? dynChem.required : 0);
                 cullSurplus('claimer', rn, 'targetRoom', 0);
                 cullSurplus('remoteMiner', rn, 'targetRoom', 0);
-                cullSurplus('hauler', rn, 'targetRoom', 0);
-            }
 
-            const b = countAssigned('builder', rn, 'workRoom');
-            const u = countAssigned('upgrader', rn, 'targetRoom');
-            const r = countAssigned('repairer', rn, 'workRoom');
-            const h = countAssigned('hauler', rn, 'workRoom');
-            const s = countAssigned('scavenger', rn, 'workRoom');
+                const b = countAssigned('builder', rn, 'workRoom');
+                const u = countAssigned('upgrader', rn, 'targetRoom');
+                const r = countAssigned('repairer', rn, 'workRoom');
+                const h = countAssigned('hauler', rn, 'workRoom');
+                const s = countAssigned('scavenger', rn, 'workRoom');
             
-            let rolesStr = [];
-            if (dynM) rolesStr.push(fQ('HV', dynM.current, dynM.required));
-            if (dynChem) rolesStr.push(fQ('CHM', dynChem.current, dynChem.required));
+                let rolesStr = [];
+                if (dynM) rolesStr.push(fQ('HV', dynM.current, dynM.required));
+                if (dynChem) rolesStr.push(fQ('CHM', dynChem.current, dynChem.required));
             
-            if (!inv || !inv.my) {
-                rolesStr.push(fQ('CLM', countAssigned('claimer', rn, 'targetRoom'), 1));
-                // GCL Fallback ins HUD einfügen: Wenn wir nicht claimen können, zeigen wir die Remote-Miner an!
-                if (!canClaimMore && inv) {
-                    rolesStr.push(fQ('RMIN', countAssigned('remoteMiner', rn, 'targetRoom'), inv.sources * 2));
-                    rolesStr.push(fQ('RHAUL', countAssigned('hauler', rn, 'targetRoom'), inv.sources));
-                }
+            
+                rolesStr.push(fQ('BLD', b, phase.builder));
+                rolesStr.push(fQ('UPG', u, phase.upgrader));
+                rolesStr.push(fQ('REP', r, phase.repairer));
+                rolesStr.push(fQ('HAUL', h, phase.hauler));
+                rolesStr.push(fQ('SCAV', s, phase.scav));
+            
+                roomReports.push({
+                    name: rn, label: 'CORE',
+                    nrg: Game.rooms[rn] ? Game.rooms[rn].energyAvailable : 0,
+                    cap: Game.rooms[rn] ? Game.rooms[rn].energyCapacityAvailable : 0,
+                    rcl: rcl,
+                    my: true,
+                    reservation: null,
+                    phase: phase.name,
+                    spawns: spawnsByRoom[rn] || [],
+                    ttl: getRoomTTL(rn),
+                    roles: rolesStr.filter(Boolean).join(' ') || 'None'
+                });
             }
-            
-            rolesStr.push(fQ('BLD', b, phase.builder));
-            rolesStr.push(fQ('UPG', u, phase.upgrader));
-            rolesStr.push(fQ('REP', r, phase.repairer));
-            rolesStr.push(fQ('HAUL', h, phase.hauler));
-            rolesStr.push(fQ('SCAV', s, phase.scav));
-            
-            roomReports.push({
-                name: rn, label: 'CORE',
-                nrg: Game.rooms[rn] ? Game.rooms[rn].energyAvailable : 0,
-                cap: Game.rooms[rn] ? Game.rooms[rn].energyCapacityAvailable : 0,
-                rcl: rcl,
-                my: inv ? inv.my : false,
-                reservation: inv ? inv.reservation : null,
-                phase: phase.name,
-                spawns: spawnsByRoom[rn] || [],
-                ttl: getRoomTTL(rn),
-                roles: rolesStr.filter(Boolean).join(' ') || 'None'
-            });
         } else if (config.type === 'REMOTE') {
             const baseRoom = config.base || rooms.HOME;
             const mMult = config.minersPerSource || 3;
