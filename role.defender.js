@@ -7,8 +7,8 @@ const rooms = require('config.rooms');
 
 module.exports = {
     run: function(creep) {
-        const targetRoom = creep.memory.targetRoom || creep.memory.target || 'E57S56';
-        const homeRoom = creep.memory.homeRoom || creep.memory.home || 'E58S56';
+        const targetRoom = creep.memory.targetRoom || creep.memory.target || rooms.TARGET;
+        const homeRoom = creep.memory.homeRoom || creep.memory.home || rooms.HOME;
 
         // --- 0. PRE-FLIGHT & TACTICAL RETREAT ---
         // Pit Stop: Wenn wir im sicheren Raum sind und nicht volle HP haben -> Warten auf Tower

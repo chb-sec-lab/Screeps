@@ -188,7 +188,7 @@ module.exports = {
         function moveToWorkRoomIfNeeded() {
             const wr = creep.memory.workRoom;
             if (!wr || creep.room.name === wr) return false;
-            // Use RoomPosition to let global PathFinder respect the E57S55 blacklist
+            // Use RoomPosition to let global PathFinder respect the global blacklist
             creep.moveTo(new RoomPosition(25, 25, wr), { range: 22, visualizePathStyle: { stroke: '#ffffff' } });
             return true;
         }

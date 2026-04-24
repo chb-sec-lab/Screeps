@@ -24,6 +24,14 @@ Track urgent production incidents and response quality. Keep entries brief and f
 
 ## Entries
 
+- Date-Time (UTC): `2026-02-18T22:30:00Z`
+- Severity: `SEV-2`
+- Trigger: Surplus creeps (6 haulers, 2 builders) in `W7N7` marked for recycle stood frozen and did not despawn.
+- Scope: `main.js` (Universal Recycle Command)
+- Immediate Response: Investigated the universal `memory.recycle` block in the kernel.
+- Resolution: Discovered the "Unreachable Target Deadlock" was also affecting the recycle routine. When multiple creeps tried to dump their inventory into the same container before recycling, they blocked each other, received `ERR_NO_PATH`, and froze indefinitely. Updated the dump logic to instantly `drop()` resources if blocked or if no sink is available. Added a `suicide()` fallback if the path back to a spawn is completely blocked.
+- Follow-up: Ensure all system-level utility routines (like recycling or fleeing) have absolute fail-safes so they cannot be deadlocked by pathing conflicts.
+
 - Date-Time (UTC): `2026-02-18T22:00:00Z`
 - Severity: `SEV-1`
 - Trigger: 6 Haulers and 2 Builders spawned for `W7N7` despite the room not having a controller. Economy completely drained.

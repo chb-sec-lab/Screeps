@@ -3,10 +3,12 @@
  * Logic: Defender Shadow.
  * UPDATE: Folgt dem Defender in den Zielraum und heilt aktiv bei (31, 3).
  */
+const rooms = require('config.rooms');
+
 module.exports = {
     run: function(creep) {
-        const targetRoom = creep.memory.target || 'E57S56';
-        const homeRoom = creep.memory.home || 'E58S56';
+        const targetRoom = creep.memory.target || rooms.TARGET;
+        const homeRoom = creep.memory.home || rooms.HOME;
 
         // --- 1. TRIAGE (Healing Priority) ---
         const wounded = creep.pos.findInRange(FIND_MY_CREEPS, 3, {
