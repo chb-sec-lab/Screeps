@@ -423,6 +423,13 @@ Capture non-urgent observations that improve system design, role policy, and ope
 - Action: Added `unreachableTargetId` temporary blacklisting to all `moveTo` calls in the Upgrader role, fulfilling the SEV-1 follow-up directive.
 - Evidence: Code review matched against Alert `2026-02-18T08:00:00Z` follow-up requirement.
 
+- Date-Time (UTC): `2026-02-18T23:30:00Z`
+- Context: HUD display showing `TTL: N/A` for all rooms.
+- Observation: The `ttl` property in the room reports array was hardcoded to the string `'N/A'` and never calculated.
+- Impact: Loss of fleet age visibility for the operator.
+- Action: Replaced the hardcoded string with an actual calculation of the average `ticksToLive` of all creeps assigned to the room.
+- Evidence: HUD now correctly displays `TTL: 1250` (or similar) instead of `N/A`.
+
 - Date-Time (UTC): `2026-02-17T01:00:00Z`
 - Context: Inter-colony logistics and energy balancing.
 - Observation: New or besieged colonies could starve while mature core bases accumulated vast energy surpluses (>150k).

@@ -295,3 +295,11 @@ Track urgent production incidents and response quality. Keep entries brief and f
 - Immediate Response: The CPU circuit breaker was firing continuously, but the script was still crashing before it could recover, leading to a total freeze.
 - Resolution: The high-frequency `room.find()` call for overflowing containers in `main.js` was identified as the root cause. This logic was moved into the throttled `utils.inventory.js` scanner. The main loop now reads the cached result from `Memory.inventory`, eliminating the CPU spike.
 - Follow-up: All high-frequency `find` operations must be moved out of the main orchestration loop and into cached, throttled scanners.
+
+- Date-Time (UTC): `2026-02-18T23:00:00Z`
+- Severity: `SEV-1`
+- Trigger: Controllers in multiple rooms downgraded. The spawner was trapped in a "Priority Starvation" deadlock where a missing Builder (Prio 40) blocked the spawning of Claimers and Upgraders, leading to total room collapse.
+- Scope: `core.spawner.js`
+- Immediate Response: Manually forced Claimer and Harvester spawns via the Screeps console to recover the dying rooms.
+- Resolution: Restructured the global priority ladder. The first Upgrader now receives priority 22 (ahead of Builders at 40). Claimers were moved to priority 12. Extracted the "Emergency Downgrade Protection" out of the `STABLE` state block so it applies globally (priority 5), overriding even `RECOVERY` and `SIEGE` states. Exempted Claimers from the "Mutual Aid Veto".
+- Follow-up: Ensure all critical survival roles (first upgrader, claimer, emergency harvester) are prioritized above infrastructure builders to prevent economic deadlocks.

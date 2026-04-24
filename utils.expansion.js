@@ -52,9 +52,16 @@ module.exports = {
                 score += 2000; // Bonus für neue Mineralien
             }
 
-            const dist = Game.map.getRoomLinearDistance(rooms.HOME, roomName);
-            if (dist > 4) continue; // Zu weit weg
-            score -= dist * 500; // Bestrafung für lange Laufwege
+            const baseRoom = rooms.HOME || (ownedRooms.length > 0 ? ownedRooms[0] : null);
+            if (!baseRoom || !roomName) continue;
+            
+            try {
+                const dist = Game.map.getRoomLinearDistance(baseRoom, roomName);
+                if (dist > 4) continue; // Zu weit weg
+                score -= dist * 500; // Bestrafung für lange Laufwege
+            } catch (e) {
+                continue; // Fallback falls die Map-Berechnung fehlschlägt
+            }
 
             // Gib Räumen auf der Wunschliste einen massiven Bonus
             if (Memory.empire.wishlist.includes(roomName)) {

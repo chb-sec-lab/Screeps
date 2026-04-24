@@ -47,14 +47,9 @@ module.exports = {
         // Roads are expensive to maintain. Build them LAST.
         const BUILD_ROADS_LAST = true;
 
-        const ROOM_REEVAL_TTL = 25;
-
         // -------------------------
         // Helpers
         // -------------------------
-        function getObj(id) {
-            return id ? Game.getObjectById(id) : null;
-        }
         function clearEnergyLock() {
             creep.memory.energyTargetId = null;
             creep.memory.energyTargetType = null;
@@ -65,124 +60,11 @@ module.exports = {
             creep.memory.unreachableTargetId = null; // Clear unreachable target when work lock clears
             creep.memory.unreachableTimeout = null;
         }
-        function getRegistryRooms() {
-            return rooms.registry ? Object.keys(rooms.registry) : [rooms.HOME];
-        }
-
-        function roomHasImportantBuild(roomName) {
-            const r = Game.rooms[roomName];
-            if (!r) return false;
-            const sites = r.find(FIND_CONSTRUCTION_SITES);
-            return sites.some(s =>
-                s.structureType === STRUCTURE_SPAWN ||
-                s.structureType === STRUCTURE_EXTENSION ||
-                s.structureType === STRUCTURE_CONTAINER ||
-                s.structureType === STRUCTURE_TOWER
-            );
-        }
-
-        function pickBestWorkRoom() {
-            const candidates = getRegistryRooms();
-            let best = creep.memory.workRoom || rooms.HOME;
-            let bestScore = -Infinity;
-
-            for (const rn of candidates) {
-                const r = Game.rooms[rn];
-                if (!r) continue;
-
-                const buildersAssigned = _.filter(Game.creeps, c => c.memory.role === 'builder' && c.memory.workRoom === rn).length;
-                const rData = Memory.inventory && Memory.inventory.rooms ? Memory.inventory.rooms[rn] : null;
-                const hasSpawn = rData ? rData.spawns > 0 : false;
-                const hasStorage = rData ? rData.storage > 0 : false;
-
-                // Dynamische Kapazitätsgrenze für den Raum (Spezialität des Raumes beachten!)
-                // Bootstrap-Räume im Stein haben oft nur 1 Zugang zur Quelle -> Max 1 Builder!
-                let maxBuilders = hasStorage ? 4 : (hasSpawn ? 2 : 1);
-                
-                // Override durch config.rooms.js, falls der Raum explizit limitiert ist!
-                if (rooms.registry && rooms.registry[rn] && rooms.registry[rn].maxBuilders !== undefined) {
-                    maxBuilders = rooms.registry[rn].maxBuilders;
-                }
-
-                if (buildersAssigned >= maxBuilders && rn !== creep.memory.workRoom) {
-                    continue; // Raum ist bereits gesättigt für externe!
-                }
-
-                const sites = r.find(FIND_CONSTRUCTION_SITES);
-                const spawnSites = sites.filter(s => s.structureType === STRUCTURE_SPAWN).length;
-                const containerSites = sites.filter(s => s.structureType === STRUCTURE_CONTAINER).length;
-                const towerSites = sites.filter(s => s.structureType === STRUCTURE_TOWER).length;
-                const extSites = sites.filter(s => s.structureType === STRUCTURE_EXTENSION).length;
-
-                let score = spawnSites * 10000 + extSites * 4000 + containerSites * 3000 + towerSites * 2000 + sites.length * 100;
-
-                // Emergency container repairs / rampart floor also count
-                const dyingContainer = r.find(FIND_STRUCTURES, {
-                    filter: s => s.structureType === STRUCTURE_CONTAINER && s.hits < CONTAINER_EMERGENCY_HITS
-                }).length;
-                score += dyingContainer * 6000;
-
-                const weakRamp = r.find(FIND_STRUCTURES, {
-                    filter: s => s.structureType === STRUCTURE_RAMPART && s.hits < RAMPART_FLOOR
-                }).length;
-                score += weakRamp * 500;
-
-                // Wenn der Raum mehr Builder hat als er verträgt, starken Malus geben, um die überschüssigen zu vertreiben!
-                if (buildersAssigned > maxBuilders && rn === creep.memory.workRoom) {
-                    score -= 50000;
-                }
-
-                // mild preference for staying put
-                if (creep.room.name === rn) score += 50;
-
-                if (score > bestScore) {
-                    bestScore = score;
-                    best = rn;
-                }
-            }
-
-            return best;
-        }
 
         function ensureWorkRoom() {
-            let isOverbooked = false;
-            if (creep.memory.workRoom) {
-                let maxB = 4;
-                if (rooms.registry && rooms.registry[creep.memory.workRoom] && rooms.registry[creep.memory.workRoom].maxBuilders !== undefined) {
-                    maxB = rooms.registry[creep.memory.workRoom].maxBuilders;
-                }
-                const assigned = _.filter(Game.creeps, c => c.memory.role === 'builder' && !c.memory.recycle && c.memory.workRoom === creep.memory.workRoom).length;
-                if (assigned > maxB) isOverbooked = true;
+            if (!creep.memory.workRoom) {
+                creep.memory.workRoom = creep.memory.homeRoom || creep.room.name;
             }
-            
-            if (isOverbooked) {
-                creep.memory.workRoom = null; // Sofortiger Rauswurf, Such-Loop starten!
-            } else if (creep.memory.workRoom && creep.memory.lastRoomPickTick && (Game.time - creep.memory.lastRoomPickTick < ROOM_REEVAL_TTL)) {
-                return;
-            }
-
-        // If this room has important build, stay here - BUT ONLY IF ALLOWED!
-        if (roomHasImportantBuild(creep.room.name)) {
-            let maxBHere = 4;
-            if (rooms.registry && rooms.registry[creep.room.name] && rooms.registry[creep.room.name].maxBuilders !== undefined) {
-                maxBHere = rooms.registry[creep.room.name].maxBuilders;
-            }
-            const assignedHere = _.filter(Game.creeps, c => c.memory.role === 'builder' && !c.memory.recycle && c.memory.workRoom === creep.room.name).length;
-            
-            // Verhindert das Hijacking des workRooms, wenn der Raum bereits voll ist!
-            if (assignedHere < maxBHere || creep.memory.workRoom === creep.room.name) {
-                creep.memory.workRoom = creep.room.name;
-                creep.memory.lastRoomPickTick = Game.time;
-                return;
-            }
-            }
-
-            const chosen = pickBestWorkRoom();
-            if (creep.memory.workRoom && chosen !== creep.memory.workRoom) {
-                creep.say('Migrating');
-            }
-            creep.memory.workRoom = chosen;
-            creep.memory.lastRoomPickTick = Game.time;
         }
 
         function moveToWorkRoomIfNeeded() {
@@ -370,9 +252,6 @@ module.exports = {
             }
             creep.memory.lastIdleTick = Game.time;
             creep.memory.idleCount = (creep.memory.idleCount || 0) + 1;
-            if (creep.memory.idleCount > 25) {
-                creep.memory.lastRoomPickTick = 0; // Force re-eval next tick
-            }
             if (creep.memory.idleCount > 500) creep.memory.recycle = true;
             return;
         }
@@ -447,9 +326,6 @@ module.exports = {
         }
         creep.memory.lastIdleTick = Game.time;
         creep.memory.idleCount = (creep.memory.idleCount || 0) + 1;
-        if (creep.memory.idleCount > 25) {
-            creep.memory.lastRoomPickTick = 0; // Force re-eval next tick
-        }
         
         // Geduld! Builder warten auf Energie (z.B. Source-Regeneration), anstatt sich zu recyceln.
         // if (creep.memory.idleCount > 500) creep.memory.recycle = true;

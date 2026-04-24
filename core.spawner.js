@@ -93,7 +93,9 @@ module.exports = {
             let memoryKey = ['builder', 'hauler', 'scavenger', 'repairer', 'chemist', 'mineralMiner'].includes(role) ? 'workRoom' : 'targetRoom';
             const currentCount = countAssigned(role, targetRoomName, memoryKey);
             
-            const isEmergency = (role === 'harvester' && currentCount < 2) || (role === 'hauler' && currentCount === 0);
+            const isEmergency = (role === 'harvester' && currentCount < 2) || 
+                                (role === 'hauler' && currentCount === 0) ||
+                                (role === 'upgrader' && currentCount === 0);
             if (currentEnergy < maxCap && currentEnergy < fullCost && !isEmergency) return null; 
             return getOptimalBody(role, currentEnergy);
         }
@@ -132,6 +134,21 @@ module.exports = {
                 if (config.maxHaulers !== undefined) h = Math.min(h, config.maxHaulers);
             }
             return { name: phaseName, builder: b, upgrader: u, repairer: r, hauler: h, scav: s };
+        }
+
+        // --- THE BASE CHECK (TRIAGE) ---
+        // Bewertet die Gesundheit des Raumes auf Gebäude, Creeps und Feinde
+        function evaluateRoomState(rn, inv, threats) {
+            if (!inv || !inv.my) return 'UNOWNED';
+            const hostiles = threats[rn] || 0;
+            const hCount = countAssigned('harvester', rn, 'targetRoom');
+            const haulCount = countAssigned('hauler', rn, 'workRoom');
+            
+            if (hostiles > 0) return 'SIEGE';
+            if ((hCount + haulCount) === 0 && inv.spawns > 0) return 'COLLAPSE';
+            if (inv.spawns === 0) return 'NO_SPAWN';
+            if (inv.rcl >= 2 && inv.containers === 0) return 'RECOVERY';
+            return 'STABLE';
         }
 
         const ownedRoomNames = Memory.inventory && Memory.inventory.rooms ? Object.keys(Memory.inventory.rooms).filter(rn => Memory.inventory.rooms[rn].my) : [];
@@ -173,41 +190,84 @@ module.exports = {
                     if (canClaimMore && currentClaimers < maxClaimers) {
                         const clmCount = countAssigned('claimer', rn, 'targetRoom');
                         if (clmCount < 1) {
-                            requestQueue.push({ role: 'claimer', memory: { targetRoom: rn, claimMode: 'claim' }, priority: 42 + pBoost, count: clmCount, max: 1 });
+                            requestQueue.push({ role: 'claimer', memory: { targetRoom: rn, claimMode: 'claim' }, priority: 12 + pBoost, count: clmCount, max: 1 });
                             currentClaimers++;
                         }
                     }
                     return; 
                 }
 
-                const phase = getPhaseQuotas(rcl, inv, config);
+                let quotas = getPhaseQuotas(rcl, inv, config);
+                const roomState = evaluateRoomState(rn, inv, roomThreats);
+                inv._activeQuotas = quotas; // Speichern für HUD & Culling am Ende
+
                 const dynM = dynamicMinerQueue.find(q => q.room === rn);
-                if (dynM) {
-                    if (dynM.current < Math.min(3, dynM.required)) requestQueue.push({ role: 'harvester', memory: { targetRoom: rn }, priority: 10 + pBoost, count: dynM.current, max: Math.min(3, dynM.required) });
-                    else if (dynM.current < dynM.required) requestQueue.push({ role: 'harvester', memory: { targetRoom: rn }, priority: 30 + pBoost, count: dynM.current, max: dynM.required });
+                const hCount = countAssigned('hauler', rn, 'workRoom');
+                const bCount = countAssigned('builder', rn, 'workRoom');
+                const uCount = countAssigned('upgrader', rn, 'targetRoom');
+                const rCount = countAssigned('repairer', rn, 'workRoom');
+                const sCount = countAssigned('scavenger', rn, 'workRoom');
+
+                // --- STATE MACHINE ROUTING ---
+                if (roomState === 'COLLAPSE') {
+                    quotas.name = '🚨 COLLAPSE';
+                    if (dynM && dynM.current < 1) requestQueue.push({ role: 'harvester', memory: { targetRoom: rn }, priority: 1, count: dynM.current, max: 1 });
+                    if (hCount < 1) requestQueue.push({ role: 'hauler', memory: { workRoom: rn }, priority: 2, count: hCount, max: 1 });
+                    quotas.builder = 0; quotas.upgrader = 0; quotas.repairer = 0; quotas.scav = 0; quotas.hauler = 1;
+                } 
+                else if (roomState === 'SIEGE') {
+                    quotas.name = '⚔️ SIEGE';
+                    if (dynM && dynM.current < dynM.required) requestQueue.push({ role: 'harvester', memory: { targetRoom: rn }, priority: 10 + pBoost, count: dynM.current, max: dynM.required });
+                    if (hCount < quotas.hauler) requestQueue.push({ role: 'hauler', memory: { workRoom: rn }, priority: 15 + pBoost, count: hCount, max: quotas.hauler });
+                    if (rCount < Math.max(1, quotas.repairer)) requestQueue.push({ role: 'repairer', memory: { workRoom: rn }, priority: 20 + pBoost, count: rCount, max: Math.max(1, quotas.repairer) });
+                    quotas.builder = 0; quotas.upgrader = 0; quotas.scav = 0;
+                }
+                else if (roomState === 'RECOVERY' || roomState === 'NO_SPAWN') {
+                    quotas.name = roomState === 'NO_SPAWN' ? '🏗️ NO_SPAWN' : '🏗️ RECOVERY';
+                    if (dynM && dynM.current < dynM.required) requestQueue.push({ role: 'harvester', memory: { targetRoom: rn }, priority: 10 + pBoost, count: dynM.current, max: dynM.required });
+                    if (hCount < quotas.hauler) requestQueue.push({ role: 'hauler', memory: { workRoom: rn }, priority: 15 + pBoost, count: hCount, max: quotas.hauler });
+                    let bMax = Math.max(2, quotas.builder);
+                    if (bCount < bMax) requestQueue.push({ role: 'builder', memory: { workRoom: rn }, priority: 20 + pBoost, count: bCount, max: bMax });
+                    quotas.upgrader = Math.max(1, quotas.upgrader); // Zwingend 1 Upgrader erlauben!
+                }
+                else {
+                    // STABLE STATE (Normalbetrieb)
+                    if (dynM) {
+                        if (dynM.current < Math.min(2, dynM.required)) requestQueue.push({ role: 'harvester', memory: { targetRoom: rn }, priority: 10 + pBoost, count: dynM.current, max: Math.min(2, dynM.required) });
+                        else if (dynM.current < dynM.required) requestQueue.push({ role: 'harvester', memory: { targetRoom: rn }, priority: 30 + pBoost, count: dynM.current, max: dynM.required });
+                    }
+                    let bPriority = (quotas.builder > 0 && inv.spawns === 0) ? 15 + pBoost : 40 + pBoost; 
+                    if (bCount < quotas.builder) requestQueue.push({ role: 'builder', memory: { workRoom: rn }, priority: bPriority, count: bCount, max: quotas.builder });
+
+                    if (hCount < quotas.hauler) requestQueue.push({ role: 'hauler', memory: { workRoom: rn }, priority: 25 + pBoost, count: hCount, max: quotas.hauler });
+                    if (sCount < quotas.scav) requestQueue.push({ role: 'scavenger', memory: { workRoom: rn }, priority: 65 + pBoost, count: sCount, max: quotas.scav });
+                    if (rCount < quotas.repairer) requestQueue.push({ role: 'repairer', memory: { workRoom: rn }, priority: 70 + pBoost, count: rCount, max: quotas.repairer });
                 }
 
-                const bCount = countAssigned('builder', rn, 'workRoom');
-                let bPriority = (phase.builder > 0 && inv.spawns === 0) ? 15 + pBoost : 40 + pBoost; 
-                if (bCount < phase.builder) requestQueue.push({ role: 'builder', memory: { workRoom: rn }, priority: bPriority, count: bCount, max: phase.builder });
+                // --- GLOBAL UPGRADER LOGIC ---
+                if (roomState !== 'COLLAPSE' && roomState !== 'SIEGE') {
+                    let uPriority = 50 + pBoost;
+                    let uMax = quotas.upgrader;
+                    
+                    // Der erste Upgrader hat EXTREME Priorität, damit Controller sofort wächst!
+                    if (uCount === 0 && uMax > 0) uPriority = 22 + pBoost; 
+                    
+                    const activeRoom = Game.rooms[rn];
+                    if (activeRoom && activeRoom.controller && activeRoom.controller.my && activeRoom.controller.ticksToDowngrade < 5000) {
+                        uPriority = 5; 
+                        uMax = Math.max(1, uMax); 
+                    }
+                    if (uCount < uMax && uMax > 0) requestQueue.push({ role: 'upgrader', memory: { targetRoom: rn }, priority: uPriority, count: uCount, max: uMax });
+                }
 
-                const uCount = countAssigned('upgrader', rn, 'targetRoom');
-                if (uCount < phase.upgrader) requestQueue.push({ role: 'upgrader', memory: { targetRoom: rn }, priority: 50 + pBoost, count: uCount, max: phase.upgrader });
+                // Specials (Mineral/Chemist) nur wenn Basis sicher ist
+                if (roomState === 'STABLE' || roomState === 'RECOVERY') {
+                    const dynMin = dynamicMineralQueue.find(q => q.room === rn);
+                    if (dynMin && dynMin.current < dynMin.required) requestQueue.push({ role: 'mineralMiner', memory: { workRoom: rn }, priority: 80 + pBoost, count: dynMin.current, max: dynMin.required });
 
-                const hCount = countAssigned('hauler', rn, 'workRoom');
-                if (hCount < phase.hauler) requestQueue.push({ role: 'hauler', memory: { workRoom: rn }, priority: 25 + pBoost, count: hCount, max: phase.hauler });
-
-                const sCount = countAssigned('scavenger', rn, 'workRoom');
-                if (sCount < phase.scav) requestQueue.push({ role: 'scavenger', memory: { workRoom: rn }, priority: 65 + pBoost, count: sCount, max: phase.scav });
-
-                const rCount = countAssigned('repairer', rn, 'workRoom');
-                if (rCount < phase.repairer) requestQueue.push({ role: 'repairer', memory: { workRoom: rn }, priority: 70 + pBoost, count: rCount, max: phase.repairer });
-
-                const dynMin = dynamicMineralQueue.find(q => q.room === rn);
-                if (dynMin && dynMin.current < dynMin.required) requestQueue.push({ role: 'mineralMiner', memory: { workRoom: rn }, priority: 80 + pBoost, count: dynMin.current, max: dynMin.required });
-
-                const dynChem = dynamicChemistQueue.find(q => q.room === rn);
-                if (dynChem && dynChem.current < dynChem.required) requestQueue.push({ role: 'chemist', memory: { workRoom: rn }, priority: 85 + pBoost, count: dynChem.current, max: dynChem.required });
+                    const dynChem = dynamicChemistQueue.find(q => q.room === rn);
+                    if (dynChem && dynChem.current < dynChem.required) requestQueue.push({ role: 'chemist', memory: { workRoom: rn }, priority: 85 + pBoost, count: dynChem.current, max: dynChem.required });
+                }
 
             } else if (config.type === 'REMOTE') {
                 const baseRoom = config.base || Object.keys(rooms.registry).find(r => rooms.registry[r].type === 'CORE');
@@ -272,7 +332,7 @@ module.exports = {
 
                 const reqRoom = req.memory.targetRoom || req.memory.workRoom;
                 let isMyOwnRoom = reqRoom === spawn.room.name;
-                let isMutualAid = (req.role === 'defender' || req.role === 'healer');
+                let isMutualAid = (req.role === 'defender' || req.role === 'healer' || req.role === 'claimer');
                 
                 if (reqRoom && !isMyOwnRoom) {
                     const reqInv = Memory.inventory.rooms[reqRoom];
@@ -281,6 +341,20 @@ module.exports = {
                     if (activeRegistry[reqRoom] && activeRegistry[reqRoom].type === 'CORE' && reqInv && reqInv.my) {
                         if (countAssigned('harvester', reqRoom, 'targetRoom') < 2 || countAssigned('hauler', reqRoom, 'workRoom') < 1) isMutualAid = true;
                     }
+                    
+                    // --- MUTUAL AID VETO ---
+                    // Wenn der Spawn-Raum selbst in der Krise ist oder es verboten wurde, leistet er keine Nothilfe
+                    if (isMutualAid && !isMyRemote && !needsBootstrap) {
+                        const senderConfig = activeRegistry[spawn.room.name];
+                        const senderInv = Memory.inventory.rooms[spawn.room.name];
+                        const senderState = senderInv && senderInv._activeQuotas ? senderInv._activeQuotas.name : 'STABLE';
+                        
+                        const isSenderInCrisis = senderState.includes('COLLAPSE') || senderState.includes('SIEGE') || senderState.includes('RECOVERY');
+                        
+                        if (senderConfig && senderConfig.disableMutualAid) isMutualAid = false;
+                        else if (isSenderInCrisis) isMutualAid = false;
+                    }
+
                     if (!needsBootstrap && !isMyRemote && !isMutualAid) continue; 
                 }
 
@@ -319,17 +393,18 @@ module.exports = {
             let spawnsInfo = [];
             allSpawns.filter(s => s.room.name === rn).forEach(s => { spawnsInfo.push(s.spawning ? `${Game.creeps[s.spawning.name]?.memory.role || 'ukn'}(${s.spawning.remainingTime}t)` : 'IDLE'); });
 
+            const myCreeps = _.filter(Game.creeps, c => (c.memory.targetRoom === rn || c.memory.workRoom === rn) && c.ticksToLive);
+            const avgTtl = myCreeps.length > 0 ? Math.floor(_.sum(myCreeps, 'ticksToLive') / myCreeps.length) : 'N/A';
+
             if (config.type === 'CORE') {
                 if (!inv || !inv.my) {
                     ['harvester', 'hauler', 'builder', 'upgrader', 'repairer', 'mineralMiner', 'chemist'].forEach(role => cullSurplus(role, rn, ['builder','hauler','repairer','mineralMiner','chemist'].includes(role) ? 'workRoom' : 'targetRoom', 0));
                     cullSurplus('claimer', rn, 'targetRoom', canClaimMore ? 1 : 0);
-                    roomReports.push({ name: rn, label: 'CORE', nrg: Game.rooms[rn] ? Game.rooms[rn].energyAvailable : 0, cap: Game.rooms[rn] ? Game.rooms[rn].energyCapacityAvailable : 0, rcl: rcl, my: false, reservation: inv ? inv.reservation : null, phase: 'Awaiting Claim', spawns: spawnsInfo, ttl: 'N/A', roles: fQ('CLM', countAssigned('claimer', rn, 'targetRoom'), canClaimMore ? 1 : 0) || 'None' });
+                    roomReports.push({ name: rn, label: 'CORE', nrg: Game.rooms[rn] ? Game.rooms[rn].energyAvailable : 0, cap: Game.rooms[rn] ? Game.rooms[rn].energyCapacityAvailable : 0, rcl: rcl, my: false, reservation: inv ? inv.reservation : null, phase: 'Awaiting Claim', spawns: spawnsInfo, ttl: avgTtl, roles: fQ('CLM', countAssigned('claimer', rn, 'targetRoom'), canClaimMore ? 1 : 0) || 'None' });
                 } else {
-                    const phase = getPhaseQuotas(rcl, inv, config);
+                    const phase = inv._activeQuotas || getPhaseQuotas(rcl, inv, config);
                     const dynM = dynamicMinerQueue.find(q => q.room === rn);
                     
-                    // JIT-RELAX FIX: Verhindert, dass Builder sofort recycelt werden, wenn die letzte Baustelle 
-                    // fertig wird. Wir behalten 1 Standby-Worker, außer config.roles erzwingt explizit 0!
                     let cullB = (roles.COUNTS.builder !== undefined) ? roles.COUNTS.builder : Math.max(1, phase.builder);
                     let cullS = (roles.COUNTS.scavenger !== undefined) ? roles.COUNTS.scavenger : Math.max(1, phase.scav);
 
@@ -348,10 +423,10 @@ module.exports = {
                         fQ('HAUL', countAssigned('hauler', rn, 'workRoom'), phase.hauler),
                         fQ('SCAV', countAssigned('scavenger', rn, 'workRoom'), phase.scav)
                     ].filter(Boolean).join(' ') || 'None';
-                    roomReports.push({ name: rn, label: 'CORE', nrg: Game.rooms[rn] ? Game.rooms[rn].energyAvailable : 0, cap: Game.rooms[rn] ? Game.rooms[rn].energyCapacityAvailable : 0, rcl: rcl, my: true, reservation: null, phase: phase.name, spawns: spawnsInfo, ttl: 'N/A', roles: rolesStr });
+                    roomReports.push({ name: rn, label: 'CORE', nrg: Game.rooms[rn] ? Game.rooms[rn].energyAvailable : 0, cap: Game.rooms[rn] ? Game.rooms[rn].energyCapacityAvailable : 0, rcl: rcl, my: true, reservation: null, phase: phase.name, spawns: spawnsInfo, ttl: avgTtl, roles: rolesStr });
                 }
             } else {
-                roomReports.push({ name: rn, label: 'REMOTE', nrg: 0, cap: 0, rcl: rcl, my: inv ? inv.my : false, reservation: inv ? inv.reservation : null, phase: (inv && inv.my) ? 'Claimed' : (inv && inv.reservation ? `Secured (${inv.reservation})` : 'Unsecured'), spawns: [], ttl: 'N/A', roles: 'Outpost' });
+                roomReports.push({ name: rn, label: 'REMOTE', nrg: 0, cap: 0, rcl: rcl, my: inv ? inv.my : false, reservation: inv ? inv.reservation : null, phase: (inv && inv.my) ? 'Claimed' : (inv && inv.reservation ? `Secured (${inv.reservation})` : 'Unsecured'), spawns: [], ttl: avgTtl, roles: 'Outpost' });
             }
         });
 

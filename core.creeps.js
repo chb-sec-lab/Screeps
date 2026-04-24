@@ -43,8 +43,11 @@ module.exports = {
 
             let memoryPatched = false;
             for (let key in creep.memory) {
-                if (['E57S55', 'E57S56', 'E58S55', 'E58S56', 'W8N8'].includes(creep.memory[key])) { 
-                    if (!activeRegistry[creep.memory[key]]) {
+                const val = creep.memory[key];
+                // Regex prüft, ob der Wert ein Raumname ist (z.B. W7N8 oder E58S55)
+                if (typeof val === 'string' && /^[WE]\d+[NS]\d+$/.test(val)) {
+                    // Greift nur ein, wenn es ein Routing-Schlüssel ist UND der Raum nicht in der Registry steht
+                    if (['workRoom', 'targetRoom', 'homeRoom', 'salvageRoom'].includes(key) && !activeRegistry[val]) {
                         creep.memory[key] = Memory.empire && Memory.empire.targetRoom ? Memory.empire.targetRoom : rooms.HOME;
                         memoryPatched = true;
                     }
