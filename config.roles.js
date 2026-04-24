@@ -9,22 +9,23 @@ module.exports = {
     },
 
     COUNTS: {
-        harvester:   6,
-        hauler:      0, // Disabled for early game bootstrap (no containers yet)
-        scavenger:   0, // Disabled for early game bootstrap
-        repairer:    0,
+        // --- WIRTSCHAFTS-ROLLEN (Auskommentiert = KI übernimmt automatisch!) ---
+        // harvester:   6,
+        // hauler:      0,
+        // scavenger:   0,
+        // repairer:    0,
+        // builder:     1,
+        // upgrader:    4,
+        // claimer:     0,
+        // remoteMiner: 0, 
+        // remoteHauler:0, 
+        
+        // --- MILITÄR & SPEZIAL-ROLLEN (Globale Steuerung) ---
         defender:    0,
-        claimer:     0,
-        remoteMiner: 0, // Managed exclusively by room quotas in main.js
-        builder:     1,
-        upgrader:    4,
         vanguard:    0, // NO WAR MODE
         medic:       0, // NO WAR MODE
         breacher:    0,
         healer:      0,
-        mineralMiner:0, // Managed dynamically by main.js (1 per active Extractor)
-        chemist:     0, // Managed dynamically by main.js (1 per 3+ Labs)
-        remoteHauler:0, // New role: Remote energy transport
         resourceHauler:0, // New role: Mineral/compound transport & inter-colony transfers
         scout:       1  // 1 global scout wandering the map
     },
@@ -37,7 +38,7 @@ module.exports = {
         scavenger:   [CARRY, CARRY, CARRY, MOVE, MOVE, MOVE],
         repairer:    [WORK, WORK, CARRY, CARRY, MOVE, MOVE, MOVE],
         defender:    [TOUGH, TOUGH, MOVE, MOVE, MOVE, ATTACK, ATTACK, RANGED_ATTACK],
-        claimer:     [CLAIM, CLAIM, MOVE, MOVE], 
+        claimer:     [CLAIM, MOVE, MOVE], 
         remoteMiner: [WORK, WORK, CARRY, MOVE, MOVE, MOVE],
         builder:     [WORK, WORK, WORK, CARRY, CARRY, MOVE, MOVE, MOVE],
         upgrader:    [WORK, WORK, WORK, CARRY, CARRY, MOVE, MOVE, MOVE],

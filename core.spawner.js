@@ -38,7 +38,14 @@ module.exports = {
 
         function cullSurplus(role, roomName, memoryKey, maxAllowed) {
             const creeps = _.filter(Game.creeps, c => c.memory.role === role && !c.memory.recycle && c.memory[memoryKey] === roomName);
-            const liveActive = _.filter(creeps, c => !c.spawning);
+            let liveActive = _.filter(creeps, c => !c.spawning);
+            
+            // PRE-SPAWN FIX: Ignoriere alte Creeps, deren Ersatz bereits spawnt/arbeitet.
+            // Verhindert, dass hart arbeitende Creeps kurz vor ihrem Tod plötzlich in den Schredder rennen.
+            if (maxAllowed > 0) {
+                liveActive = _.filter(liveActive, c => c.ticksToLive > getPreSpawnTime(c));
+            }
+
             if (liveActive.length > maxAllowed) {
                 const sorted = _.sortBy(liveActive, 'ticksToLive');
                 for (let i = 0; i < (liveActive.length - maxAllowed); i++) { sorted[i].memory.recycle = true; }
@@ -134,6 +141,9 @@ module.exports = {
         const dynamicMineralQueue = [];
         const dynamicChemistQueue = [];
 
+        const maxClaimers = roles.COUNTS.claimer !== undefined ? roles.COUNTS.claimer : Infinity;
+        let currentClaimers = countRole('claimer');
+
         ownedRoomNames.forEach(rn => {
             const inv = Memory.inventory.rooms[rn], config = activeRegistry[rn];
             let requiredMiners = (inv.rcl >= 4) ? inv.sources * 1 : inv.sources * 2;
@@ -160,9 +170,12 @@ module.exports = {
             
             if (config.type === 'CORE') {
                 if (!inv || !inv.my) {
-                    if (canClaimMore) {
+                    if (canClaimMore && currentClaimers < maxClaimers) {
                         const clmCount = countAssigned('claimer', rn, 'targetRoom');
-                        if (clmCount < 1) requestQueue.push({ role: 'claimer', memory: { targetRoom: rn, claimMode: 'claim' }, priority: 42 + pBoost, count: clmCount, max: 1 });
+                        if (clmCount < 1) {
+                            requestQueue.push({ role: 'claimer', memory: { targetRoom: rn, claimMode: 'claim' }, priority: 42 + pBoost, count: clmCount, max: 1 });
+                            currentClaimers++;
+                        }
                     }
                     return; 
                 }
@@ -204,9 +217,12 @@ module.exports = {
                 
                 if (inv && inv.visible && inv.overflowingContainers > 0) rHaulersAllowed += inv.overflowingContainers;
 
-                if (!inv || (!inv.my && !inv.reservation)) {
+                if ((!inv || (!inv.my && !inv.reservation)) && currentClaimers < maxClaimers) {
                     const clmCount = countAssigned('claimer', rn, 'targetRoom');
-                    if (clmCount < 1) requestQueue.push({ role: 'claimer', memory: { targetRoom: rn, claimMode: 'reserve' }, priority: 45 + pBoost, count: clmCount, max: 1 });
+                    if (clmCount < 1) {
+                        requestQueue.push({ role: 'claimer', memory: { targetRoom: rn, claimMode: 'reserve' }, priority: 45 + pBoost, count: clmCount, max: 1 });
+                        currentClaimers++;
+                    }
                 }
                 if (inv && inv.my) {
                     const upgCount = countAssigned('upgrader', rn, 'targetRoom');
@@ -312,12 +328,17 @@ module.exports = {
                     const phase = getPhaseQuotas(rcl, inv, config);
                     const dynM = dynamicMinerQueue.find(q => q.room === rn);
                     
+                    // JIT-RELAX FIX: Verhindert, dass Builder sofort recycelt werden, wenn die letzte Baustelle 
+                    // fertig wird. Wir behalten 1 Standby-Worker, außer config.roles erzwingt explizit 0!
+                    let cullB = (roles.COUNTS.builder !== undefined) ? roles.COUNTS.builder : Math.max(1, phase.builder);
+                    let cullS = (roles.COUNTS.scavenger !== undefined) ? roles.COUNTS.scavenger : Math.max(1, phase.scav);
+
                     if (dynM) cullSurplus('harvester', rn, 'targetRoom', dynM.required);
-                    cullSurplus('builder', rn, 'workRoom', phase.builder);
+                    cullSurplus('builder', rn, 'workRoom', cullB);
                     cullSurplus('upgrader', rn, 'targetRoom', phase.upgrader);
                     cullSurplus('repairer', rn, 'workRoom', phase.repairer);
                     cullSurplus('hauler', rn, 'workRoom', phase.hauler);
-                    cullSurplus('scavenger', rn, 'workRoom', phase.scav);
+                    cullSurplus('scavenger', rn, 'workRoom', cullS);
                     
                     let rolesStr = [
                         dynM ? fQ('HV', dynM.current, dynM.required) : '',
