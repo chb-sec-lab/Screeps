@@ -70,21 +70,46 @@ module.exports = {
                 creep.moveTo(new RoomPosition(25, 25, homeRoom), { reusePath: 10, visualizePathStyle: { stroke: '#ffffff' } });
                 return;
             }
-            // Delivery priorities: Spawns > Towers > Storage
-            let target = creep.pos.findClosestByRange(FIND_STRUCTURES, {
-                filter: s => s.id !== creep.memory.unreachableTargetId &&
-                             (s.structureType === STRUCTURE_SPAWN || s.structureType === STRUCTURE_EXTENSION) &&
-                             s.store.getFreeCapacity(RESOURCE_ENERGY) > 0
-            });
+
+            // --- DELIVERY LOGIC (mit Edge-Link Priorität) ---
+            let target = null;
+
+            // P0: Edge-Link (Höchste Priorität, um Laufwege zu verkürzen)
+            const exitDir = creep.room.findExitTo(targetRoom);
+            if (exitDir) {
+                const exits = creep.room.find(exitDir);
+                if (exits.length > 0) {
+                    const closestExit = creep.pos.findClosestByRange(exits);
+                    if (closestExit) {
+                        target = closestExit.findClosestByRange(FIND_STRUCTURES, {
+                            filter: s => s.structureType === STRUCTURE_LINK &&
+                                         s.pos.inRangeTo(closestExit, 5) &&
+                                         s.store.getFreeCapacity(RESOURCE_ENERGY) > 0
+                        });
+                    }
+                }
+            }
+
+            // P1: Spawns & Extensions (Fallback, falls kein Edge-Link da ist)
+            if (!target) {
+                target = creep.pos.findClosestByRange(FIND_STRUCTURES, {
+                    filter: s => s.id !== creep.memory.unreachableTargetId &&
+                                 (s.structureType === STRUCTURE_SPAWN || s.structureType === STRUCTURE_EXTENSION) &&
+                                 s.store.getFreeCapacity(RESOURCE_ENERGY) > 0
+                });
+            }
+            // P2: Towers
             if (!target) {
                 target = creep.pos.findClosestByRange(FIND_STRUCTURES, {
                     filter: s => s.id !== creep.memory.unreachableTargetId && s.structureType === STRUCTURE_TOWER && s.store.getFreeCapacity(RESOURCE_ENERGY) > 200
                 });
             }
+            // P3: Storage
             if (!target && creep.room.storage) {
                 target = creep.room.storage;
                 if (target.id === creep.memory.unreachableTargetId || target.store.getFreeCapacity(RESOURCE_ENERGY) === 0) target = null;
             }
+
             if (target) {
                 if (creep.transfer(target, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
                     const moveResult = creep.moveTo(target, { reusePath: 5, visualizePathStyle: { stroke: '#ffffff' } });

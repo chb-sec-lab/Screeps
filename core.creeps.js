@@ -6,7 +6,7 @@ const rooms = require('config.rooms');
 const logger = require('utils.logger');
 
 let modules = {};
-const roleNames = ['harvester', 'hauler', 'remoteHauler', 'scavenger', 'repairer', 'defender', 'vanguard', 'medic', 'breacher', 'remoteMiner', 'builder', 'claimer', 'upgrader', 'healer', 'mineralMiner', 'chemist', 'scout'];
+const roleNames = ['harvester', 'hauler', 'remoteHauler', 'scavenger', 'repairer', 'defender', 'vanguard', 'medic', 'breacher', 'remoteMiner', 'builder', 'claimer', 'upgrader', 'healer', 'mineralMiner', 'chemist', 'scout', 'janitor'];
 
 roleNames.forEach(name => {
     try { modules[name] = require('role.' + name); } catch (e) { /* Safe Load */ }
@@ -25,6 +25,12 @@ module.exports = {
         for (let name in Game.creeps) {
             const creep = Game.creeps[name];
             
+            // --- IDENTITÄTSKRISEN-FIX ---
+            // Fängt alle Creeps ohne zugewiesene Rolle ab und schickt sie zum Recyceln.
+            if (!creep.memory.role) {
+                creep.memory.recycle = true;
+            }
+
             if (creep.hits < (creep.memory.lastHits || creep.hitsMax)) logger.log(`⚠️ ATTACK: ${creep.name} in ${creep.room.name}!`, 'error');
             creep.memory.lastHits = creep.hits;
 
@@ -55,7 +61,7 @@ module.exports = {
             }
             
             if (!creep.memory.targetRoom && !creep.memory.workRoom) {
-                if (['hauler', 'builder', 'repairer', 'scavenger', 'mineralMiner', 'chemist'].includes(creep.memory.role)) creep.memory.workRoom = creep.memory.homeRoom || rooms.HOME;
+                if (['hauler', 'builder', 'repairer', 'scavenger', 'mineralMiner', 'chemist', 'janitor'].includes(creep.memory.role)) creep.memory.workRoom = creep.memory.homeRoom || rooms.HOME;
                 if (['harvester', 'upgrader', 'claimer', 'remoteMiner', 'remoteHauler'].includes(creep.memory.role)) creep.memory.targetRoom = rooms.HOME;
             }
             if (memoryPatched) delete creep.memory._move;

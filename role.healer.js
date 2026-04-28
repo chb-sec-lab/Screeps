@@ -4,9 +4,13 @@
  * UPDATE: Folgt dem Defender in den Zielraum und heilt aktiv bei (31, 3).
  */
 const rooms = require('config.rooms');
+const survival = require('utils.survival');
 
 module.exports = {
     run: function(creep) {
+        // --- UNIVERSAL SURVIVAL ---
+        if (survival.fleeFromHostiles(creep)) return;
+
         const targetRoom = creep.memory.target || rooms.TARGET;
         const homeRoom = creep.memory.home || rooms.HOME;
 

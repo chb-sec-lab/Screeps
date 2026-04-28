@@ -13,15 +13,18 @@ const inventory = require('utils.inventory');
 const market = require('utils.market');
 const expander = require('utils.expansion');
 
-const coreDefense = require('core.defense');
 const coreCreeps = require('core.creeps');
-const coreSpawner = require('core.spawner');
+
+const Boardroom = require('Boardroom'); // MCA Architektur laden
 
 const DEFENSE_COOLDOWN_TICKS = 200;
 const TACTICAL_AUDIT_INTERVAL = 200;
 const STRATEGIC_AUDIT_INTERVAL = 3600;
 const AUDIT_RETENTION_TACTICAL = 120;
 const AUDIT_RETENTION_STRATEGIC = 100;
+
+// Initialisiere den Boardroom als Singleton
+const myBoardroom = new Boardroom();
 
 // --- GLOBAL PATHFINDER OVERRIDE ---
 // Automatisches Blockieren von Räumen für alle Creeps
@@ -116,9 +119,8 @@ module.exports.loop = function () {
     }
 
     
-    // --- PASS 1: DEFENSE & CREEPS (Modularized) ---
-    const roomThreats = coreDefense.run(activeRegistry);
-    const recyclingCount = coreCreeps.run(activeRegistry);
+    // --- PASS 1: CREEP LIFECYCLE ---
+    const recyclingCount = coreCreeps.run(activeRegistry); // Memory-Bereinigung & universelle Creep-Logik
 
     // --- PASS 2: INFRASTRUCTURE ---
     Object.keys(activeRegistry).forEach(roomName => {
@@ -133,8 +135,10 @@ module.exports.loop = function () {
         }
     });
 
-    // --- PASS 3: SPAWNING (Modularized) ---
-    const spawnerResult = coreSpawner.run(activeRegistry, roomThreats);
+    // --- PASS 3: BOARDROOM (Modular Colony Architecture) ---
+    // Ersetzt den alten core.spawner komplett
+    myBoardroom.run();
+    const mcaData = myBoardroom.getHUDData();
 
     logger.report({
         recycling: recyclingCount,
@@ -143,25 +147,22 @@ module.exports.loop = function () {
         credits: Game.market ? Game.market.credits : 0,
         earned: Memory.market ? Memory.market.earned : 0,
         pop: Object.keys(Game.creeps).length,
-        cap: spawnerResult.popCap,
-        queue: spawnerResult.queuePreview,
-        deadlocks: spawnerResult.deadlocks,
-        rooms: spawnerResult.roomReports,
-        defense: {
-            active: !!(Memory.defense && Memory.defense.activeUntil && Game.time <= Memory.defense.activeUntil),
-            room: Memory.defense ? Memory.defense.targetRoom : null,
-            need: Memory.defense ? Memory.defense.need : 0,
-            current: Memory.defense ? _.filter(Game.creeps, c => c.memory.role === 'defender' && c.memory.targetRoom === Memory.defense.targetRoom).length : 0,
-            ttls: Memory.defense ? _.filter(Game.creeps, c => c.memory.role === 'defender' && c.memory.targetRoom === Memory.defense.targetRoom).map(c => c.ticksToLive || 'spwn').join(',') : '',
-            healerNeed: Memory.defense ? Memory.defense.healerNeed : 0,
-            currentHealers: Memory.defense ? _.filter(Game.creeps, c => c.memory.role === 'healer' && c.memory.targetRoom === Memory.defense.targetRoom).length : 0,
-            homeThreat: 0,
-            targetThreat: Memory.defense ? roomThreats[Memory.defense.targetRoom] || 0 : 0,
-            expansionThreat: 0
-        },
+        cap: 60, // Temporärer Fallback (Hard Pop Cap)
+        queue: mcaData.queue, 
+        deadlocks: mcaData.deadlocks,
+        rooms: mcaData.rooms, 
+        defense: mcaData.defense,
     });
 
     // --- PASS 4: AUDIT SNAPSHOTS (Tactical + Strategic) ---
+    // Rekonstruiere roomThreats für die Audit-Funktion aus den MCA-Daten
+    const roomThreats = {};
+    if (mcaData.defense && mcaData.defense.alerts) {
+        mcaData.defense.alerts.forEach(alert => {
+            roomThreats[alert.room] = alert.threat;
+        });
+    }
+
     const allSpawns = Object.values(Game.spawns);
     function getBufferedEnergy(room) {
         if (!room) return 0;

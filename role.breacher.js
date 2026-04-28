@@ -2,9 +2,13 @@
  * role.breacher.js - SIEGE UNIT
  */
 const rooms = require('config.rooms');
+const survival = require('utils.survival');
 
 module.exports = {
     run: function(creep) {
+        // --- UNIVERSAL SURVIVAL ---
+        if (survival.fleeFromHostiles(creep)) return;
+
         const targetRoom = creep.memory.target;
         if (creep.room.name !== targetRoom) {
             const exit = creep.pos.findClosestByRange(creep.room.findExitTo(targetRoom));

@@ -303,3 +303,11 @@ Track urgent production incidents and response quality. Keep entries brief and f
 - Immediate Response: Manually forced Claimer and Harvester spawns via the Screeps console to recover the dying rooms.
 - Resolution: Restructured the global priority ladder. The first Upgrader now receives priority 22 (ahead of Builders at 40). Claimers were moved to priority 12. Extracted the "Emergency Downgrade Protection" out of the `STABLE` state block so it applies globally (priority 5), overriding even `RECOVERY` and `SIEGE` states. Exempted Claimers from the "Mutual Aid Veto".
 - Follow-up: Ensure all critical survival roles (first upgrader, claimer, emergency harvester) are prioritized above infrastructure builders to prevent economic deadlocks.
+
+- Date-Time (UTC): `2026-02-19T11:00:00Z`
+- Severity: `SEV-1`
+- Trigger: Deployment of Modular Colony Architecture (MCA) caused a total kernel loop crash with repeating `Error: Unknown module 'src/Boardroom'`.
+- Scope: `main.js`, Module resolution (`Boardroom.js`, `Office.js`, `RoomManager.js`).
+- Immediate Response: Analyzed the local `deploy.sh` script and Screeps runtime module resolution.
+- Resolution: Discovered that the local deployment script (`cp *.js`) copies files into a flat directory structure, completely ignoring the `src/` subdirectory. Modified all `require()` calls to use flat module paths (e.g., `require('Boardroom')` instead of `require('./src/Boardroom')`).
+- Follow-up: Future module additions must account for the flat deployment architecture, or the `deploy.sh` pipeline must be upgraded to a bundler (like Webpack/Rollup) if subdirectories are required.

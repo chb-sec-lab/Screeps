@@ -37,8 +37,9 @@ module.exports = {
 
         // DEFENSE LINE
         const def = stats.defense;
-        if (def && def.active) {
-            console.log(`🚨 DEFENSE| ALERT in ${def.room}! Def: ${def.current}/${def.need} Heal: ${def.currentHealers}/${def.healerNeed} | Local Threat Lvl: ${def.targetThreat}`);
+        if (def && def.active && def.alerts.length > 0) {
+            const alertSummary = def.alerts.map(a => `${a.room}(${a.threat})`).join(', ');
+            console.log(`🚨 DEFENSE| Hostiles detected in: ${alertSummary}`);
         }
 
         // ROOMS

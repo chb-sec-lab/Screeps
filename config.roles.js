@@ -19,6 +19,7 @@ module.exports = {
         // claimer:     0,
         // remoteMiner: 0, 
         // remoteHauler:0, 
+        // janitor:     0,
         
         // --- MILITÄR & SPEZIAL-ROLLEN (Globale Steuerung) ---
         defender:    0,
@@ -49,7 +50,8 @@ module.exports = {
         mineralMiner:[WORK, WORK, WORK, WORK, CARRY, CARRY, MOVE, MOVE, MOVE],
         chemist:     [CARRY, CARRY, CARRY, CARRY, MOVE, MOVE], // 200 Carry capacity, fast on roads
         remoteHauler:[CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE], // Similar to local hauler, but for remote
-        resourceHauler:[CARRY, CARRY, CARRY, CARRY, MOVE, MOVE], // For minerals, smaller batches
+        resourceHauler:[CARRY, CARRY, CARRY, CARRY, MOVE, MOVE],
+        janitor:     [WORK, CARRY, CARRY, MOVE, MOVE], // MCA Maintenance
         scout:       [MOVE]
     }
 };

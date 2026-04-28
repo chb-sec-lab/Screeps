@@ -1,44 +1,41 @@
 # SCOS Architecture
 
-[Hub](hub.html) | [Overview](index.md) | [Manifest](manifest.md) | [Principles](principles.md) | [Runbook](recue-commands.md) | [Observations](observations.md) | [Alerts](alerts.md)
+[Hub](hub.html) | [Overview](overview.html) | [Manifest](manifest.md) | [Principles](principles.md) | [Runbook](runbook.html) | [Observations](observations.md) | [Alerts](alerts.md)
 
 ## Scope
 
-SCOS is a multi-room Screeps operating system focused on reliable expansion, explicit role assignment, and operator-grade observability.
+SCOS ist ein multi-room Screeps Betriebssystem, das auf zuverlässige Expansion, explizite Rollenzuweisung und erstklassige Beobachtbarkeit (Observability) ausgelegt ist.
 
-## Structural Layers
+## Strukturelle Schichten (Modular Colony Architecture)
 
-- Strategic config: `config.rooms.js`, `config.roles.js`
-- Orchestration kernel: `main.js`
-- Role execution layer: `role.*.js`
-- Runtime diagnostics: `utils.logger.js`
-- Documentation and operating memory: `docs/`
+SCOS operiert mit einer objektorientierten, modularen Architektur (MCA), um maximale Entkopplung und Skalierbarkeit zu gewährleisten.
+
+- **Boardroom:** Das globale Singleton, das über `Game.rooms` iteriert und für jeden eigenen Raum eine `Office`-Instanz verwaltet.
+- **Office:** Repräsentiert einen `CORE`-Raum und kapselt dessen Sub-Manager. Es dient als Fassade, die die Komplexität der einzelnen Manager verbirgt.
+- **Sub-Manager (`RoomManager`, `RemoteManager`, `DefenceManager`):** Spezialisierte Klassen, die jeweils einen Aspekt der Kolonie verwalten (Wirtschaft, Expansion, Verteidigung). Sie sind vollständig voneinander entkoppelt und kommunizieren nur über die `Office`-Klasse.
+- **Role Execution Layer (`role.*.js`):** Enthält die State-Machines für die einzelnen Creep-Typen. Diese sind generisch und raumunabhängig.
+- **Utilities (`utils.*.js`):** Geteilte Hilfsfunktionen für Pfadfindung, Inventarisierung, Logging, Überleben etc.
 
 ## Operational Topology
 
-The system has migrated to a dynamic **Colony Registry** defined in `config.rooms.js`.
-Instead of rigid `HOME` and `TARGET` constants, rooms are classified by type:
-- `CORE`: Fully autonomous colonies with a Spawn and Controller. They calculate their own quotas dynamically based on their Room Control Level (RCL) via the Evolution Protocol.
-- `REMOTE`: Outpost rooms dedicated to mining or claim/reserve operations, assigned to a specific `base` CORE room.
+Das System nutzt zwei zentrale Memory-Objekte zur Steuerung:
+- **`config.rooms.js`:** Definiert die strategische Topologie. `CORE`-Räume sind autonome Basen, `REMOTE`-Räume sind zugewiesene Außenposten.
+- **`Memory.remoteRooms`:** Eine dynamische Konfiguration, die es dem Operator erlaubt, per Konsolenbefehl neue Remote-Mining-Operationen zu starten, ohne den Code zu ändern.
 
 ## Control Model
 
-- Memory-driven assignment:
-- `workRoom` for build/repair tasks
-- `targetRoom` for mission routing
-- `homeRoom` for logistics return paths
-- Priority ladder in `main.js` enforces critical economy and mission quotas.
+Die Creep-Zuweisung erfolgt über Memory-Flags (`workRoom`, `targetRoom`, `homeRoom`). Die Spawn-Entscheidungen werden nicht mehr von einer zentralen `main.js`-Schleife getroffen, sondern von den dezentralen `RoomManager`-Instanzen, die ihre eigenen, priorisierten Warteschlangen (`spawnQueue`) füllen. Dies verhindert globale Deadlocks und ermöglicht eine präzisere, raum-spezifische Steuerung.
 
 ## Logging and Learning Loop
 
-- Heartbeat logs provide state snapshots every 20 ticks.
-- `docs/observations.md` captures non-urgent lessons and validated insights.
-- `docs/alerts.md` captures urgent incidents with response and resolution.
-- Documentation changes are treated as part of the delivery, not afterthought.
+- **Heartbeat Logs:** Liefern alle 20 Ticks einen Zustands-Snapshot der gesamten Kolonie.
+- **`docs/observations.md`:** Erfasst nicht-dringende Erkenntnisse und validierte Verbesserungen.
+- **`docs/alerts.md`:** Erfasst dringende Vorfälle, deren Behebung und präventive Maßnahmen.
+- Dokumentationsänderungen werden als Teil der Auslieferung behandelt, nicht als nachträglicher Gedanke.
 
 ## Documentation Contract
 
-- Every structural change must update:
-- mission policy in `manifest.md`
-- rationale in `principles.md` (if design changed)
-- at least one entry in `observations.md` or `alerts.md`
+- Jede strukturelle Änderung muss aktualisiert werden:
+- Missions-Richtlinie in `manifest.md`
+- Begründung in `principles.md` (falls sich das Design geändert hat)
+- Mindestens ein Eintrag in `observations.md` oder `alerts.md`

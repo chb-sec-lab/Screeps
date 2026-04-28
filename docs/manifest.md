@@ -1,94 +1,56 @@
 # System Manifest
 
-[Hub](hub.html) | [Overview](index.md) | [Principles](principles.md) | [Architecture](architecture.md) | [Observations](observations.md) | [Alerts](alerts.md) | [Runbook](recue-commands.md)
+Hub | Overview | Principles | Architecture | Observations | Alerts | Runbook
 
 ## Purpose
 
-System-level policy for architecture boundaries, mission priorities, and operational standards.
+Systemweite Richtlinien für Architekturgrenzen, Missionsprioritäten und operative Standards.
 
 ## Topology
 
-Driven by the `registry` in `config.rooms.js`:
-- CORE: `W7N8` (Primary Base, spacious)
-- CORE: `W7N7` (Secondary Base, 2 Sources, reclaiming)
-- CORE: `W8N8` (Western Base, 1 Source, narrow layout)
-- REMOTE: `W6N8` (Eastern Mine, 1 Source, tied to W7N8)
-- REMOTE: `W8N7` (Western Mine, 1 Source, tied to W7N8)
-- REMOTE: `W9N6` (New Southern Mine, 2 Sources, tied to W7N8)
-- QUARANTINED: `W6N7` (Hostile bot activity, added to global `BLACKLIST`)
+Gesteuert durch die `registry` in `config.rooms.js`:
+- CORE: `W7N8` (Primärbasis, geräumig)
+- CORE: `W7N7` (Sekundärbasis, 2 Quellen, wird zurückerobert)
+- CORE: `W8N8` (Westliche Basis, 1 Quelle, enges Layout)
+- REMOTE: `W6N8` (Östliche Mine, 1 Quelle, an W7N8 angebunden)
+- REMOTE: `W8N7` (Westliche Mine, 1 Quelle, an W7N8 angebunden)
+- REMOTE: `W9N6` (Neue südliche Mine, 2 Quellen, an W7N8 angebunden)
+- QUARANTINED: `W6N7` (Feindliche Bot-Aktivität, zur globalen `BLACKLIST` hinzugefügt)
 
 ## Operational Priorities
 
-1. Economy continuity first (`harvester`, `hauler`).
-2. Mission quota compliance by room assignment.
-3. Threat-triggered defense before non-critical growth work.
-4. Deterministic, observable behavior over ad-hoc optimization.
+1.  Kontinuität der Wirtschaft hat Vorrang (`harvester`, `hauler`).
+2.  Einhaltung der Missionsquoten durch Raumzuweisung.
+3.  Bedrohungsgesteuerte Verteidigung vor nicht-kritischen Wachstumsarbeiten.
+4.  Deterministisches, beobachtbares Verhalten vor Ad-hoc-Optimierung.
 
 ## Assignment Contract
 
-- `builder` and `repairer`: `memory.workRoom`
-- `upgrader`: `memory.targetRoom`
-- `claimer`: `memory.targetRoom`, `memory.claimMode`
-- `remoteMiner`: `memory.targetRoom`, `memory.homeRoom`
-- `hauler` (remote mission): `memory.targetRoom`, `memory.homeRoom`
-- `mineralMiner`: `memory.workRoom` (auto-assigned to rooms with active Extractors)
-- Role modules remain generic and room-agnostic.
+- `builder`, `repairer`, `janitor`: `memory.workRoom` oder `memory.office`
+- `upgrader`, `claimer`: `memory.targetRoom`
+- `remoteMiner`, `remoteHauler`: `memory.targetRoom`, `memory.homeRoom`
+- `mineralMiner`, `chemist`: `memory.workRoom` (automatisch Räumen mit Extraktoren zugewiesen)
+- Rollenmodule bleiben generisch und raumunabhängig.
 
-## Enforced Quotas
+## Erzwingung von Quoten (Evolution Protocol)
 
-The system utilizes the **Evolution Protocol** (dynamic RCL-based evaluation per room) instead of rigid global constants:
-- **Phase 1 (RCL 1-2 "Bootstrap"):** 3 Builders, 2 Upgraders, 0 Haulers/Scavs. Maximizes raw capacity scaling.
-- **Phase 2 (RCL 3 "Basic Infra"):** 2 Builders, 2 Upgraders, 1 Repairer, 1 Hauler, 1 Scav. Introduces container logistics and tower upkeep.
-- **Phase 3 (RCL 4+ "Empire"):** 1 Builder, 2 Upgraders, 1 Repairer, 2 Haulers, 2 Scavs. Fully enables multi-room remote assignments.
+Das System verwendet das **Evolution Protocol**, eine im `RoomManager` implementierte Logik, die die Anzahl der benötigten Arbeiter (Builder, Upgrader etc.) dynamisch an das Raum-Level (RCL) und die vorhandene Infrastruktur anpasst. Manuelle Quoten in `config.roles.js` sind nicht mehr nötig.
 
-- **Self-Healing Logistics:** Hauler and Scavenger quotas automatically scale up if local containers overflow (>1800 energy) or excessive dropped energy is detected, eliminating the need for manual per-room tuning.
-- **Fact-Based Scaling:** Harvester quotas dynamically scale down from 2 to 1 per source at RCL 4+ because a single large Harvester perfectly matches the 10 energy/tick source regeneration limit.
+- **Phase 1 (RCL 1-2 "Bootstrap"):** Fokus auf schnelles Wachstum mit vielen Buildern und Upgradern.
+- **Phase 2 (RCL 3 "Basic Infra"):** Einführung von Logistik (Hauler) und Wartung (Repairer), sobald Container und Türme verfügbar sind.
+- **Phase 3 (RCL 4+ "Empire"):** Reduzierung der Builder zugunsten einer stabilen Wirtschaft, die Remote-Mining und andere fortgeschrittene Operationen unterstützt.
 
-Remote Mining:
-- Handled via explicit mapping in `main.js` (Target: 2 RMs per source).
-- `mineralMiner`: Dynamic (1 per active Extractor in RCL 6+ rooms).
-- `defender`: `0` baseline, escalates on live threat with cooldown.
+- **Self-Healing Logistics:** Hauler- und Scavenger-Quoten skalieren automatisch nach oben, wenn lokale Container überlaufen (>1800 Energie) oder übermäßig viel fallengelassene Energie erkannt wird, wodurch manuelle Anpassungen pro Raum entfallen.
+- **Fact-Based Scaling:** Harvester-Quoten skalieren bei RCL 3+ dynamisch von 2 auf 1 pro Quelle herunter, da ein einzelner großer Harvester die Regenerationsrate der Quelle von 10 Energie/Tick perfekt auslastet.
 
-## Observability Contract
+Remote-Mining wird über `Memory.remoteRooms` gesteuert. Der `RemoteManager` fordert die benötigten `remoteMiner` und `remoteHauler` automatisch an. Verteidiger (`defender`) werden vom `DefenceManager` bei Bedarf mit hoher Priorität in die Spawn-Warteschlange geschoben.
 
-- Heartbeat interval: every `20` ticks.
-- Tactical audit interval: every `200` ticks (`Memory.audit.tactical`).
-- Strategic audit interval: every `3600` ticks (`Memory.audit.strategic`).
-- Required fields:
-- `NRG`
-- `POP`
-- `ROOMS`
-- `ASSIGN`
-- `DEF`
-- `Spawn`
-- `QUEUE`
+## Verteidigungs- und Wartungsrichtlinie
 
-## Defense and Maintenance Policy
-
-- Defense is spawned on demand when hostiles are detected in `HOME`, `TARGET`, or `EXPANSION`.
-- Diplomacy: Known peaceful players can be whitelisted globally (`ALLIES` array) to allow safe passage through bunker-style ramparts. Currently empty for the new sector.
-- Emergency Recovery: Builders unconditionally prioritize Construction Sites for `STRUCTURE_SPAWN` above all repairs (even emergency container/rampart hits) to guarantee cold-boot recovery from wipes.
-- Defender demand remains active for a cooldown window after last detection to prevent spawn flapping.
-- SCOS implements "Smart-Bunker" Point-Defense: Ramparts are only built directly over critical structures (Spawns, Towers, Storage, Terminals) rather than full perimeter walls. Towers prioritize the weakest rampart up to `50k` hits.
-- Remote haulers use minimum pickup thresholds to avoid low-value room-to-room oscillation.
-- Scavengers avoid withdraw/distribute loops unless the room has urgent sinks (spawn/extension/tower demand). They are also explicitly authorized to plunder residual energy from hostile structures in abandoned rooms.
-- Link networks automate energy transit from Sources directly to Controllers (priority) or Storage (fallback), bypassing haulers where possible.
-- **Mutual Aid Protocol:** Any `CORE` base that loses its economy (0 miners/haulers) or triggers a global defense alert will be autonomously reinforced by Spawns from healthy neighboring `CORE` bases.
-- **Active Evasion (Kiting):** Civilian creeps unconditionally flee from armed hostiles and Invader Cores at a range of 5, temporarily crossing room borders if necessary, before resuming work.
-- **Universal Survival:** Core survival logic, such as kiting, is abstracted into a shared `utils.survival` module to ensure consistent behavior and maintainability across all roles.
-- Obsolete or stuck creeps can be decommissioned by setting `memory.recycle = true`, routing them to the nearest spawn for energy reclamation.
-
-## Documentation Governance
-
-- Source docs: `docs/*.md`
-- Published docs: `docs/*.html`
-- Build command: `python3 scripts/build-docs.py`
-- Version metadata: `docs/version.json`
-- `version` must follow SemVer (`major.minor.patch`).
-- `released_at_utc` must follow ISO 8601 UTC (`YYYY-MM-DDTHH:MM:SSZ`).
-
-## Decision Logging
-
-- `observations.md`: non-urgent learnings and improvements.
-- `alerts.md`: incidents, mitigation, and verified resolution.
-- Every meaningful production change requires at least one log entry.
+- Verteidiger werden bei Bedarf gespawnt, wenn Feinde in `CORE`- oder `REMOTE`-Räumen entdeckt werden.
+- **Diplomatie:** Bekannte friedliche Spieler können global auf eine Whitelist (`ALLIES`-Array) gesetzt werden, um eine sichere Durchfahrt durch Bunker-Ramparts zu ermöglichen.
+- **Notfall-Wiederherstellung:** Builder priorisieren Baustellen für `STRUCTURE_SPAWN` bedingungslos über alle Reparaturen, um eine Wiederherstellung nach einem Wipe zu garantieren.
+- **Smart-Bunker:** Ramparts werden nur direkt über kritischen Strukturen (Spawns, Towers, Storage, Terminals) gebaut. Türme priorisieren die schwächste Rampe bis zu `50k` Trefferpunkten.
+- **Edge-Links:** Remote-Hauler liefern Energie an Links an der Raumgrenze, um die Umlaufzeiten drastisch zu verkürzen.
+- **Universal Survival:** Kritische Überlebenslogik (z.B. Kiting vor Feinden) ist in `utils.survival` zentralisiert, um konsistentes Verhalten über alle Rollen hinweg zu gewährleisten.
+- Veraltete oder feststeckende Creeps können durch Setzen von `memory.recycle = true` außer Dienst gestellt werden, wodurch sie zur Energierückgewinnung zum nächsten Spawn geleitet werden.

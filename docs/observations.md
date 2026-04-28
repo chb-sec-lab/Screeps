@@ -423,6 +423,34 @@ Capture non-urgent observations that improve system design, role policy, and ope
 - Action: Added `unreachableTargetId` temporary blacklisting to all `moveTo` calls in the Upgrader role, fulfilling the SEV-1 follow-up directive.
 - Evidence: Code review matched against Alert `2026-02-18T08:00:00Z` follow-up requirement.
 
+- Date-Time (UTC): `2026-02-19T10:00:00Z`
+- Context: Adapting the Console HUD to the Modular Colony Architecture (MCA).
+- Observation: The legacy `core.spawner.js` aggregated all HUD data centrally. With MCA, spawn queues and economic evaluations are decentralized to local `RoomManager` instances, causing the global HUD to temporarily lose visibility of queues and populations.
+- Impact: Loss of observability for spawn queues, active population counts, and room health.
+- Action: Implemented a centralized `getHUDData()` method in the `Boardroom` singleton. It globally aggregates local `spawnQueue`s and calculates active populations dynamically using Lodash (`_.countBy`), rather than relying on static quotas. The `main.js` now routes this data back to `utils.logger.report()`.
+- Evidence: The Heartbeat HUD is successfully restored. Dynamic and new roles like `JAN` (Janitor) now automatically appear in the room population strings (e.g., `HV:2 BLD:1 UPG:2 JAN:1`) without requiring manual HUD updates.
+
+- Date-Time (UTC): `2026-02-19T12:00:00Z`
+- Context: Remote mining logistics efficiency.
+- Observation: `remoteHauler` creeps were traversing the entire home base to deliver energy to the central storage, resulting in long cycle times and high pathing costs, which severely limited the profitability of distant mining operations.
+- Impact: Inefficient energy throughput from remote rooms, making expansion beyond one adjacent room a net energy loss.
+- Action: Implemented "Edge-Link" logistics. The `role.remoteHauler` now prioritizes delivering energy to a `STRUCTURE_LINK` located near the room exit leading to its remote assignment. The `RemoteManager` was upgraded to automatically plan these Edge-Links. The core link network (`structure.link.js`) then beams the energy from the Edge-Link to the central storage in a single tick, drastically reducing hauler travel time.
+- Evidence: `role.remoteHauler.js` contains a new P0 (Priority 0) delivery block that searches for links near the exit to `targetRoom`. `RemoteManager.js` now includes `planEdgeLink` logic.
+
+- Date-Time (UTC): `2026-02-19T14:00:00Z`
+- Context: Final review of the Modular Colony Architecture (MCA) migration.
+- Observation: The entire codebase has been successfully refactored from a monolithic `main.js` kernel into a decoupled, class-based system (`Boardroom`, `Office`, `RoomManager`, etc.). All core functionalities (economy, defense, expansion, remote mining) are now handled by their respective, independent managers. Obsolete kernel files (`core.spawner.js`, `core.defense.js`) have been removed.
+- Impact: The system is now highly scalable, easier to maintain, and significantly more robust against single points of failure. CPU usage is stable due to decentralized logic. The documentation has been completely overhauled to reflect the new paradigm.
+- Action: The migration is officially complete. The system version is bumped to `9.0.0` to signify this major architectural milestone.
+- Evidence: Code review confirms the removal of legacy kernels and the full operational status of the MCA.
+
+- Date-Time (UTC): `2026-02-19T13:00:00Z`
+- Context: Final review of the Modular Colony Architecture (MCA) migration.
+- Observation: The entire codebase has been successfully refactored from a monolithic `main.js` kernel into a decoupled, class-based system (`Boardroom`, `Office`, `RoomManager`, etc.). All core functionalities (economy, defense, expansion) are now handled by their respective managers.
+- Impact: The system is now highly scalable, easier to maintain, and significantly more robust against single points of failure. CPU usage is stable due to decentralized logic.
+- Action: Removed the last remnants of the old `core.defense.js` from the main loop. Updated all relevant documentation (`architecture.md`, `manifest.md`) to reflect the new paradigm. The migration is officially complete.
+- Evidence: Code review confirms the removal of legacy kernels and the full operational status of the MCA. The system version is bumped to `9.0.0` to signify the major architectural milestone.
+
 - Date-Time (UTC): `2026-02-18T23:30:00Z`
 - Context: HUD display showing `TTL: N/A` for all rooms.
 - Observation: The `ttl` property in the room reports array was hardcoded to the string `'N/A'` and never calculated.

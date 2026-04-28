@@ -67,7 +67,7 @@ module.exports = {
                 while (cost + 200 <= energy && body.length < 15) { body.push(WORK); cost += 100; if (cost + 50 <= energy) { body.push(CARRY); cost += 50; } if (cost + 50 <= energy) { body.push(MOVE); cost += 50; } }
                 return body;
             }
-            if (['builder', 'upgrader', 'repairer'].includes(role)) {
+            if (['builder', 'upgrader', 'repairer', 'janitor'].includes(role)) {
                 if (energy < 200) return null; 
                 body.push(WORK, CARRY, MOVE); cost += 200;
                 while (cost + 200 <= energy && body.length < 18) { body.push(WORK); cost += 100; if (cost + 50 <= energy) { body.push(CARRY); cost += 50; } if (cost + 50 <= energy) { body.push(MOVE); cost += 50; } }
@@ -90,7 +90,7 @@ module.exports = {
             const fullCost = full ? bodyCost(full) : Infinity;
 
             if (fullCost > 0 && fullCost <= currentEnergy) return full;
-            let memoryKey = ['builder', 'hauler', 'scavenger', 'repairer', 'chemist', 'mineralMiner'].includes(role) ? 'workRoom' : 'targetRoom';
+            let memoryKey = ['builder', 'hauler', 'scavenger', 'repairer', 'chemist', 'mineralMiner', 'janitor'].includes(role) ? 'workRoom' : 'targetRoom';
             const currentCount = countAssigned(role, targetRoomName, memoryKey);
             
             const isEmergency = (role === 'harvester' && currentCount < 2) || 

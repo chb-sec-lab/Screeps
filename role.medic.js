@@ -5,9 +5,13 @@
  * Fix: Medic will now cross borders independently if leaders are in the Target room.
  */
 const rooms = require('config.rooms');
+const survival = require('utils.survival');
 
 module.exports = {
     run: function(creep) {
+        // --- UNIVERSAL SURVIVAL ---
+        if (survival.fleeFromHostiles(creep)) return;
+
         const targetRoom = rooms.TARGET;
         const homeRoom = rooms.HOME;
 
